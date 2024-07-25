@@ -1,0 +1,22 @@
+;                             ;
+; Liyh Virtual Machine v0.1.0 ;
+;                             ;
+
+entry .main
+
+.main:            ; Entry point
+  loadi #r0 0xA
+  loadi #r1 0x1
+  jmp .fact
+
+.fact:            ; Compute factorial
+  cmpi #r0 0x1
+  jlw .end
+  mul #r1 #r0
+  addi #r0 -0x1
+  jmp .fact
+
+.end:
+  print r1        ; Debugging purpose
+  halt
+

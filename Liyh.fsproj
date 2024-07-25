@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Tools/Utils.fs" />
+    <Compile Include="Tools/UnionFind.fs" />
+    <Compile Include="Tools/FFT.fs" />
+
+    <Compile Include="Internal/DiagnosticKinds.fs" />
+    <Compile Include="Internal/Diagnostics.fs" />
+
+    <Compile Include="Kernel/LaTeX.fs" />
+
+    <Compile Include="Kernel/Constant/RepeatingDecimalNumber.fs" />
+    <Compile Include="Kernel/Constant/MetaValue.fs" />
+    <Compile Include="Kernel/Constant/Constant.fs" />
+
+    <Compile Include="Kernel/Atomic.fs" />
+    <Compile Include="Kernel/Set.fs" />
+    <Compile Include="Kernel/SumProd.fs" />
+
+    <Compile Include="Kernel/Prime.fs" />
+
+    <Compile Include="Kernel/SumPow/SumPow.fs" />
+    <Compile Include="Kernel/SumPow/Equation.fs" />
+    <Compile Include="Kernel/SumPow/MultiLinearAlgebra.fs" />
+    <Compile Include="Kernel/SumPow/Polynomial.fs" />
+    <Compile Include="Kernel/SumPow/ElemFun.fs" />
+    <Compile Include="Kernel/SumPow/Transform.fs" />
+    <Compile Include="Kernel/SumPow/Reduce.fs" />
+    <Compile Include="Kernel/SumPow/Serialize.fs" />
+
+    <Compile Include="Kernel/Polynomial/Univariate.fs" />
+    <Compile Include="Kernel/Polynomial/Multivariate.fs" />
+    <Compile Include="Kernel/Polynomial/Polynomial.fs" />
+    <Compile Include="Kernel/LinearAlgebra/Vector.fs" />
+    <Compile Include="Kernel/LinearAlgebra/Matrix.fs" />
+    <Compile Include="Kernel/LinearAlgebra/Tensor.fs" />
+    <Compile Include="Kernel/LinearAlgebra/LinearAlgebra.fs" />
+    <Compile Include="Kernel/Equation/Equation.fs" />
+    <Compile Include="Kernel/Plotting/UI.fs" />
+    <Compile Include="Kernel/Plotting/LiyhPlot2D.fs" />
+    <Compile Include="Kernel/Plotting/LiyhPlot3D.fs" />
+    <Compile Include="Kernel/Builtin/Data.fs" />
+    <Compile Include="Kernel/Builtin/Plot.fs" />
+    <Compile Include="Kernel/Builtin/Numerics/DormandPrince.fs" />
+
+    <Compile Include="Language/Operator/LiyhUnits.fs" />
+    <Compile Include="Language/Operator/LiyhOperators.fs" />
+    <Compile Include="Language/Syntax/Indentation.fs" />
+    <Compile Include="Language/Syntax/Location.fs" />
+    <Compile Include="Language/Syntax/Cosyn.fs" />
+    <Compile Include="Language/Syntax/Parser.fs" />
+    <Compile Include="Language/Checker/Checker.fs" />
+    <Compile Include="Language/Scope.fs" />
+    <Compile Include="Language/Absyn.fs" />
+    <Compile Include="Language/Absyn/Absyn.fs" />
+    <Compile Include="Language/DefinitionTable.fs" />
+    <Compile Include="Language/SymbolTable.fs" />
+    <Compile Include="Language/Evaluation/LinearScan.fs" />
+    <Compile Include="Language/Evaluation/Foreign.fs" />
+    <Compile Include="Language/Evaluation/IL.fs" />
+    <Compile Include="Language/Evaluation/Hex.fs" />
+    <Compile Include="Language/Evaluation/VM.fs" />
+    <Compile Include="Language/Evaluation/ILParser.fs" />
+
+    <Compile Include="Repl.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchShark" Version="1.0.0"><NoWarn>NU1701</NoWarn></PackageReference>
+    <PackageReference Include="ByteDev.Encoding" Version="2.0.0" />
+    <PackageReference Include="Eto.Forms" Version="2.7.3" />
+    <PackageReference Include="Eto.Platform.Gtk" Version="2.7.3" />
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="FSharp.Collections.ParallelSeq" Version="1.2.0" />
+    <PackageReference Include="Plotly.NET" Version="11.0.0-dev-1657117337-e6d9a19" />
+    <PackageReference Include="Plotly.NET.ImageExport" Version="11.0.0-dev-1657117337-e6d9a19" />
+    <PackageReference Include="PrettyPrompt" Version="4.0.4" />
+    <PackageReference Include="Process.NET" Version="1.0.8"><NoWarn>NU1701</NoWarn></PackageReference>
+    <PackageReference Include="ScottPlot.Eto" Version="4.1.60" />
+    <PackageReference Include="Spectre.Console" Version="0.44.0" />
+  </ItemGroup>
+</Project>
