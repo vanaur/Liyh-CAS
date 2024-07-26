@@ -654,6 +654,8 @@ module rec SumPow =
 
     /// This module contains some utilities that make it easier to manipulate SumPow's sums.
     module public SimplifiedSum =
+        open ElementaryOperations
+
         exception public NotASimplifiedSum of SumPow
 
         /// In SumPow, a sum is a list of products of powers, represented more elegantly by single constructors `Term` and `Pow`.
