@@ -710,6 +710,17 @@ module rec SumPow =
         let inline public mapiPow' (mapping: int -> SumPow -> SumPow -> Pow) (ts: Term list) =
             List.map (function Term term -> Term(List.mapi (fun i (Pow(b, p)) -> mapping i b p) term)) ts
 
+        /// Converts the sum into a SumPow list.
+        let public sumAsSumPowList =
+            function
+            | Sum xs -> List.map sumId xs
+            | other -> [ other ]
+
+        /// An active pattern that converts the sum into a SumPow list.
+        let inline public (|SumList|_|) (sp: SumPow) =
+            let t = sumAsSumPowList sp
+            if List.length t <= 1 then None else Some t
+
     /// Elementary simplifications, concerned with common terms that simplify each other.
     /// This simplification module is the basis for all other simplifications in Liyh.
     module public Simplification =
