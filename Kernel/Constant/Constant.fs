@@ -64,6 +64,12 @@ module rec Constant =
         if abs (cst % 1.) <= Double.Epsilon * 100. then Some(int cst)
         else None
 
+    /// An active pattern to match the constant to a floating-point number (using the `double` precision).
+    let public (|CFloat|_|) =
+        function
+        | CBigInteger _ -> None
+        | other -> Some other
+
     /// Performs a basic division between the two given constants and applies the default argument when
     /// the result of the division is `NaN`.
     let inline public divisionWithDefaultNan (nanDefault: Constant option) (Constant a) (Constant b) =
