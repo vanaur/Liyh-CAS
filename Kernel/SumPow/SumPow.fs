@@ -429,7 +429,7 @@ module rec SumPow =
                 | Some(Pow(Const _, _) | Pow(Prod _, _) | Pow(Sum _, _)) -> @"\cdot "
                 | _ -> " "
 
-            let result = peekFold peekFoldInner String.Empty term
+            let result = List.peekFold peekFoldInner String.Empty term
             ssign, result
 
         and private toLatexSum (sum: Term list) =
@@ -1157,7 +1157,7 @@ module rec SumPow =
                 |> Simplification.flattenTerm
                 |> Term
 
-            Sum (List.create binomialTerm n)
+            Sum (List.init n binomialTerm)
 
         /// Implements the generalized binomial theorem for `(x₁ + x₂ + ⋅⋅⋅ + xₘ)^n`.
         /// See https://en.wikipedia.org/wiki/Multinomial_theorem.

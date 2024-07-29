@@ -6,6 +6,9 @@ module rec Polynomial =
     open System.Linq
     open Liyh.Kernel.SumProd
 
+    /// Adds `x` to the end of the list `xs`.
+    let inline private ( @@ ) (xs: 'a list) (x: 'a) = xs @ [ x ]
+
     /// If the given list matches a polynomial in the variable `x` (at least) then builds a polynomial.
     let private tryMakeUnivariatePolynomial (variable: SumProd) (xs: SumProd list) =
 
