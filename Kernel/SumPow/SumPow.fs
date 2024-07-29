@@ -1753,30 +1753,6 @@ module rec SumPow =
 
             inner Set.empty expr |> Set.toList
 
-        /// Perform the GDC of the two given constant fractions.
-        let inline public rationalGCD ((a, b): Constant * Constant) ((c, d): Constant * Constant) =
-            Const (gcd (a * d) (b * c)) / Const (b * d)
-
-        /// Perform the LCM of the two given constant fractions.
-        let inline public rationalLCM ((a, b): Constant * Constant) ((c, d): Constant * Constant) =
-            SumPow.Const(lcm a c) / SumPow.Const(gcd b d)
-
-        let public spGCD (a: SumPow) (b: SumPow) =
-            assert (isPureConst a && isPureConst b)
-
-            match a, b with
-            | Frac(PureConstantExpression num1, PureConstantExpression den1), Frac(PureConstantExpression num2, PureConstantExpression den2) ->
-                let m1 = Simplification.simpPureConst num1, Simplification.simpPureConst den1
-                let m2 = Simplification.simpPureConst num2, Simplification.simpPureConst den2
-
-                match m1, m2 with
-                | (Const num1, Const den1), (Const num2, Const den2) -> rationalGCD (num1, den1) (num2, den2)
-                | _ -> failwithf "Not a pure constant: %A" (m1, m2)
-
-            | _ -> failwithf "Not a pure constant: %A" (a, b)
-
-        let public spGCDs = List.aggregate spGCD
-
         /// Recursively transforms each `Root[x, nth]` of the given expression into `x^(1/nth)`.
         let rec public convertAllRootsToPower =
             function
