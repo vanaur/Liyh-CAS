@@ -1,4 +1,4 @@
-﻿#nowarn "3391"
+#nowarn "3391"
 #nowarn "25"
 
 open Binarysharp.Benchmark
@@ -78,11 +78,11 @@ let inline bench ([<InlineIfLambda>] fn) n =
 
 let generateUnivPoly n v =
     let rnd = Random()
-    List.create (fun _ -> Term [powId (SumPow.SumPow.Const(rnd.Next(1, n))); Pow(v, SumPow.SumPow.Const(rnd.Next(1, n)))]) n |> Sum
+    List.init n (fun _ -> Term [powId (SumPow.SumPow.Const(rnd.Next(1, n))); Pow(v, SumPow.SumPow.Const(rnd.Next(1, n)))]) |> Sum
 
 let generateMultivPoly n (vs: SumPow list) =
     let rnd = Random()
-    List.create (fun _ -> Term [powId (SumPow.SumPow.Const(rnd.Next(1, n))); Pow(vs.[rnd.Next(0, vs.Length)], SumPow.SumPow.Const(rnd.Next(1, n)))]) n |> Sum
+    List.init n (fun _ -> Term [powId (SumPow.SumPow.Const(rnd.Next(1, n))); Pow(vs.[rnd.Next(0, vs.Length)], SumPow.SumPow.Const(rnd.Next(1, n)))]) |> Sum
 
 // A faire:
 //      [✓] simpPureConst
