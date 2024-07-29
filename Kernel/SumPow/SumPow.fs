@@ -364,6 +364,7 @@ module rec SumPow =
 
     /// The module that transforms a SumPow expression into a LaTeX string.
     module private Latex =
+        open PureConstantExpression
 
         let private reorderTerm (term: Pow list) =
             let term =
@@ -384,16 +385,27 @@ module rec SumPow =
             | Name name -> name
             | Const cst -> string cst
             | Fun("Complex", [ Re; Im ]) -> sprintf @"\left(%s + i%s\right)" (toLatex Re) (toLatex Im)
-            | Fun(fname, arguments) -> toLatexFun fname arguments
             | Power(b, One) -> toLatex b
+            | ElemFun.Root(x, nth) -> toLatexRoot x (Const One) nth
             | Frac(num, den) -> sprintf @"\frac{%s}{%s}" (toLatex num) (toLatex den)
             | Power(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
+            | Fun(fname, arguments) -> toLatexFun fname arguments
             | Sum ss -> toLatexSum ss
             | _ -> failwith "??"
 
+        and private toLatexRoot x n d =
+            match (n, d) with
+            | PureConstantExpressionInteger 1, PureConstantExpressionInteger nth ->
+                if nth = 2 then sprintf @"\sqrt{%s}" (toLatex x)
+                else sprintf @"\sqrt[%d]{%s}" nth (toLatex x)
+            | n, PureConstantExpressionInteger nth -> sprintf @"\sqrt[%d]{%s}" nth (toLatex (x ** n))
+            | PureConstantExpressionInteger 1, nth -> sprintf @"\sqrt[%s]{%s}" (toLatex nth) (toLatex x)
+            | n, d -> sprintf @"\sqrt[%s]{%s}" (toLatex d) (toLatex (x ** n))
+
         and private toLatexPow =
             function
-            | Pow(b, p) when p < Const Zero -> sprintf @"\frac{%s}{%s}" (toLatex -p) (toLatex b)
+            //| Pow(b, p) when p < Const Zero -> sprintf @"\frac{%s}{%s}" (toLatex -p) (toLatex b)
+            | Pow(b, Frac(num, den)) -> toLatexRoot b num den
             | Pow(Sum _ as b, One) -> sprintf @"\left(%s\right)" (toLatex b)
             | Pow(Sum _ as b, p) -> sprintf @"\left(%s\right)^{%s}" (toLatex b) (toLatex p)
             | Pow(One, One) -> ""
