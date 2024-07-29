@@ -1,8 +1,8 @@
 namespace Liyh.Kernel.SumPow
 
 #nowarn "40"    // This warning is activated for the memoized function `simplify` for the active pattern "One".
-#nowarn "3391"  // Explicit integer to 
-#nowarn "25"
+#nowarn "3391"  // The implicit conversion of an integer into a bigint causes a warning.
+#nowarn "25"    // Incomplete pattern-matchings raise warnings (rightly so, but sometimes this is not encountered at runtime).
 
 [<AutoOpen>]
 module rec SumPow =
