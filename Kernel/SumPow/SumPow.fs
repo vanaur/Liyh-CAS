@@ -12,6 +12,8 @@ module rec SumPow =
     open Liyh.Kernel
     open Liyh.Kernel.Constant
 
+    exception public UnknownSumPowExpressionException of SumPow
+
     /// This module consists of fundamental building `Sum`'s blocks that take into account the flattening of expressions.
     /// These functions should be called every time a sum / term or power is constructed.
     [<AutoOpen>]
@@ -55,7 +57,8 @@ module rec SumPow =
         and public sumId =
             function
             | Term [ Pow(Sum [ term ], One) ] -> sumId term
-            | Term [ Pow((PureConstant _ as b), (PureConstant _ as p)) ] -> b ** p
+            | Term [ Pow((PureConstantExpression.PureConstantExpressionInteger _ as b) 
+                        ,(PureConstantExpression.PureConstantExpressionInteger _ as p)) ] -> b ** p
             | term -> Sum [ term ]
 
     /// Various active patterns useful for working around SumPow.
@@ -63,78 +66,31 @@ module rec SumPow =
     module public Pattern =
         open ElementaryOperations
 
-        /// An active pattern that represents either a variable (`Name _`), a pure constant (`PureConstant _`) or a
+        /// An active pattern that represents either a variable (`Name _`), a pure constant (`PureConstantExpression.PureConstantExpression _`) or a
         /// function (`Fun _`). In other words, it's not a sum, a product or a power.
         let public (|SimpleSP|_|) =
             function
             | Name _ as a -> Some a
-            | PureConstant _ as a -> Some a
+            | PureConstantExpression.PureConstantExpressionInteger _ as a -> Some a
             | Fun _ as a -> Some a
-            | _ -> None
-
-        /// Checks if the given expression is a "pure constant" (i.e. an expression containing no `Name string` data).
-        /// The returned expression is unvalued.
-        let rec public (|PureConstant|_|) =
-            function
-            | Name _ -> None // 
-            | Const _ as c -> Some c
-            | SimplifiedSum.SimplifiedSum ss as c ->
-                let isPureConstPow (b, p) = Misc.isPureConst b && Misc.isPureConst p
-                if List.forall (List.forall isPureConstPow) ss then Some c
-                else None
-
-            | Fun(_, args) as c ->
-                if List.forall Misc.isPureConst args then Some c
-                else None
-
-            | otherwise -> failwithf "??"
-
-        /// An active pattern that matches an integer constant expression and evaluates it.
-        let public (|PureConstantInteger|_|) =
-            function
-            | Const(CInteger c) -> Some c
-            | PureConstant pc ->
-
-                //match Simplification.simpPureConst pc with
-                match Simplification.newSimpPureConst pc with
-                | Const(CInteger c) -> Some c
-                | _ -> None
-
-            | _ -> None
-
-        /// An active pattern that matches a rational pure constant.
-        let public (|PureConstantRational|_|) =
-            function
-            | Frac(PureConstantInteger num, PureConstantInteger den) -> Some (num, den)
-            | _ -> None
-
-        /// An active pattern that matches a real constant expression and evaluates it (to `double`).
-        let public (|PureConstantDouble|_|) =
-            function
-            | Const(Constant c) -> Some c
-            | PureConstant pc ->
-
-                let (Constant c) = NumericEvaluation.evaluate0 pc
-                Some c
-
             | _ -> None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer 0.
         let public (|Zero|_|) =
             function
-            | PureConstantInteger 0 -> Some()
+            | PureConstantExpression.PureConstantExpressionInteger 0 -> Some()
             | _ -> None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer 1.
         let public (|One|_|) =
             function
-            | PureConstantInteger 1 -> Some()
+            | PureConstantExpression.PureConstantExpressionInteger 1 -> Some()
             | _ -> None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer -1.
         let public (|NegOne|_|) =
             function
-            | PureConstantInteger -1 -> Some()
+            | PureConstantExpression.PureConstantExpressionInteger -1 -> Some()
             | _ -> None
 
         /// An active pattern that matches a term with negative powers ("fractions").
@@ -174,7 +130,7 @@ module rec SumPow =
             | _ -> None
 
         /// An active pattern that matches a product and returns the list of powers (a list of tuples).
-        let private (|TermProd|_|) (Term term) =
+        let public (|TermProd|_|) (Term term) =
             match term with
             | []
             | [ _ ] -> None
@@ -322,7 +278,7 @@ module rec SumPow =
 
         let public modulo =
             function
-            | PureConstantInteger a, PureConstantInteger b -> Const (double (a % b))
+            | PureConstantExpression.PureConstantExpressionInteger a, PureConstantExpression.PureConstantExpressionInteger b -> Const (double (a % b))
             | a, b -> Fun("Modulo", [ a; b ])
 
     /// The module that implements SumPow custom hashing.
@@ -364,7 +320,7 @@ module rec SumPow =
         let public compareSumPow =
             function
             | Const a, Const b -> compare a b
-            | PureConstantInteger a, PureConstantInteger b -> compare a b
+            | PureConstantExpression.PureConstantExpressionInteger a, PureConstantExpression.PureConstantExpressionInteger b -> compare a b
             | Name a, Name b -> compare a b
             | Sum [ x ], Sum [ y ] -> compare x y
             | Sum xs, Sum ys -> compare xs ys
@@ -392,6 +348,7 @@ module rec SumPow =
                 | Term xs, Term ys -> Hashing.hashProd xs = Hashing.hashProd ys
             | _ -> false
 
+        /// Basic equality (syntax-based!)
         let public equalsSumPow (sp1: SumPow) (sp2: obj) =
             match sp2 with
             | :? SumPow as sp2 ->
@@ -723,11 +680,226 @@ module rec SumPow =
             let t = sumAsSumPowList sp
             if List.length t <= 1 then None else Some t
 
+    /// A "pure constant expression" is an expression containing no variables or parameters, just numbers. For simplicity,
+    /// even constants such as pi and e are not considered (for now). This module provides utilities for simplifying and
+    /// working with constant expressions or matching them.
+    module public PureConstantExpression =
+        open SimplifiedSum
+        open ElementaryOperations
+        open ElemFun
+
+        exception public ExpressionIsNotPureConstantException of SumPow
+        exception public ExpressionIsNotPureConstantRationalException of SumPow
+
+        /// This module allow to simplify nested radical expressions.
+        module private Denesting =
+
+            /// Check whether `x` is a perfect `nth`-root, if so then returns the result.
+            let private tryPerfectRoot (x: bigint) (nth: int) =
+                if x < 0 && nth % 2 = 0 then None else
+
+                let rec bsearch low high =
+                    if low > high then None
+                    else
+                        let mid = low + (high - low) / 2I
+                        let midPow = pown mid nth
+                        if midPow = x then Some low
+                        elif midPow < x then bsearch (mid + 1I) high
+                        else bsearch low (mid - 1I)
+
+                bsearch 0 x
+
+            /// Simplifies each perfect root of the given expression.
+            let rec public simplifyAllPerfectRoots =
+                function
+                | Const cst -> Const cst
+                | Root(Const (CBigInteger x), Const (CInteger nth)) as sp when nth > 1 ->
+                    match tryPerfectRoot x nth with
+                    | Some r -> Const (fromBigInt r)
+                    | None -> sp
+                | Fun(fname, args) -> Fun(fname, List.map simplifyAllPerfectRoots args)
+                | Sum xs -> Sum (mapPow' (fun b p -> power' (simplifyAllPerfectRoots b, simplifyAllPerfectRoots p)) xs)
+                | other -> other
+
+            /// Returns a measure of the degree of nesting of a radical.
+            let rec private nestingLevel =
+                function
+                | Const _ -> 1
+                | Root(x, Const nth) when nth > 1 -> nestingLevel x + 1
+                | Prod xs -> List.max (List.map nestingLevel (List.map power xs))
+                | Sum xs -> List.sum (List.map (sumId >> nestingLevel) xs)
+                | _ -> 1
+
+            let private split =
+                function
+                | Sum [ x ] -> Sum [ x ], Const Zero
+                | Sum xs ->
+                    let a, b = List.splitAt ((List.length xs - 1) / 2) xs
+                    Sum a, Sum b
+                | other -> other, Const Zero
+
+            let rec public intSqrtDenesting (sp: SumPow) = failwith "TODO: denesting radicals"
+
+        /// Checks if the given expression is a "pure constant" (i.e. an expression containing no `Name string` data).
+        /// The returned expression is unvalued.
+        let rec public (|PureConstantExpression|_|) =
+            function
+            | Name _ -> None
+            | Const _ as c -> Some c
+            | SimplifiedSum ss as c ->
+                let isPureConstPow (b, p) = isPureConstantExpression b && isPureConstantExpression p
+                if List.forall (List.forall isPureConstPow) ss then Some c
+                else None
+
+            | Fun(_, args) as c ->
+                if List.forall isPureConstantExpression args then Some c
+                else None
+
+            | other -> raise (UnknownSumPowExpressionException other)
+
+        /// An active pattern that matches an integer constant expression and evaluates it.
+        and public (|PureConstantExpressionInteger|_|) =
+            function
+            | Const(CInteger c) -> Some c
+            | PureConstantExpression pc ->
+
+                match csimplify pc with
+                | Const(CInteger c) -> Some c
+                | _ -> None
+
+            | _ -> None
+
+        /// An active pattern that matches a rational constant expression and simplify it.
+        and public (|PureConstantExpressionRational|_|) =
+            function
+            | Frac(PureConstantExpressionInteger cnum, PureConstantExpressionInteger cden) -> Some (cnum, cden)
+            | _ -> None
+
+        /// An active pattern that matches a floating-point expression.
+        and public (|PureConstantExpressionFloat|_|) =
+            function
+            | Const(CFloat c) -> Some c
+            | PureConstantExpression pc ->
+
+                match csimplify pc with
+                | Const(CFloat c) -> Some c
+                | _ -> None
+
+            | _ -> None
+
+        /// Assuming that the given expression is a pure constant (i.e. an expression containing no variables), then return
+        /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
+        /// involves floating-point constants, then the simplification is subject to the inaccuracies.
+        and public csimplify =
+            FixedPoint.tryFixedPoint 5
+            <| function
+                | Const _ as cst -> cst
+                | Power(b, One) -> csimplify b
+                | Power(b, p) -> power (csimplify b, csimplify p)
+
+                | PureConstantExpressionRational(cnum, cden) -> Const cnum / Const cden
+                | Frac(PureConstantExpressionRational(a, b), PureConstantExpressionRational(c, d)) -> Const (double (a * d)) / Const (double (b * c))
+                | Frac(PureConstantExpressionRational(a, b), PureConstantExpressionInteger c) -> Const a / (b * c)
+                | Frac(PureConstantExpressionInteger a, PureConstantExpressionRational(b, c)) -> (a * c) / Const b
+
+                | Root(PureConstantExpressionInteger 1, _) -> Const One
+                | Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth) -> csimplifyRoot x nth
+
+                //| Root(x, PureConstantExpressionInteger nth) -> failwith "todo: denesting"
+                | Prod prod -> csimplifyProd prod
+                | Sum terms -> csimplifySum terms
+                | Fun(fname, args) -> Fun(fname, List.map csimplify args)
+                | other -> other
+
+        and private csimplifyRoot (x: int) (nth: int) =
+            let simplifyNthRoot x n =
+
+                let rec loop i c d =
+                    if i * i > d then (c, d)
+                    elif d % (pown i n) = 0I
+                    then loop i (c * i) (d / (pown i n))
+                    else loop (i + 1I) c d
+
+                loop 2I 1I x
+
+            match simplifyNthRoot x nth with
+            | c, d when d = 1I -> Const (fromBigInt c)
+            | c, d when c = 1I -> Fun ("Root", [ Const (fromBigInt d); Const nth ])
+            | c, d -> Const (fromBigInt c) * Fun ("Root", [ Const (fromBigInt d); Const nth ])
+
+        and private csimplifyProd (prod: (SumPow * SumPow) list) =
+            let rec buildMap result =
+                function
+                | [] -> result
+                | (b, Power(p, One)) :: rest
+                | (Power(b, One), p) :: rest
+                | (b, p) :: rest ->
+                    let b, p = Misc.convertAllRootsToPower b, Misc.convertAllRootsToPower p
+                    buildMap (Map.addOrUpdate (csimplify p) (csimplify b) result (( * ) b >> csimplify)) rest
+
+            Map.fold (fun acc p b -> acc * power (b, p)) (Const One) (buildMap Map.empty prod)
+            //|> Misc.convertAllRationalPowersToRoot
+
+        and private csimplifyTerm =
+            function
+            | TermProd tp -> csimplifyProd tp
+            | other -> sumId other
+
+        and private csimplifySum =
+            function
+            | [] -> invalidArg "terms" "empty sum list"
+            | [ term ] -> csimplifyTerm term
+            | terms ->
+                let terms = List.map csimplifyTerm terms
+                let rationals, others =
+                    List.partition (fun x -> isPureConstantExpressionRational x
+                                          || isPureConstantExpressionInteger x) terms
+
+                let others = List.map csimplify others
+
+                if List.isEmpty rationals then Sum (manyTermId others)
+                else
+                    let irat =
+                        function
+                        | PureConstantExpressionRational (cnum, cden) -> (cnum, cden)
+                        | PureConstantExpressionInteger n -> (n, 1)
+                        | other -> raise (ExpressionIsNotPureConstantRationalException other)
+
+                    let irats = List.map irat rationals
+                    let lcm = List.aggregate intLCM (List.map snd irats)
+                    let num = List.fold (fun acc (num, den) -> acc + (num * lcm / den)) 0 irats
+                    let irat = Const num / Const lcm
+
+                    Sum (manyTermId (irat :: others))
+
+        /// Checks whether the given expression contains no `Name _`.
+        let public isPureConstantExpression =
+            function
+            | PureConstantExpression _ -> true
+            | _ -> false
+
+        /// Checks whether the given expression reduces to an integer.
+        let public isPureConstantExpressionInteger =
+            function
+            | PureConstantExpressionInteger _ -> true
+            | _ -> false
+        
+        /// Check whether the given expression reduces to a rational.
+        let public isPureConstantExpressionRational =
+            function
+            | PureConstantExpressionRational _ -> true
+            | _ -> false
+
+        /// Checks whether the given expression reduces to a floating-point number.
+        let public isPureConstantExpressionFloat =
+            function
+            | PureConstantExpressionFloat _ -> true
+            | _ -> false
+
     /// Elementary simplifications, concerned with common terms that simplify each other.
     /// This simplification module is the basis for all other simplifications in Liyh.
     module public Simplification =
         open ElementaryOperations
-        open ElemFun
         open SimplifiedSum
 
         //
@@ -795,184 +967,14 @@ module rec SumPow =
             | Sum sum -> Sum ((mapTerm' flattenTerm) sum)
             | other -> other
 
-
-
-
-
-
-        let rec public newSimpPureConst =
-
-            FixedPoint.tryFixedPoint 5 //>> memoize
-            <| function
-                | Const _ as cst -> cst
-                // | Root (arg, Const (Constant 2.)) -> Fun ("Sqrt", [ arg ])
-                // | Root (arg, expn) -> Fun ("Root", [ arg; expn ])
-                | Root (PureConstantInteger 1, _) -> Const One
-                | Root (PureConstantInteger arg, PureConstantInteger expn) ->   // deneting les sommes
-
-                    let simplifyNthRoot x n =
-
-                        let rec loop i c d =
-                            if i * i > d then (c, d)
-                            elif d % (pown i n) = 0
-                            then loop i (c * i) (d / (pown i n))
-                            else loop (i + 1) c d
-
-                        loop 2 1 x
-
-                    match simplifyNthRoot arg expn with
-                    | c, 1 -> Const c
-                    | 1, d -> Fun ("Root", [ Const d; Const expn ])
-                    | c, d -> c * Fun ("Root", [ Const d; Const expn ])
-
-                //| Frac(num, den) -> simpPureConst' num / simpPureConst' den
-                //| Power(a, b) -> simpPureConst' a ** simpPureConst' b
-                // | Prod prod ->
-                //     let groupedByPow = (List.groupBy snd >> List.map (fun (exp, xs) -> exp, (List.unzip >> fst) xs)) prod
-                //     (Sum >> simpPureConst) [ Term [ for (exp, xs) in groupedByPow -> power' (List.reduce ( * ) xs, exp) ] ]
-                | Sum terms -> newSimpPureConstSum terms
-                | other -> other
-
-        and private newSimpPureConstSum =
-            function
-            | [] -> invalidArg "terms" "empty sum list"
-            | [ term ] -> sumId (newSimpPureConstTerm term)
-            | terms ->
-                let terms = List.map (newSimpPureConstTerm >> sumId) terms
-                let rationals, others = List.partition Misc.isIntegerRational terms
-
-                let (|IRat|) =
-                    function
-                    | Frac (Const num, Const den) -> (num, den)
-                    | Const n -> (n, One)
-                    | other -> failwithf "not an integer rational: %A" other
-                
-                let irats = List.map (|IRat|) rationals
-                let lcm = List.aggregate Constant.lcm (List.map snd irats)
-                let num = List.fold (fun acc (num, den) -> acc + (if den = lcm then num else lcm * num)) Zero irats
-
-                let irat = Const num / Const lcm
-
-                Sum (manyTermId (irat :: others))
-
-        and private newSimpPureConstTerm (Term term) =
-
-            let rec inner result =
-                function
-                | [] -> result
-                | Pow(Root(arg, expn), p) :: rest ->
-                    let (Pow (b, p)) = powId (arg ** (p / expn))    // ça pattern match pas bien, voir input...
-                    go b p result rest
-
-                | Pow(b, p) :: rest ->
-                    let (Pow (b, p)) = powId (newSimpPureConstPow (b, p))
-                    go b p result rest
-
-            and go b p result rest =
-                match p with
-                | Const n when n < 0 -> inner (Map.addOrUpdate -p (1 / b) result (fun b' -> b' / b)) rest
-                | _ -> inner (Map.addOrUpdate p b result (( * ) b)) rest
-
-            inner Map.empty term
-            |> fun z -> Map.iter (printfn "%A:%A") z; printfn "\n"; z
-            |> Map.fold (fun acc p b -> power' (b, p) :: acc) []
-            |> Term
-
-        and private newSimpPureConstPow (b, p) =
-            match newSimpPureConst b, newSimpPureConst p with
-            | Zero, _ -> Const Zero
-            | _, Zero -> Const One
-
-            | Power(b', p'), p -> newSimpPureConst b' ** newSimpPureConst (p' * p)
-
-            | PureConstantInteger b, PureConstantInteger p when p >= 0 -> Const (b ** p)
-            // | PureConstantInteger b, PureConstantInteger p when p < 0  -> Const b / Const (mapf abs p)
-
-            | Root(arg, expn), p when p = newSimpPureConst (1 / expn) -> arg
-
-            | PureConstantRational (num, den), PureConstantInteger p when p >= 0 -> Const (num ** p) / Const (den ** p)
-            // | PureConstantRational (num, den), PureConstantInteger p when p < 0  ->
-            //     let p = mapf abs p
-            //     Const (den ** p) / Const (num ** p)
-
-            // | b, PureConstantRational (num, den) ->
-            //     let inline root n x = Fun ("Root", [ Const n; x ])
-            //     root den (newSimpPureConst (b ** num))
-
-            | b, p -> b ** p
-
-
-
-
-
         /// Cleans a product by removing terms equal to one.
         let public basicTermSimp =
             List.filter (function Pow(b, p) -> p <> Const Zero && (b, p) <> (Const One, Const One))
 
-        let rec public simpPureConstTerm (Term term) =
-
-            let rec inner (result: Map<_, _>) =
-                function
-                | [] -> result
-                | Pow(b, p) :: rest ->
-                    let b = simpPureConst' b
-                    let p = simpPureConst' p
-
-                    match p with
-                    | Const n when n < 0 -> inner (Map.addOrUpdate -p (1 / b) result (fun b' -> b' / b)) rest
-                    | _ -> inner (Map.addOrUpdate p b result (( * ) b)) rest
-
-            inner Map.empty term |> Map.fold (fun acc p b -> power' (b, p) :: acc) [] |> Term
-
-        and public simpPureConstSum =
-            function
-            | [] -> invalidArg "terms" "empty sum list"
-            //| [ term ] -> sumId (simpPureConstTerm term)
-            | terms ->
-                let terms = List.map (simpPureConstTerm >> sumId) terms
-
-                printfn "%A" terms
-
-                let (|Frac'|) =
-                    function
-                    | Frac (Const num, Const den) -> (num, den)
-                    | Const other -> (other, One)
-                    | other -> failwithf "not a constant:\n%A" other
-
-                let fracs = List.map (|Frac'|) terms
-                let lcm = List.aggregate Constant.lcm (List.map snd fracs)
-                let num = List.fold (fun acc (num, den) -> acc + (if den = lcm then num else lcm * num)) Zero fracs
-
-                Const num / Const lcm
-
-        and public simpPureConst' (expr: SumPow) =
-            match expr with
-            | Const _ as cst -> cst
-            //| Frac(num, den) -> simpPureConst' num / simpPureConst' den
-            //| Power(a, b) -> simpPureConst' a ** simpPureConst' b
-            // | Prod prod ->
-            //     let groupedByPow = (List.groupBy snd >> List.map (fun (exp, xs) -> exp, (List.unzip >> fst) xs)) prod
-            //     (Sum >> simpPureConst) [ Term [ for (exp, xs) in groupedByPow -> power' (List.reduce ( * ) xs, exp) ] ]
-            | Sum terms -> simpPureConstSum terms
-            | other -> other
-
         /// Assuming that the given expression is a pure constant (i.e. an expression containing no variables), then return
-        /// the constant in its canonical form (i.e. a simplified form that is not approximate to the initial expression).
-        /// If the initial expression involves double constants, then the simplification is subject to the inaccuracies.
-        let rec public simpPureConst (expr: SumPow) =
-            assert (Misc.isPureConst expr)
-
-            match expr with
-            | Const _ as cst -> cst
-            | Frac(num, den) -> simpPureConst num / simpPureConst den
-            | Power(a, b) -> simpPureConst a ** simpPureConst b
-            //| Sum [ x ] -> sumId x
-            | Prod prod ->
-                let groupedByPow = (List.groupBy snd >> List.map (fun (exp, xs) -> exp, (List.unzip >> fst) xs)) prod
-                (Sum >> simpPureConst) [ Term [ for (exp, xs) in groupedByPow -> power' (List.reduce ( * ) xs, exp) ] ]
-
-            | Sum terms -> List.reduce ( + ) (List.map (sumId >> simpPureConst) terms)
-            | other -> other // Not handle functions
+        /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
+        /// involves floating-point constants, then the simplification is subject to the inaccuracies.
+        let public simpPureConst = PureConstantExpression.csimplify
 
         /// Basic simplifies the fraction, given in numerator and denominator form. Returns a SumPow.
         let private simpFrac (num: SumPow) (den: SumPow) =
@@ -1056,7 +1058,7 @@ module rec SumPow =
 
                 | Term term :: xs ->
                     match (simpProd term) with
-                    | PureConstant c, [] -> makeSimp result (constant + c) xs
+                    | PureConstantExpression.PureConstantExpression c, [] -> makeSimp result (constant + c) xs
 
                     | factor, term ->
                         match Map.tryFind term result with
@@ -1101,7 +1103,7 @@ module rec SumPow =
 
             FixedPoint.tryFixedPoint 5 //>> memoize
             <| function
-                | PureConstant cst -> simpPureConst cst
+                | PureConstantExpression.PureConstantExpression cst -> simpPureConst cst
                 | Name _ as name -> name
 
                 | Power (b, One) -> simplify b
@@ -1196,8 +1198,8 @@ module rec SumPow =
         let private expandPow =
             function
             | Prod xs, p -> Sum [ Term(List.map (fun (b, p') -> power'(expand b, expand p' * p)) xs) ], Const One
-            | Sum [ Term x; Term y ], PureConstantInteger p when p > 0 -> newtonBinomial x y p, Const One
-            | Sum terms, PureConstantInteger p when p > 0 -> newtonMultinomial terms p, Const One
+            | Sum [ Term x; Term y ], PureConstantExpression.PureConstantExpressionInteger p when p > 0 -> newtonBinomial x y p, Const One
+            | Sum terms, PureConstantExpression.PureConstantExpressionInteger p when p > 0 -> newtonMultinomial terms p, Const One
             | b, p -> expand b, expand p
 
         /// Expand a product.
@@ -1216,8 +1218,6 @@ module rec SumPow =
 
         /// Apply expansion until a fixed point. Might throw an exception if a fixed point is not found.
         let public fullExpand = FixedPoint.tryFixedPoint 20 expand
-
-    // module public Reduce = ...
 
     /// A module for making substitutions in SumPow.
     module public Subst =
@@ -1365,6 +1365,13 @@ module rec SumPow =
             | Fun("Exp", [ arg ]) -> Some arg
             | _ -> None
 
+        let public (|Log|_|) =
+            function
+            | Fun("Log", [ x; b ]) -> Some (x, b)
+            | Fun("Log", [ x ]) -> Some (x, Const 10)
+            | Fun("Ln", [ x ]) -> Some (x, Const Math.E)
+            | _ -> None
+
         let public (|Sin|_|) =
             function
             | Fun("Sin", [ x ]) -> Some x
@@ -1470,10 +1477,10 @@ module rec SumPow =
             | Exp(ProdWith1 isImaginaryUnit prod) -> Some (Misc.prodToSumPow prod)
 
             // Cos[x] + iSin[x]
-            | SimplifiedSum [ [ Cos x, One ]; [ (ImaginaryUnit, PureConstantInteger n); Sin x', One ] ]
-            | SimplifiedSum [ [ Cos x, One ]; [ Sin x', One ; (ImaginaryUnit, PureConstantInteger n)] ]
-            | SimplifiedSum [ [ Sin x', One; (ImaginaryUnit, PureConstantInteger n) ]; [ Cos x, One ] ]
-            | SimplifiedSum [ [ (ImaginaryUnit, PureConstantInteger n); Sin x', One ]; [ Cos x, One ] ]
+            | SimplifiedSum [ [ Cos x, One ]; [ (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n); Sin x', One ] ]
+            | SimplifiedSum [ [ Cos x, One ]; [ Sin x', One ; (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n)] ]
+            | SimplifiedSum [ [ Sin x', One; (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) ]; [ Cos x, One ] ]
+            | SimplifiedSum [ [ (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n); Sin x', One ]; [ Cos x, One ] ]
                 when (x = x') && ((n % 4) = 1) -> Some x
 
             | _ -> None
@@ -1487,10 +1494,10 @@ module rec SumPow =
             | i when i = imaginaryUnitNotation -> Some ()
 
             // i^(4n + 1) ≡ i
-            | Power (ImaginaryUnit, PureConstantInteger n) when (n % 4) = 1 -> Some ()
+            | Power (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) when (n % 4) = 1 -> Some ()
 
             // Cis[pi/2] ≡ Cos[pi/2] + iSin[pi/2] ≡ Exp[iπ/2] ≡ i
-            | Cis (Frac (Name "pi", PureConstantInteger 2)) -> Some ()
+            | Cis (Frac (Name "pi", PureConstantExpression.PureConstantExpressionInteger 2)) -> Some ()
 
             | _ -> None
 
@@ -1598,7 +1605,7 @@ module rec SumPow =
             | Cis arg -> complex arg arg
             | ImaginaryUnit -> justIm (Const One)
             | SimpleSP x -> justRe x
-            | Power(ImaginaryUnit, PureConstantInteger n) -> asComplex (expnImg n)
+            | Power(ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) -> asComplex (expnImg n)
             | Prod prod -> complexProduct prod
 
         let public asSumPow (z: ComplexSumPow) =
@@ -1645,12 +1652,12 @@ module rec SumPow =
 
         let inline private congruence { number = number; modulus = modulus } =
             match number with
-            | PureConstantInteger number -> { number = Const (double (number % modulus)); modulus = modulus }
+            | PureConstantExpression.PureConstantExpressionInteger number -> { number = Const (double (number % modulus)); modulus = modulus }
             | number -> { number = number; modulus = modulus }
 
         let public (|ModularNumber|_|) =
             function
-            | Fun("ModularNumber", [ number; PureConstantInteger modulus ]) ->
+            | Fun("ModularNumber", [ number; PureConstantExpression.PureConstantExpressionInteger modulus ]) ->
                 Some (congruence { number = number; modulus = modulus })
             | _ -> None
 
@@ -1671,22 +1678,25 @@ module rec SumPow =
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
     module public Misc =
+        open PureConstantExpression
+        open SimplifiedSum
+        open ElementaryOperations
 
         /// Checks if the given expression is a pure constant (contains no `Name string`).
         let public isPureConst =
             function
-            | PureConstant _ -> true
+            | PureConstantExpression _ -> true
             | _ -> false
 
         let public isPureConstInteger =
             function
-            | PureConstantInteger _ -> true
+            | PureConstantExpressionInteger _ -> true
             | _ -> false
 
         let public isIntegerRational =
             function
-            | Frac(PureConstantInteger _, PureConstantInteger _) -> true
-            | PureConstantInteger _ -> true
+            | Frac(PureConstantExpressionInteger _, PureConstantExpressionInteger _) -> true
+            | PureConstantExpressionInteger _ -> true
             | _ -> false
 
         /// Check whether the given expression reduces to 0.
@@ -1709,7 +1719,7 @@ module rec SumPow =
 
         /// Convert the product representation into SumPow.
         let public prodToSumPow (prod: (SumPow * SumPow) list) =
-            List.map ElementaryOperations.power' prod |> Term |> sumId
+            List.map power' prod |> Term |> sumId
 
         /// Check whether the given expression is a sum (can contain a single element.).
         let public isSum =
@@ -1743,7 +1753,7 @@ module rec SumPow =
             assert (isPureConst a && isPureConst b)
 
             match a, b with
-            | Frac(PureConstant num1, PureConstant den1), Frac(PureConstant num2, PureConstant den2) ->
+            | Frac(PureConstantExpression num1, PureConstantExpression den1), Frac(PureConstantExpression num2, PureConstantExpression den2) ->
                 let m1 = Simplification.simpPureConst num1, Simplification.simpPureConst den1
                 let m2 = Simplification.simpPureConst num2, Simplification.simpPureConst den2
 
@@ -1755,3 +1765,21 @@ module rec SumPow =
 
         let public spGCDs = List.aggregate spGCD
 
+        /// Recursively transforms each `Root[x, nth]` of the given expression into `x^(1/nth)`.
+        let rec public convertAllRootsToPower =
+            function
+            | ElemFun.Root(x, PureConstantExpressionInteger nth) -> (convertAllRootsToPower x) ** (1 / Const nth)
+            | Power(b, p) -> convertAllRootsToPower b ** convertAllRootsToPower p
+            | Fun(fname, args) -> Fun(fname, List.map convertAllRootsToPower args)
+            | SumList xs -> Sum (manyTermId (List.map convertAllRootsToPower xs))
+            | other -> other
+
+        /// Recursively transforms each `x^(1/nth)` of the given expression into `Root[x, nth]`.
+        let rec public convertAllRationalPowersToRoot =
+            function
+            | Power(b, PureConstantExpressionRational(num, den)) -> Fun("Root", [ b ** num; Const den ])
+            | ElemFun.Root(x, PureConstantExpressionInteger nth) -> Fun("Root", [ x; Const nth ])
+            | Power(b, p) -> convertAllRationalPowersToRoot b ** convertAllRationalPowersToRoot p
+            | Fun(fname, args) -> Fun(fname, List.map convertAllRationalPowersToRoot args)
+            | SumList xs -> Sum (manyTermId (List.map convertAllRationalPowersToRoot xs))
+            | other -> other

@@ -154,7 +154,7 @@ module rec Polynomial =
             /// Retrieves the integer powers of the variable part of the monomial.
             let retrieveDegree =
                 List.map (function
-                    | (_, PureConstantInteger degree) -> degree
+                    | (_, PureConstantExpression.PureConstantExpressionInteger degree) -> degree
                     | _ -> failwith "??")
 
             match Simplification.simplify expr with
@@ -173,7 +173,7 @@ module rec Polynomial =
 
                     Some(cpart, monomial)
 
-            | Power(b, PureConstantInteger p) when List.contains b variables -> Some(SumPow.Const One, [ (b, p) ])
+            | Power(b, PureConstantExpression.PureConstantExpressionInteger p) when List.contains b variables -> Some(SumPow.Const One, [ (b, p) ])
 
             | v when List.contains v variables -> Some(SumPow.Const One, [ (v, 1) ])
 
@@ -646,13 +646,13 @@ module rec Polynomial =
         /// patterns `UnivariatePolynomial` and `MultivariatePolynomial`.
         let private isPolynomialCandiat =
             function
-            | PureConstantInteger _ -> false
+            | PureConstantExpression.PureConstantExpressionInteger _ -> false
             | SimplifiedSum.SimplifiedSum ss ->
 
                 let polynomialVariablePredicate =
                     function
-                    | PureConstant _, PureConstant _ -> true
-                    | _, PureConstantInteger p -> p >= 0
+                    | PureConstantExpression.PureConstantExpression _, PureConstantExpression.PureConstantExpression _ -> true
+                    | _, PureConstantExpression.PureConstantExpressionInteger p -> p >= 0
                     | _ -> false
 
                 List.forall (List.forall polynomialVariablePredicate) ss
@@ -671,7 +671,7 @@ module rec Polynomial =
             let retrieveDegree =
                 function
                 | [] -> 0 // for x⁰
-                | [ Pow(_, PureConstantInteger degree) ] -> degree
+                | [ Pow(_, PureConstantExpression.PureConstantExpressionInteger degree) ] -> degree
                 | _ -> failwith "??" // May not happen
 
             match Simplification.expandAndSimplify expr with
@@ -771,7 +771,7 @@ module rec Polynomial =
 
                     List.map
                         (function
-                        | Pow(_, PureConstantInteger degree) -> degree
+                        | Pow(_, PureConstantExpression.PureConstantExpressionInteger degree) -> degree
                         | _ -> failwith "??")
                         vpart
 
@@ -921,8 +921,8 @@ module rec Polynomial =
                 /// Filtering predicate for polyomial variables in the broad sense.
                 let polynomialVariablePredicate =
                     function
-                    | PureConstant _, PureConstant _ -> false // a constant is not a variable 🤷
-                    | _, PureConstantInteger p -> p >= 0
+                    | PureConstantExpression.PureConstantExpression _, PureConstantExpression.PureConstantExpression _ -> false // a constant is not a variable 🤷
+                    | _, PureConstantExpression.PureConstantExpressionInteger p -> p >= 0
                     | _ -> false
 
                 /// Gets the potential variables, in the sense of the definition of a possible variable for a polynomial.
@@ -1746,7 +1746,7 @@ module rec Polynomial =
             let rec inner resultingGcd =
                 function
                 | [] -> resultingGcd
-                | PureConstantInteger icoeff :: rest -> inner (intGCD icoeff resultingGcd) rest
+                | PureConstantExpression.PureConstantExpressionInteger icoeff :: rest -> inner (intGCD icoeff resultingGcd) rest
                 | _ :: rest -> inner resultingGcd rest
 
             match inner 0 coefficients with
@@ -1764,7 +1764,7 @@ module rec Polynomial =
                 | [] -> resultingGcd
                 | monomial :: rest ->
                     match fst monomial, fst resultingGcd with
-                    | PureConstantInteger icoeff1, PureConstantInteger icoeff2 ->
+                    | PureConstantExpression.PureConstantExpressionInteger icoeff1, PureConstantExpression.PureConstantExpressionInteger icoeff2 ->
 
                         // The coefficient of `monomialGcd` is 1 (because the monomial part is the variable product part)
 
@@ -1855,7 +1855,7 @@ module rec Polynomial =
             /// Returns the complete list of coefficients of the given univariate polynomial with integer coefficients.
             let public integerCoefficients (p: Polynomial) =
                 if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
-                List.map (function PureConstantInteger coeff -> coeff) (completeCoefficients p)
+                List.map (function PureConstantExpression.PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
 
             /// Integer-optimized evaluation of the univariate polynomial with integer coefficients and the given value.
             let inline private evaluate (p: Polynomial) (x: int) =
@@ -2150,7 +2150,7 @@ module rec Polynomial =
                 result <- coefficients.[degree - k] + (x - xdata.[degree - k]) * result
 
             match result with
-            | PureConstant pc -> SumPow.Const (NumericEvaluation.evaluate0 pc)
+            | PureConstantExpression.PureConstantExpression pc -> SumPow.Const (NumericEvaluation.evaluate0 pc)
             | result -> result
 
     module public NumericEvaluation' =
@@ -2189,7 +2189,7 @@ module rec Polynomial =
 
                 let inner =
                     function
-                    | MonomialDegree [ deg ], PureConstantDouble coeff -> Some(deg, coeff)
+                    | MonomialDegree [ deg ], PureConstantExpression.PureConstantExpressionFloat coeff -> Some(deg, coeff)
                     | _ -> None
 
                 /// Try to create a numerical univariate polynomial, browse the list of coefficients only once.
@@ -2206,7 +2206,7 @@ module rec Polynomial =
                     process [] (Map.toList polynomial)
 
                 match tryProcessPolynomial polynomial with
-                | Some result -> Some(NUP result)
+                | Some result -> Some(NUP (List.map (fun (a, Constant b) -> a, b) result))
                 | None -> None
 
             | _ -> None

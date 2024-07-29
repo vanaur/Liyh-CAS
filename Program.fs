@@ -170,6 +170,7 @@ let generateMultivPoly n (vs: SumPow list) =
 //      [ ] Longue division quand le dénominateur > numérateur : https://www.wolframalpha.com/input?i=remainder+of+%28x%C2%B2+%2B+1%29+%2F+%284x%E2%81%B8+%2B+3x%C2%B3+%2B+2%29
 //      [ ] Implémenter la pseudo-division polynomiale (voir livre)
 //      [ ] !!! x**3 - 6*(x**2) + 11**x - 6 a été parsé comme un polynôme !!!
+//      [ ] Virer SumProd
 
 // let a = (toSumPow << sp') "Exp[i * pi / 2]"
 // printfn "%A" a
@@ -241,14 +242,13 @@ let fs =
 // let groebnerBasis = Polynomial.GroebnerBasis.computeGroebnerBasis fs
 // List.iter (toLatexValue >> printfn @"%s") groebnerBasis
 
-// let a = (toSumPow << sp') "-2 * (1 - 1/2)"
-// let z = Simplification.newSimpPureConst a
-// printfn "%A" z
-
-// let a = (toSumPow << sp') "Sqrt[1/2] * Sqrt[3/4]"             // Bon bah en fait ça va demander un processus à part entier
-// let z = Simplification.newSimpPureConst a       // pour les nested radicaux... => Denesting
-// printfn "%A" z
-// printfn "%s" (toLatexValue z)
+//let a = (toSumPow << sp') "1/2/(3+1/2)/4/(3/(1 + 1/2)) * (1 - 1/2) + Root[27, 3] + Sqrt[8]" //"Sqrt[1/2] * Sqrt[3/4]"
+let a = (toSumPow << sp') "Sqrt[1/2] * Sqrt[3/2]"
+//let a = (toSumPow << sp') "1/2 + Cos[2] + 3/4 + 5/6"
+//let a = (toSumPow << sp') "Sqrt[8]"
+let z = PureConstantExpression.csimplify a
+//printfn "%A" z
+printfn "\n-----\n%s = \n%s" (toLatexValue a) (toLatexValue z)
 
 // let z' = (inner [ "6*(x**2)*y*(z**3) + 4*(x**5)*y*z + 2*(x**4)*(y**2)*z" ]).Head
 // let factor, p = Polynomial.Factorization.termFactoringWRT z' (Name "x")
