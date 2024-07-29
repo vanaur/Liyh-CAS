@@ -9,6 +9,28 @@ module rec Utils =
     open System.Collections.Generic
     open System.Runtime.CompilerServices
 
+    /// Used to store the results of a (pure) function so that they have not to be recalculated later in a re-call.
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline public memoize ([<InlineIfLambda>] fn: 'a -> 'b) =
+        let cache = new Dictionary<'a, 'b>()
+
+        fun arg ->
+            match cache.TryGetValue arg with
+            | true, value -> value
+            | _ ->
+                let value = fn arg
+                cache.Add(arg, value) |> ignore
+                value
+
+    /// Generates a hash code regardless of the order of the elements in the given sequence.
+    [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
+    let inline public commutativeHash (xs: 'a list) ([<InlineIfLambda>] hash: 'a -> int) =
+        match xs with
+        | [] -> 7307
+        | [ x ] -> hash x
+        | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
+
+    // Some extensions to the standard module.
     module public Array2D =
         /// Obtains the row `i` of the given 2D array.
         let inline public row i (table: 'T[,]) = table.[i..i, *] |> Seq.cast<'T>
@@ -282,25 +304,3 @@ module rec Utils =
         /// Define a one-element Map.
         let inline public singleton key value =
             Map.ofList [ key, value ]
-
-    /// Used to store the results of a (pure) function so that they have not to be recalculated later in a re-call.
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    let inline public memoize ([<InlineIfLambda>] fn: 'a -> 'b) =
-        let cache = new Dictionary<'a, 'b>()
-
-        fun arg ->
-            match cache.TryGetValue arg with
-            | true, value -> value
-            | _ ->
-                let value = fn arg
-                cache.Add(arg, value) |> ignore
-                value
-
-    /// Generates a hash code regardless of the order of the elements in the given sequence.
-    [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
-    let inline public commutativeHash (xs: 'a list) ([<InlineIfLambda>] hash: 'a -> int) =
-        match xs with
-        | [] -> 7307
-        | [ x ] -> hash x
-        | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
-
