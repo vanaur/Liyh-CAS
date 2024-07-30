@@ -1421,6 +1421,16 @@ module rec SumPow =
         exception public UnboundVariableException of vname: string
         exception public UnboundFunctionException of fname: string
 
+        /// Determine whether the two expressions are numerically approximately equal up to the given precision. If `eps` is `None`
+        /// then the comparison is made with a fixed femto-precision (`1e-15`).
+        let public approximatelyEquals (sp1: SumPow) (sp2: SumPow) (values: Dictionary<string, Constant>) (eps: double option) =
+            Constant.approximatelyEquals (evaluate sp1 values) (evaluate sp2 values) eps
+
+        /// Determine whether the given expressions is numerically approximately equal to zero up to the given precision.
+        /// If `eps` is `None` then the comparison is made with a fixed femto-precision (`1e-15`).
+        let public approximatelyEqualsZero (sp: SumPow) (eps: double option) =
+            approximatelyEquals sp (Const Zero) (Dictionary []) eps
+
         /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation is
         /// subject to `double` capabilities. This function might throw an exception if some variables are not assigned.
         let public evaluate (sp: SumPow) (values: Dictionary<string, Constant>) =
