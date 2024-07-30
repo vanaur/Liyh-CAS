@@ -523,8 +523,10 @@ module rec Polynomial =
                     variables
 
             let inline inner result (MonomialDegree degrees, coeff) =
-                let vs = List.choose id (makeVariables degrees)
-                Term(powId coeff :: vs) :: result
+                if Misc.isZero coeff then result
+                else
+                    let vs = List.choose id (makeVariables degrees)
+                    Term(powId coeff :: vs) :: result
 
             Map.toList polynomial |> List.fold inner [] |> Sum
 
