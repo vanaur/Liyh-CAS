@@ -115,7 +115,7 @@ module rec Constant =
         Constant(mapper cst)
 
     /// Determine whether the two constants are equal to the given precision.  If `eps` is `None` then the
-    /// comparison is made with the highest possible precision.
+    /// comparison is made with a fixed femto-precision (`1e-15`).
     let inline public approximatelyEquals (Constant a) (Constant b) (eps: double option) =
-        abs (a - b) < if eps.IsNone then Double.Epsilon else eps.Value
+        abs (a - b) < if eps.IsNone then 1e-15 else eps.Value
 
