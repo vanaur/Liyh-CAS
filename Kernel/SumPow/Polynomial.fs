@@ -445,7 +445,7 @@ module rec Polynomial =
         let inline public areCompatible (p1: Polynomial) (p2: Polynomial) =
             let variablesTest = p1.variables = p2.variables
 
-            let excludedVariablesTest =
+            let excludedVariablesTest () =
                 not (List.containsBy (flip containsVariables p1.excludedVariables) p2.variables)
                 && not (List.containsBy (flip containsVariables p2.excludedVariables) p1.variables)
 
@@ -453,7 +453,7 @@ module rec Polynomial =
             //  1. have the same variables (exactly and in the SAME order)
             //  2. not be mutually exclusive in their variables to be excluded.
 
-            variablesTest && excludedVariablesTest
+            variablesTest && excludedVariablesTest ()
 
         /// Check whether the given plynomials are structurally compatible.
         let inline public areCompatibles (polynomials: Polynomial list) =
