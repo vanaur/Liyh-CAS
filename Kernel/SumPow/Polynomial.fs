@@ -788,12 +788,12 @@ module rec Polynomial =
                         function
                         | [] -> result, rest
                         | Term term :: tail ->
-                            let mutable notPoly = false
+                            let mutable notPolyPart = false
                             let mutable cpart = []
 
                             let inline projection (variable, _) =
                                 // If it turns out that the term is not a valid monomial, there's no point in continuing to sort.
-                                if notPoly then
+                                if notPolyPart then
                                     -1
 
                                 // The factor being processed is constant.
@@ -807,14 +807,14 @@ module rec Polynomial =
 
                                 // The factor being processed invalidates the term as a good monomial.
                                 else
-                                    notPoly <- true
+                                    notPolyPart <- true
                                     -1
 
                             // First, we isolate each of the variables in the term being processed. We perform a sort that
                             // organizes the partitioned variables according to a common order (given and defined by `trueVariables`
                             // This sorting is very important by definition of the `Polynomial` type. At the same time, the projection
                             // function given to the sort function checks whether the term being processed is indeed a valid polynomial
-                            // and modifies the `notPoly` variable accordingly. This function also constructs the `cpart` part, the
+                            // and modifies the `notPolyPart` variable accordingly. This function also constructs the `cpart` part, the
                             // constant factor with respect to the given variables.
 
                             let gp =
@@ -825,9 +825,13 @@ module rec Polynomial =
 
                             let gp = List.sortBy projection gp |> List.unzip |> snd |> List.flatten
 
+                            // Check that each power `variable^p` has `p` as natural.
+                            if List.any gp (not << function Pow(_, PureConstantExpressionNatural _) -> true | _ -> false) then
+                                notPolyPart <- true
+
                             // If it has been detected that the term being processed is not a valid monomial, then it is ignored
                             // and placed in the list of remaining terms.
-                            if notPoly then
+                            if notPolyPart then
                                 tryBuildPolynomial result (Term term :: rest) tail
                             else
                                 // The sorting has been done in such a way that all constants are placed at the beginning of `gp`, so
