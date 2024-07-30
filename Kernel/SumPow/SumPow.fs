@@ -1157,7 +1157,7 @@ module rec SumPow =
                 |> Simplification.flattenTerm
                 |> Term
 
-            Sum (List.init n binomialTerm)
+            Sum [ for k = 0 to n do binomialTerm k ]
 
         /// Implements the generalized binomial theorem for `(x₁ + x₂ + ⋅⋅⋅ + xₘ)^n`.
         /// See https://en.wikipedia.org/wiki/Multinomial_theorem.
