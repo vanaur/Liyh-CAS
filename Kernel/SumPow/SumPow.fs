@@ -404,7 +404,7 @@ module rec SumPow =
 
         and private toLatexPow =
             function
-            //| Pow(b, p) when p < Const Zero -> sprintf @"\frac{%s}{%s}" (toLatex -p) (toLatex b)
+            | Pow(b, PureConstantExpressionInteger p) when p < 0 -> sprintf @"\frac{%d}{%s}" -p (toLatexValue b)
             | Pow(b, Frac(num, den)) -> toLatexRoot b num den
             | Pow(Sum _ as b, One) -> sprintf @"\left(%s\right)" (toLatex b)
             | Pow(Sum _ as b, p) -> sprintf @"\left(%s\right)^{%s}" (toLatex b) (toLatex p)
