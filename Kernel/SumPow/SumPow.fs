@@ -781,6 +781,12 @@ module rec SumPow =
 
             | _ -> None
 
+        /// An active pattern that matches a natural constant expression and evaluates it.
+        and public (|PureConstantExpressionNatural|_|) =
+            function
+            | PureConstantExpressionInteger x when x >= 0 -> Some x
+            | _ -> None
+
         /// An active pattern that matches a rational constant expression and simplify it.
         and public (|PureConstantExpressionRational|_|) =
             function
@@ -896,6 +902,12 @@ module rec SumPow =
             | PureConstantExpressionInteger _ -> true
             | _ -> false
         
+        /// Checks whether the given expression reduces to an integer.
+        let public isPureConstantExpressionNatural =
+            function
+            | PureConstantExpressionNatural _ -> true
+            | _ -> false
+
         /// Check whether the given expression reduces to a rational.
         let public isPureConstantExpressionRational =
             function
