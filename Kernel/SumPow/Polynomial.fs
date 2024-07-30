@@ -471,13 +471,14 @@ module rec Polynomial =
 
                 let p1' = extendToNewVariables p1 p2.variables
                 let p2' = extendToNewVariables p2 p1.variables
-                let excludedVariables' = List.merge p1'.excludedVariables p2'.excludedVariables
+                // let excludedVariables' = List.merge p1'.excludedVariables p2'.excludedVariables
                 let p1' = reorder p1' p2'.variables
 
-                { p1' with
-                    excludedVariables = excludedVariables' },
-                { p2' with
-                    excludedVariables = excludedVariables' }
+                extendToNewExcludedVariables p1' p2.excludedVariables,
+                extendToNewExcludedVariables p2' p1.excludedVariables
+
+                // { p1' with excludedVariables = excludedVariables' },
+                // { p2' with excludedVariables = excludedVariables' }
 
         /// Makes all given polynomials compatible.
         let public compatibles (polynomials: Polynomial list) =
