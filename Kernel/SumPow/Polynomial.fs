@@ -640,23 +640,7 @@ module rec Polynomial =
     /// This module contains automatic conversion patterns between SumPow and Polynomial, as well as useful related functions.
     [<AutoOpen>]
     module public Pattern =
-
-        /// Quickly check whether the given expression is of the expected form for a polynomial. Note: the entire given expression
-        /// must be a polynomial for the function to return `true`; there can be no non-polynomial "remainder" as allowed with active
-        /// patterns `UnivariatePolynomial` and `MultivariatePolynomial`.
-        let private isPolynomialCandiat =
-            function
-            | PureConstantExpression.PureConstantExpressionInteger _ -> false
-            | SimplifiedSum.SimplifiedSum ss ->
-
-                let polynomialVariablePredicate =
-                    function
-                    | PureConstantExpression.PureConstantExpression _, PureConstantExpression.PureConstantExpression _ -> true
-                    | _, PureConstantExpression.PureConstantExpressionInteger p -> p >= 0
-                    | _ -> false
-
-                List.forall (List.forall polynomialVariablePredicate) ss
-            | _ -> false
+        open PureConstantExpression
 
         /// An active pattern identifying and converting a polynomial expression from the SumPow representation to the
         /// polynomial representation of the given variable. In case of success, the pattern returns the constructed polynomial
@@ -665,13 +649,12 @@ module rec Polynomial =
         let public (|UnivariatePolynomial|_|) (variable: SumPow) (excludedVariables: string list) (expr: SumPow) =
             if Misc.isPureConst variable then
                 raise (ConstantVariablePolynomialException [ variable ])
-            // if not (isPolynomialCandiat expr) then None else // WARN: don't handle non-polynomial "remainder"...
 
             /// Retrieves the integer power of the variable part of the (univariate) polynomial.
             let retrieveDegree =
                 function
                 | [] -> 0 // for x⁰
-                | [ Pow(_, PureConstantExpression.PureConstantExpressionInteger degree) ] -> degree
+                | [ Pow(_, PureConstantExpressionInteger degree) ] -> degree
                 | _ -> failwith "??" // May not happen
 
             match Simplification.expandAndSimplify expr with
@@ -759,148 +742,146 @@ module rec Polynomial =
             if not (List.forall (not << Misc.isPureConst) variables) then
                 raise (ConstantVariablePolynomialException variables)
 
-            // if not (isPolynomialCandiat expr) then None else // WARN: not handle polynomial "remainder"...
-            if not true then None else
+            let vlen = List.length variables
+            let deg0 = List.init vlen (konst 0) |> MonomialDegree
 
-                let vlen = List.length variables
-                let deg0 = List.init vlen (konst 0) |> MonomialDegree
+            /// Retrieves the integer powers of the variable part of the (multivariate) polynomial.
+            let retrieveDegree (vpart: Pow list) =
+                assert (List.length vpart = vlen) // Might not happen
 
-                /// Retrieves the integer powers of the variable part of the (multivariate) polynomial.
-                let retrieveDegree (vpart: Pow list) =
-                    assert (List.length vpart = vlen) // Might not happen
+                List.map
+                    (function
+                    | Pow(_, PureConstantExpressionInteger degree) -> degree
+                    | _ -> failwith "??")
+                    vpart
 
-                    List.map
-                        (function
-                        | Pow(_, PureConstantExpression.PureConstantExpressionInteger degree) -> degree
-                        | _ -> failwith "??")
-                        vpart
+            /// Completes the list of "missing variables" (i.e. zero-powered ones).
+            let zeroPowers (vpart: Pow list) =
+                List.map
+                    (fun var ->
+                        match
+                            List.tryFind
+                                (function
+                                | Pow(b, _) -> var = b)
+                                vpart
+                        with
+                        | Some power -> power
+                        | None -> Pow(var, SumPow.Const Zero))
+                    variables
 
-                /// Completes the list of "missing variables" (i.e. zero-powered ones).
-                let zeroPowers (vpart: Pow list) =
-                    List.map
-                        (fun var ->
-                            match
-                                List.tryFind
-                                    (function
-                                    | Pow(b, _) -> var = b)
-                                    vpart
-                            with
-                            | Some power -> power
-                            | None -> Pow(var, SumPow.Const Zero))
-                        variables
+            if vlen = 1 then
+                // faster
+                tryAsUnivariatePolynomial variables.[0] excludedVariables expr
+            else
+                match Simplification.expandAndSimplify expr with
+                | Sum terms ->
 
-                if vlen = 1 then
-                    tryAsUnivariatePolynomial variables.[0] excludedVariables expr
-                else // faster
-                    match Simplification.expandAndSimplify expr with
-                    | Sum terms ->
+                    let trueVariables = manyTrueVariables variables excludedVariables
 
-                        let trueVariables = manyTrueVariables variables excludedVariables
+                    if List.isEmpty trueVariables then
+                        raise (ConstantVariablePolynomialException variables)
 
-                        if List.isEmpty trueVariables then
-                            raise (ConstantVariablePolynomialException variables)
+                    /// Attempts to construct a multivariate polynomial in the given variables from the matched sum. The function
+                    /// returns the constructed polynomial part and a “remainder” consisting of all terms not recognized as
+                    /// part of the polynomial expression.
+                    let rec tryBuildPolynomial (result: Map<MonomialDegree, SumPow>) (rest: Term list) =
+                        function
+                        | [] -> result, rest
+                        | Term term :: tail ->
+                            let mutable notPoly = false
+                            let mutable cpart = []
 
-                        /// Attempts to construct a multivariate polynomial in the given variables from the matched sum. The function
-                        /// returns the constructed polynomial part and a “remainder” consisting of all terms not recognized as
-                        /// part of the polynomial expression.
-                        let rec tryBuildPolynomial (result: Map<MonomialDegree, SumPow>) (rest: Term list) =
-                            function
-                            | [] -> result, rest
-                            | Term term :: tail ->
-                                let mutable notPoly = false
-                                let mutable cpart = []
-
-                                let inline projection (variable, _) =
-                                    // If it turns out that the term is not a valid monomial, there's no point in continuing to sort.
-                                    if notPoly then
-                                        -1
-
-                                    // The factor being processed is constant.
-                                    elif not (containsVariables variable trueVariables) then
-                                        cpart <- variable :: cpart
-                                        -1
-
-                                    // The factor being processed is valid.
-                                    elif List.contains variable variables then
-                                        List.findIndex ((=) variable) variables
-
-                                    // The factor being processed invalidates the term as a good monomial.
-                                    else
-                                        notPoly <- true
-                                        -1
-
-                                // First, we isolate each of the variables in the term being processed. We perform a sort that
-                                // organizes the partitioned variables according to a common order (given and defined by `trueVariables`
-                                // This sorting is very important by definition of the `Polynomial` type. At the same time, the projection
-                                // function given to the sort function checks whether the term being processed is indeed a valid polynomial
-                                // and modifies the `notPoly` variable accordingly. This function also constructs the `cpart` part, the
-                                // constant factor with respect to the given variables.
-
-                                let gp =
-                                    List.groupBy
-                                        (function
-                                        | Pow(b, _) -> b)
-                                        term
-
-                                let gp = List.sortBy projection gp |> List.unzip |> snd |> List.flatten
-
-                                // If it has been detected that the term being processed is not a valid monomial, then it is ignored
-                                // and placed in the list of remaining terms.
+                            let inline projection (variable, _) =
+                                // If it turns out that the term is not a valid monomial, there's no point in continuing to sort.
                                 if notPoly then
-                                    tryBuildPolynomial result (Term term :: rest) tail
+                                    -1
+
+                                // The factor being processed is constant.
+                                elif not (containsVariables variable trueVariables) then
+                                    cpart <- variable :: cpart
+                                    -1
+
+                                // The factor being processed is valid.
+                                elif List.contains variable variables then
+                                    List.findIndex ((=) variable) variables
+
+                                // The factor being processed invalidates the term as a good monomial.
                                 else
-                                    // The sorting has been done in such a way that all constants are placed at the beginning of `gp`, so
-                                    // that the `vart` part for the variables is further down the `gp` list.
-                                    let vpart = List.skip cpart.Length gp
+                                    notPoly <- true
+                                    -1
 
-                                    let spVpart = Sum [ Term vpart ] |> Simplification.simplify
+                            // First, we isolate each of the variables in the term being processed. We perform a sort that
+                            // organizes the partitioned variables according to a common order (given and defined by `trueVariables`
+                            // This sorting is very important by definition of the `Polynomial` type. At the same time, the projection
+                            // function given to the sort function checks whether the term being processed is indeed a valid polynomial
+                            // and modifies the `notPoly` variable accordingly. This function also constructs the `cpart` part, the
+                            // constant factor with respect to the given variables.
 
-                                    let result =
-                                        // Handle when the variable part is a constant (this is because the sort function doesn't
-                                        // sort a list of a single element, so our projection function isn't called).
-                                        if not (containsVariables spVpart trueVariables) && List.isEmpty cpart then
-                                            let spVpart =
-                                                if spVpart = Sum [ Term [] ] then
-                                                    SumPow.Const 1
-                                                else
-                                                    spVpart
+                            let gp =
+                                List.groupBy
+                                    (function
+                                    | Pow(b, _) -> b)
+                                    term
 
-                                            Map.addOrUpdate deg0 spVpart result ((+) spVpart >> Simplification.simplify)
-                                        else
-                                            // A monomial may not contain an explicit instance of all the variables involved in the
-                                            // polynomial, e.g. y⁴ ≡ x⁰y⁴. We therefore apply a correction to show zero powers.
-                                            let vpart = if List.length vpart < vlen then zeroPowers vpart else vpart
+                            let gp = List.sortBy projection gp |> List.unzip |> snd |> List.flatten
 
-                                            let degree = MonomialDegree(retrieveDegree vpart)
+                            // If it has been detected that the term being processed is not a valid monomial, then it is ignored
+                            // and placed in the list of remaining terms.
+                            if notPoly then
+                                tryBuildPolynomial result (Term term :: rest) tail
+                            else
+                                // The sorting has been done in such a way that all constants are placed at the beginning of `gp`, so
+                                // that the `vart` part for the variables is further down the `gp` list.
+                                let vpart = List.skip cpart.Length gp
 
-                                            let cpart =
-                                                if List.isEmpty cpart then
-                                                    SumPow.Const One
-                                                else
-                                                    List.reduce (fun acc a -> Simplification.simplify (acc * a)) cpart
+                                let spVpart = Sum [ Term vpart ] |> Simplification.simplify
 
-                                            Map.addOrUpdate degree cpart result ((+) cpart >> Simplification.simplify)
+                                let result =
+                                    // Handle when the variable part is a constant (this is because the sort function doesn't
+                                    // sort a list of a single element, so our projection function isn't called).
+                                    if not (containsVariables spVpart trueVariables) && List.isEmpty cpart then
+                                        let spVpart =
+                                            if spVpart = Sum [ Term [] ] then
+                                                SumPow.Const 1
+                                            else
+                                                spVpart
 
-                                    tryBuildPolynomial result rest tail
+                                        Map.addOrUpdate deg0 spVpart result ((+) spVpart >> Simplification.simplify)
+                                    else
+                                        // A monomial may not contain an explicit instance of all the variables involved in the
+                                        // polynomial, e.g. y⁴ ≡ x⁰y⁴. We therefore apply a correction to show zero powers.
+                                        let vpart = if List.length vpart < vlen then zeroPowers vpart else vpart
 
-                        match tryBuildPolynomial Map.empty List.empty terms with
-                        | poly, _ when Map.isEmpty poly -> None
-                        | poly, rest ->
-                            let poly =
-                                { variables = variables
-                                  polynomial = poly
-                                  excludedVariables = excludedVariables }
+                                        let degree = MonomialDegree(retrieveDegree vpart)
 
-                            let rest =
-                                if List.isEmpty rest then
-                                    None
-                                else
-                                    Some(Simplification.simplify (Sum rest))
+                                        let cpart =
+                                            if List.isEmpty cpart then
+                                                SumPow.Const One
+                                            else
+                                                List.reduce (fun acc a -> Simplification.simplify (acc * a)) cpart
 
-                            Some(poly, rest)
+                                        Map.addOrUpdate degree cpart result ((+) cpart >> Simplification.simplify)
 
-                    // A constant monomial doesn't count as a valid polynomial for simplicity's sake.
-                    | _ -> None
+                                tryBuildPolynomial result rest tail
+
+                    match tryBuildPolynomial Map.empty List.empty terms with
+                    | poly, _ when Map.isEmpty poly -> None
+                    | poly, rest ->
+                        let poly =
+                            { variables = variables
+                              polynomial = poly
+                              excludedVariables = excludedVariables }
+
+                        let rest =
+                            if List.isEmpty rest then
+                                None
+                            else
+                                Some(Simplification.simplify (Sum rest))
+
+                        Some(poly, rest)
+
+                // A constant monomial doesn't count as a valid polynomial for simplicity's sake.
+                | _ -> None
 
         /// If possible, return a polynomial in the given variables. Otherwise returns `None`.
         let inline public tryAsMultivariatePolynomial (variables: SumPow list) (excludedVariables: string list) =
@@ -914,28 +895,24 @@ module rec Polynomial =
         let public (|GeneralPolynomial|_|) (excludedVariables: string list) (expr: SumPow) =
             let expr = Expand.fullExpand expr
 
-            if not (isPolynomialCandiat expr) then
-                None
-            else
+            /// Filtering predicate for polyomial variables in the broad sense.
+            let polynomialVariablePredicate =
+                function
+                | PureConstantExpression _, PureConstantExpression _ -> false // a constant is not a variable 🤷
+                | _, PureConstantExpressionInteger p -> p >= 0
+                | _ -> false
 
-                /// Filtering predicate for polyomial variables in the broad sense.
-                let polynomialVariablePredicate =
-                    function
-                    | PureConstantExpression.PureConstantExpression _, PureConstantExpression.PureConstantExpression _ -> false // a constant is not a variable 🤷
-                    | _, PureConstantExpression.PureConstantExpressionInteger p -> p >= 0
-                    | _ -> false
+            /// Gets the potential variables, in the sense of the definition of a possible variable for a polynomial.
+            let rawVariables =
+                List.collect
+                    (List.filter polynomialVariablePredicate >> List.map fst)
+                    (SimplifiedSum.simplifiedSum' expr)
+                |> List.distinct
 
-                /// Gets the potential variables, in the sense of the definition of a possible variable for a polynomial.
-                let rawVariables =
-                    List.collect
-                        (List.filter polynomialVariablePredicate >> List.map fst)
-                        (SimplifiedSum.simplifiedSum' expr)
-                    |> List.distinct
+            let trueVariables = manyTrueVariables rawVariables excludedVariables
+            let goodVariables = List.filter (flip containsVariables trueVariables) rawVariables
 
-                let trueVariables = manyTrueVariables rawVariables excludedVariables
-                let goodVariables = List.filter (flip containsVariables trueVariables) rawVariables
-
-                tryAsMultivariatePolynomial goodVariables excludedVariables expr
+            tryAsMultivariatePolynomial goodVariables excludedVariables expr
 
         /// If possible, return a polynomial by identifying variables. Otherwise returns `None`.
         let inline public tryAsGeneralPolynomial (excludedVariables: string list) =
