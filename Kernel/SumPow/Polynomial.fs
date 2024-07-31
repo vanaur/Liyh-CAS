@@ -2007,6 +2007,29 @@ module rec Polynomial =
                 else
                     None
 
+            /// If possible, apply the Sophie Germain's identity for the given univariate polynomial.
+            let public trySophieGermain (p: Polynomial) =
+                if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
+                if not (isMonic p) then None else
+
+                let variable, _ = getUnivariateVariableAndIndex p
+                let coefficients = completeCoefficients p
+
+                if List.length coefficients = 5 then
+                    let [ _; b; c; d; e ] = coefficients
+                    if not (List.forall Misc.isZero [ b; c; d ]) then None else
+
+                    let t = Simplification.simpPureConst (Fun("Root", [ e / 4; SumPow.Const 4 ]))
+                    let q1 = Simplification.simpPureConst (2 * t)
+                    let q2 = Simplification.simpPureConst (2 * (t ** 2))
+
+                    let a = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One; -q1; q2 ]
+                    let b = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One;  q1; q2 ]
+
+                    Some (a, b) // returns a*b
+                else
+                    None
+
         /// 
         let inline private subUnivPolynomiams (p: Polynomial) =
             if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
