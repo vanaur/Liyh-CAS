@@ -1717,6 +1717,7 @@ module rec Polynomial =
         let public computeGroebnerBasis = compatibles >> buchberger >> reducedGroebnerBasis
 
     module public Factorization =
+        open PureConstantExpression
         open Division.Univariate
 
         /// Check that the given polynomial is an univariate polynomial whose leading coefficient is 1.
@@ -1730,7 +1731,7 @@ module rec Polynomial =
             let rec inner resultingGcd =
                 function
                 | [] -> resultingGcd
-                | PureConstantExpression.PureConstantExpressionInteger icoeff :: rest -> inner (intGCD icoeff resultingGcd) rest
+                | PureConstantExpressionInteger icoeff :: rest -> inner (intGCD icoeff resultingGcd) rest
                 | _ :: rest -> inner resultingGcd rest
 
             match inner 0 coefficients with
@@ -1748,7 +1749,7 @@ module rec Polynomial =
                 | [] -> resultingGcd
                 | monomial :: rest ->
                     match fst monomial, fst resultingGcd with
-                    | PureConstantExpression.PureConstantExpressionInteger icoeff1, PureConstantExpression.PureConstantExpressionInteger icoeff2 ->
+                    | PureConstantExpressionInteger icoeff1, PureConstantExpressionInteger icoeff2 ->
 
                         // The coefficient of `monomialGcd` is 1 (because the monomial part is the variable product part)
 
@@ -1774,56 +1775,58 @@ module rec Polynomial =
 
             factor, p
 
-        /// Determines whether the given univariate polynomial is square free or not.
-        let public isSquareFree (p: Polynomial) =
-            if not (isUnivariate p) then
-                false
-            else // Only defined for univariate polynomials.
-                let variable, _ = getUnivariateVariableAndIndex p
-                isOnePolynomial (univariateGCD p (Calculus.derive p variable))
+        module private SquareFree =
 
-        /// Implements the Yun's algorithm for univariate square-free factorization. The return is a polynomial list with
-        /// associated exponent. For example, g(x) = x⁴ + 7x³ + 18x² + 20x + 8 ≡ (x + 1)¹(x + 2)³.
-        let public squareFreeFactoring (p: Polynomial) =
-            if not (isUnivariate p) then
-                raise (NotUnivariatePolynomialException p)
+            /// Determines whether the given univariate polynomial is square free or not.
+            let public isSquareFree (p: Polynomial) =
+                if not (isUnivariate p) then
+                    false
+                else // Only defined for univariate polynomials.
+                    let variable, _ = getUnivariateVariableAndIndex p
+                    isOnePolynomial (univariateGCD p (Calculus.derive p variable))
 
-            // If the polynomial is already square-free, then square-free factorization is not necessary.
-            if isSquareFree p then [ p, 1 ] else
-            let variable, varIndex = getUnivariateVariableAndIndex p
+            /// Implements the Yun's algorithm for univariate square-free factorization. The return is a polynomial list with
+            /// associated exponent. For example, g(x) = x⁴ + 7x³ + 18x² + 20x + 8 ≡ (x + 1)¹(x + 2)³.
+            let public squareFreeFactoring (p: Polynomial) =
+                if not (isUnivariate p) then
+                    raise (NotUnivariatePolynomialException p)
 
-            /// Implements https://en.wikipedia.org/wiki/Square-free_polynomial#Yun's_algorithm.
-            let rec yun bi di =
-                if totalDegree bi <= 0 then [] else
-                let ai = univariateGCD bi di
-                let bi1 = exactDivision bi ai varIndex
-                let ci1 = exactDivision di ai varIndex
-                let di1 = ci1 - Calculus.derive bi1 variable
-                ai :: yun bi1 di1
+                // If the polynomial is already square-free, then square-free factorization is not necessary.
+                if isSquareFree p then [ p, 1 ] else
+                let variable, varIndex = getUnivariateVariableAndIndex p
 
-            let p' = Calculus.derive p variable
-            let a0 = univariateGCD p p'
-            let b1 = exactDivision p a0 varIndex
-            let c1 = exactDivision p' a0 varIndex
-            let d1 = c1 - Calculus.derive b1 variable
+                /// Implements https://en.wikipedia.org/wiki/Square-free_polynomial#Yun's_algorithm.
+                let rec yun bi di =
+                    if totalDegree bi <= 0 then [] else
+                    let ai = univariateGCD bi di
+                    let bi1 = exactDivision bi ai varIndex
+                    let ci1 = exactDivision di ai varIndex
+                    let di1 = ci1 - Calculus.derive bi1 variable
+                    ai :: yun bi1 di1
 
-            // Units are trivial factors.
-            let result = List.filter (not << isOnePolynomial) (yun b1 d1)
-            let result = List.map simplifyCoefficients result
+                let p' = Calculus.derive p variable
+                let a0 = univariateGCD p p'
+                let b1 = exactDivision p a0 varIndex
+                let c1 = exactDivision p' a0 varIndex
+                let d1 = c1 - Calculus.derive b1 variable
 
-            /// Gets the number of times the given polynomial `f` divides the original polynomial, giving `f`'s multiplicity.
-            let rec associatedExponent (f: Polynomial) (expn: int) =
-                let f' = f ** expn
-                if totalDegree f' > totalDegree p then
-                    expn - 1
-                else
-                    let _, r = udiv p f'
-                    if isZeroPolynomial r then
-                        associatedExponent f (expn + 1)
-                    else
+                // Units are trivial factors.
+                let result = List.filter (not << isOnePolynomial) (yun b1 d1)
+                let result = List.map simplifyCoefficients result
+
+                /// Gets the number of times the given polynomial `f` divides the original polynomial, giving `f`'s multiplicity.
+                let rec associatedExponent (f: Polynomial) (expn: int) =
+                    let f' = f ** expn
+                    if totalDegree f' > totalDegree p then
                         expn - 1
+                    else
+                        let _, r = udiv p f'
+                        if isZeroPolynomial r then
+                            associatedExponent f (expn + 1)
+                        else
+                            expn - 1
 
-            List.map (fun a -> a, associatedExponent a 1) result
+                List.map (fun a -> a, associatedExponent a 1) result
 
         [<RequireQualifiedAccess>]
         module public IntegerCoefficients =
@@ -1839,7 +1842,7 @@ module rec Polynomial =
             /// Returns the complete list of coefficients of the given univariate polynomial with integer coefficients.
             let public integerCoefficients (p: Polynomial) =
                 if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
-                List.map (function PureConstantExpression.PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
+                List.map (function PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
 
             [<RequireQualifiedAccess>]
             module public RationalRoots =
@@ -1873,7 +1876,7 @@ module rec Polynomial =
                         (fun i ->
                             if x % i = 0 then
                                 let d = x / i
-                                if i <> d then [ i;  d ] else [ i ]
+                                if i <> d then [ i; d ] else [ i ]
                             else List.empty)
 
                 let private tryFindRationalRoot (p: Polynomial) =
@@ -1961,6 +1964,7 @@ module rec Polynomial =
 
             [<RequireQualifiedAccess>]
             module public BerlekampZassenhaus =
+                open SquareFree
                 // https://github.com/gilith/factor/blob/02a9c1c1a7bee19fa9ebbff852659d9a6ca8678d/src/Factor/Bz.hs
 
 
