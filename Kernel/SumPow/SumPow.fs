@@ -337,8 +337,8 @@ module rec SumPow =
             | Sum [ x ], Sum [ y ] -> compare x y
             | Sum xs, Sum ys -> compare xs ys
             | Fun(fname1, xs), Fun(fname2, ys) when fname1 = fname2 -> compare xs ys
-            | _ -> -1
-         // | a, b -> compare (hash a) (hash b)
+        //  | _ -> -1
+            | a, b -> compare (hash a) (hash b)
 
         let public compareTerm (Term xs, Term ys) = compare xs ys
         let public comparePow (Pow(a, b), Pow(c, d)) = compare (a, b) (c, d)
@@ -1066,7 +1066,7 @@ module rec SumPow =
                     | None -> makeSimp (Map.add b p result) constant xs
                     | Some v ->
                         match v + p with
-                        | Const n when isZero n -> makeSimp (Map.remove b result) constant xs
+                        | Zero -> makeSimp (Map.remove b result) constant xs
                         | newPow -> makeSimp (Map.update result b newPow) constant xs
 
             // Once the dictionary (Map) has been created, all we need to do is convert it into a list of powers, thus
