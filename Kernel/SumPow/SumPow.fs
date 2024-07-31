@@ -75,6 +75,12 @@ module rec SumPow =
             | Fun _ as a -> Some a
             | _ -> None
 
+        /// An active pattern that matches the divide-by-zero symbol.
+        let public (|DivByZero|_|) =
+            function
+            | Fun("DivByZero", _) as sp -> Some sp
+            | _ -> None
+
         /// An active pattern that matches the pure constant expression which reduces to the integer 0.
         let public (|Zero|_|) =
             function
@@ -170,6 +176,11 @@ module rec SumPow =
 
     /// The module containing SumPow's elementary arithmetic operations.
     module public ElementaryOperations =
+        open PureConstantExpression
+
+        /// A pseudo-function symbol (in the sense of elementary functions) that represents division by zero.
+        let inline public divByZero (numerator: SumPow) =
+            Fun ("DivByZero", [ numerator ])
 
         let public addition =
             function
@@ -227,12 +238,11 @@ module rec SumPow =
 
         let public frac =
             function
+            | Zero, _ -> Const Zero
+            | num, Zero -> divByZero num
+
             | a, b when a = b -> Const One
-
-            | Const n, _ when isZero n -> Const Zero
-            | _, Const n when isZero n -> Const Zero
-
-            | a, Const n when isOne n -> a
+            | a, One -> a
 
             // Instead of dividing two integer and obtaining a double, we simplify the fraction into an irreducible one.
             | Const(CInteger a), Const(CInteger b) ->
@@ -258,6 +268,7 @@ module rec SumPow =
 
         let rec public power =
             function
+            | Zero, PureConstantExpressionInteger n when n < 0 -> divByZero (Const One)
             | Zero, _ -> Const Zero
             | _, Zero -> Const One
             | Const a, Const b when b > 0 -> Const(a ** b)
@@ -271,6 +282,7 @@ module rec SumPow =
         /// Transforms the tuple (base, exponent) into a SumPow power.
         let rec public power' =
             function
+            | Zero, PureConstantExpressionInteger n when n < 0 -> powId (divByZero (Const One))
             | Power(a, b), One -> power'(a, b)
             | Power(a, One), b -> power'(a, b)
             | Const a, Const b when b > 0 -> Pow(Const(a ** b), Const One)
@@ -278,7 +290,7 @@ module rec SumPow =
 
         let public modulo =
             function
-            | PureConstantExpression.PureConstantExpressionInteger a, PureConstantExpression.PureConstantExpressionInteger b -> Const (double (a % b))
+            | PureConstantExpressionInteger a, PureConstantExpressionInteger b when b <> 0 -> Const (double (a % b))
             | a, b -> Fun("Modulo", [ a; b ])
 
     /// The module that implements SumPow custom hashing.
@@ -763,6 +775,7 @@ module rec SumPow =
                 if List.forall (List.forall isPureConstPow) ss then Some c
                 else None
 
+            | DivByZero _ as sp -> Some sp
             | Fun(_, args) as c ->
                 if List.forall isPureConstantExpression args then Some c
                 else None
