@@ -455,3 +455,7 @@ $RECYCLE.BIN/
 
 .local-chromium
 ignore
+
+# Performance profiler
+*.nettrace
+*.speedscope.json
