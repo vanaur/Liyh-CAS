@@ -707,6 +707,8 @@ module rec SumPow =
     /// A "pure constant expression" is an expression containing no variables or parameters, just numbers. For simplicity,
     /// even constants such as pi and e are not considered (for now). This module provides utilities for simplifying and
     /// working with constant expressions or matching them.
+    /// 
+    /// The simplifier (hopefully) handles integers, rationals, powers, fractions, roots, sums and products.
     module public PureConstantExpression =
         open SimplifiedSum
         open ElementaryOperations
@@ -764,8 +766,43 @@ module rec SumPow =
 
             let rec public intSqrtDenesting (sp: SumPow) = failwith "TODO: denesting radicals"
 
+        /// Type of result possible after simplifying an integer root.
+        [<Struct; RequireQualifiedAccess; NoEquality; NoComparison>]
+        type private SimpIntRoot =
+            | Int         of int: int // a simple integer
+            | IrredRoot   of irredRoot: (int * int) // an irreductile root x & nth
+            | IntRootProd of intRootProd: (int * (int * int)) // the product of an irreductile root and an integer coefficient
+
+        /// Each negative number of the given product is transformed into the product of its absolute value and `-1`.
+        let inline private shneg (prod: (SumPow * SumPow) list) =
+
+            let inline inner acc (b, p) =
+                match b with
+            //  | PureConstantExpressionInteger n when n < 0 // risky?
+                | Const(CBigInteger n) when n < 0 -> (Const -1, p) :: (Const(fromBigInt (abs n)), p) :: acc
+                | other -> (other, p) :: acc
+
+            List.fold inner [] prod
+
+        let private csimplifyIntRoot (x: int) (nth: int) =
+            let inline simplifyNthRoot x n =
+
+                let rec loop i c d =
+                    if i * i > d then (c, d)
+                    elif d % (pown i n) = 0
+                    then loop i (c * i) (d / (pown i n))
+                    else loop (i + 1) c d
+
+                loop 2 1 x
+
+            match simplifyNthRoot x nth with
+            | c, 1 -> SimpIntRoot.Int c
+            | 1, d -> SimpIntRoot.IrredRoot (d, nth)
+            | c, d -> SimpIntRoot.IntRootProd (c, (d, nth))
+
         /// Checks if the given expression is a "pure constant" (i.e. an expression containing no `Name string` data).
         /// The returned expression is unvalued.
+        [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
         let rec public (|PureConstantExpression|_|) =
             function
             | Name _ -> None
@@ -822,54 +859,90 @@ module rec SumPow =
         /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
         /// involves floating-point constants, then the simplification is subject to the inaccuracies.
         and public csimplify =
-            FixedPoint.tryFixedPoint 5
+            id//FixedPoint.tryFixedPoint 5 // Is the fixed point necessary?
             <| function
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
                 | Power(b, p) -> power (csimplify b, csimplify p)
 
-                | PureConstantExpressionRational(cnum, cden) -> Const cnum / Const cden
-                | Frac(PureConstantExpressionRational(a, b), PureConstantExpressionRational(c, d)) -> Const (double (a * d)) / Const (double (b * c))
-                | Frac(PureConstantExpressionRational(a, b), PureConstantExpressionInteger c) -> Const a / (b * c)
-                | Frac(PureConstantExpressionInteger a, PureConstantExpressionRational(b, c)) -> (a * c) / Const b
-
                 | Root(PureConstantExpressionInteger 1, _) -> Const One
-                | Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth) -> csimplifyRoot x nth
+                | Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth) ->
 
-                //| Root(x, PureConstantExpressionInteger nth) -> failwith "todo: denesting"
+                    match csimplifyIntRoot x nth with
+                    | SimpIntRoot.Int r -> Const r
+                    | SimpIntRoot.IrredRoot(x, nth) -> Fun("Root", [ Const x; Const nth ])
+                    | SimpIntRoot.IntRootProd (c, (x, nth)) -> c * Fun("Root", [ Const x; Const nth ])
+
                 | Prod prod -> csimplifyProd prod
                 | Sum terms -> csimplifySum terms
                 | Fun(fname, args) -> Fun(fname, List.map csimplify args)
                 | other -> other
 
-        and private csimplifyRoot (x: int) (nth: int) =
-            let simplifyNthRoot x n =
-
-                let rec loop i c d =
-                    if i * i > d then (c, d)
-                    elif d % (pown i n) = 0I
-                    then loop i (c * i) (d / (pown i n))
-                    else loop (i + 1I) c d
-
-                loop 2I 1I x
-
-            match simplifyNthRoot x nth with
-            | c, d when d = 1I -> Const (fromBigInt c)
-            | c, d when c = 1I -> Fun ("Root", [ Const (fromBigInt d); Const nth ])
-            | c, d -> Const (fromBigInt c) * Fun ("Root", [ Const (fromBigInt d); Const nth ])
-
         and private csimplifyProd (prod: (SumPow * SumPow) list) =
-            let rec buildMap result =
-                function
-                | [] -> result
-                | (b, Power(p, One)) :: rest
-                | (Power(b, One), p) :: rest
-                | (b, p) :: rest ->
-                    let b, p = Misc.convertAllRootsToPower b, Misc.convertAllRootsToPower p
-                    buildMap (Map.addOrUpdate (csimplify p) (csimplify b) result (( * ) b >> csimplify)) rest
+            let prod = shneg prod
 
-            Map.fold (fun acc p b -> acc * power (b, p)) (Const One) (buildMap Map.empty prod)
-            //|> Misc.convertAllRationalPowersToRoot
+            let rec makeSimp omap rmap =
+                function
+                | [] -> omap, rmap
+
+                | (Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth), One) :: rest ->
+                    makeSimpIntRoot x nth omap rmap rest
+
+            // TODO (inverse roots)
+            //  | (Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth), NegOne) :: rest ->
+            //      makeSimpIntRoot x nth omap rmap rest
+
+                | (b, p) :: rest ->
+                    let omap = Map.addOrUpdate (csimplify b) p omap (( + ) p)
+                    makeSimp omap rmap rest
+
+            and makeSimpIntRoot x nth omap rmap rest =
+                let inline updateOMap k v = Map.addOrUpdate k v omap (( + ) 1 >> csimplify)
+                let inline updateRMap k v = Map.addOrUpdate k v rmap (( * ) v >> csimplify)
+
+                match csimplifyIntRoot x nth with
+                | SimpIntRoot.Int c ->
+                    let omap = updateOMap (Const c) (Const One)
+                    makeSimp omap rmap rest
+
+                | SimpIntRoot.IrredRoot(x, nth) ->
+                    let rmap = updateRMap (Const nth) (Const x)
+                    makeSimp omap rmap rest
+
+                | SimpIntRoot.IntRootProd(c, (x, nth)) ->
+                    let omap = updateOMap (Const c) (Const One)
+                    let rmap = updateRMap (Const nth) (Const x)
+                    makeSimp omap rmap rest
+
+            let inline folder (iacc, facc, oacc) b p =
+                match b, p with
+                | PureConstantExpressionInteger b, PureConstantExpressionInteger p when p > 0 ->
+                    (Const (pown b p) * iacc, facc, oacc)
+
+                | PureConstantExpressionInteger b, PureConstantExpressionInteger p when p < 0 ->
+                    (iacc, Const (pown b (abs p)) * facc, oacc)
+
+                | b, p ->
+                    (iacc, facc, oacc * power (b, p))
+
+            // The calculations are divided into four parts:
+            //  a. manage the product of roots
+            //  b. manage the product of integers
+            //  c. manage the product of inverted integers
+            //  d. manage the product of other factors
+
+            let omap, rmap = makeSimp Map.empty Map.empty prod
+            let a = Map.fold (fun acc nth x -> acc * Fun("Root", [ x; nth ])) (Const One) rmap
+            let b, c, d = Map.fold folder (Const One, Const One, Const One) omap
+
+            // Version that only manages roots and "other" factors without distinction:
+            //   let omap, rmap = makeSimp Map.empty Map.empty prod
+            //   let a = Map.fold (fun acc b p -> acc * power (b, p)) (Const One) omap
+            //   let b = Map.fold (fun acc nth x -> acc * Fun("Root", [ x; nth ])) (Const One) rmap
+            // 
+            //   a * b
+
+            (b/c) * a * d
 
         and private csimplifyTerm =
             function
@@ -1011,7 +1084,11 @@ module rec SumPow =
         /// Assuming that the given expression is a pure constant (i.e. an expression containing no variables), then return
         /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
         /// involves floating-point constants, then the simplification is subject to the inaccuracies.
-        let public simpPureConst = PureConstantExpression.csimplify
+        let inline public simpPureConst (sp: SumPow) =
+            if not (PureConstantExpression.isPureConstantExpression sp) then
+                raise (PureConstantExpression.ExpressionIsNotPureConstantException sp)
+
+            PureConstantExpression.csimplify sp
 
         /// Basic simplifies the fraction, given in numerator and denominator form. Returns a SumPow.
         let private simpFrac (num: SumPow) (den: SumPow) =
@@ -1762,6 +1839,12 @@ module rec SumPow =
         let public isFrac =
             function
             | Frac _ -> true
+            | _ -> false
+
+        /// Check that the given expression is a root.
+        let public isRoot =
+            function
+            | ElemFun.Root _ -> true
             | _ -> false
 
         /// Convert the product representation into SumPow.
