@@ -1084,7 +1084,7 @@ module rec SumPow =
         /// Assuming that the given expression is a pure constant (i.e. an expression containing no variables), then return
         /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
         /// involves floating-point constants, then the simplification is subject to the inaccuracies.
-        let inline public simpPureConst (sp: SumPow) =
+        let public simpPureConst (sp: SumPow) =
             if not (PureConstantExpression.isPureConstantExpression sp) then
                 raise (PureConstantExpression.ExpressionIsNotPureConstantException sp)
 
