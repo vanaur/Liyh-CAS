@@ -1977,6 +1977,26 @@ module rec Polynomial =
         [<RequireQualifiedAccess>]
         module public Specific =
 
+            /// If possible, apply the quadratic formula factorization for the given univariate polynomial.
+            let public tryQuadraticFormula (p: Polynomial) =
+                if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
+
+                let variable, _ = getUnivariateVariableAndIndex p
+                let coefficients = completeCoefficients p
+
+                if List.length coefficients = 3 then
+                    let [ a; b; c ] = coefficients
+                    let Δ2 = Fun("Sqrt",  [b ** 2 - 4 * a * c]) |> Simplification.simpPureConst
+                    let r1 = (-b + Δ2) / (2 * a) |> Simplification.simpPureConst
+                    let r2 = (-b - Δ2) / (2 * a) |> Simplification.simpPureConst
+
+                    let a = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; -r1 ]
+                    let b = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; -r2 ]
+
+                    Some (a, b) // returns a*b
+                else
+                    None
+
             /// If possible, complete the square of the given univariate polynomial.
             let public tryCompleteTheSquare (p: Polynomial) =
                 if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
