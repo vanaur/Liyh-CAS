@@ -1986,9 +1986,9 @@ module rec Polynomial =
 
                 if List.length coefficients = 3 then
                     let [ a; b; c ] = coefficients
-                    let Δ2 = Fun("Sqrt",  [b ** 2 - 4 * a * c]) |> Simplification.simpPureConst
-                    let r1 = (-b + Δ2) / (2 * a) |> Simplification.simpPureConst
-                    let r2 = (-b - Δ2) / (2 * a) |> Simplification.simpPureConst
+                    let Δ2 = Fun("Sqrt",  [b ** 2 - 4 * a * c]) |> Simplification.simplify
+                    let r1 = (-b + Δ2) / (2 * a) |> Simplification.simplify
+                    let r2 = (-b - Δ2) / (2 * a) |> Simplification.simplify
 
                     let a = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; -r1 ]
                     let b = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; -r2 ]
@@ -2029,9 +2029,9 @@ module rec Polynomial =
                     let [ _; b; c; d; e ] = coefficients
                     if not (List.forall Misc.isZero [ b; c; d ]) then None else
 
-                    let t = Simplification.simpPureConst (Fun("Root", [ e / 4; SumPow.Const 4 ]))
-                    let q1 = Simplification.simpPureConst (2 * t)
-                    let q2 = Simplification.simpPureConst (2 * (t ** 2))
+                    let t = Simplification.simplify (Fun("Root", [ e / 4; SumPow.Const 4 ]))
+                    let q1 = Simplification.simplify (2 * t)
+                    let q2 = Simplification.simplify (2 * (t ** 2))
 
                     let a = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One; -q1; q2 ]
                     let b = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One;  q1; q2 ]
