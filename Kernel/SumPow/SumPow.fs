@@ -1505,6 +1505,7 @@ module rec SumPow =
 
     /// A module for the approximate numerical evaluation of SumPow expressions.
     module public NumericEvaluation =
+        open System.Linq
         open System.Collections.Generic
 
         exception public UnboundVariableException of vname: string
@@ -1565,9 +1566,31 @@ module rec SumPow =
             let xs = [| Constant min .. Constant step .. Constant max |]
             Array.Parallel.map (evaluate1 sp variable) xs
 
-        // NOTE: Il faut gérer les 0/0.
-        // On génère une liste de listes où chaque nouevzu lisr correspond
-        // au passage d'une asymptote !
+        /// Generates an array of constant numeric 2D points from `min` to `max` in `step` increments.
+        /// Each new array corresponds to a new part of the graph separated by an asymptote.
+        let public generatePoints2D' (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
+            let xs = [| Constant min .. Constant step .. Constant max |]
+            let xs = Array.Parallel.map (function (Constant x) -> if Constant.approximatelyEquals x (Constant 0) None then Constant 0. else Constant x) xs
+            let ys = Array.Parallel.map (evaluate1 sp variable) xs
+            let points = Array.zip xs ys
+
+            let splitByAsymptots values =
+                values
+                |> Array.fold
+                    (fun (acc: ResizeArray<ResizeArray<_>>) (Constant x, Constant y) ->
+                        let currentList = acc.[acc.Count - 1]
+                        let (_, lasty) = currentList.LastOrDefault((x, y))
+
+                        if (abs (y / lasty) > 1. / step)
+                        then acc.Add(new ResizeArray<_>())
+                        else currentList.Add(x, y)
+
+                        acc)
+                    (ResizeArray<ResizeArray<_>>(seq [ ResizeArray<_>() ]))
+                |> Seq.map (fun sublist -> sublist.ToArray())
+                |> Seq.toArray
+
+            splitByAsymptots points
 
         /// Generates an array of Constant numerical 2D points from `min` to `max` in `step` increments.
         let public generatePoints2D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
