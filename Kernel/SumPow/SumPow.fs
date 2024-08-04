@@ -1506,7 +1506,6 @@ module rec SumPow =
     /// A module for the approximate numerical evaluation of SumPow expressions.
     module public NumericEvaluation =
         open System.Collections.Generic
-        open FSharp.Collections.ParallelSeq
 
         exception public UnboundVariableException of vname: string
         exception public UnboundFunctionException of fname: string
@@ -1564,7 +1563,7 @@ module rec SumPow =
         /// Generates an array of Constant numerical values from `min` to `max` in `step` increments.
         let public generatePoints1D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
             let xs = [| Constant min .. Constant step .. Constant max |]
-            PSeq.map (evaluate1 sp variable) xs |> PSeq.toArray
+            Array.Parallel.map (evaluate1 sp variable) xs
 
         // NOTE: Il faut gérer les 0/0.
         // On génère une liste de listes où chaque nouevzu lisr correspond
@@ -1573,7 +1572,7 @@ module rec SumPow =
         /// Generates an array of Constant numerical 2D points from `min` to `max` in `step` increments.
         let public generatePoints2D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
             let xs = [| Constant min .. Constant step .. Constant max |]
-            let ys = PSeq.map (evaluate1 sp variable) xs |> PSeq.toArray
+            let ys = Array.Parallel.map (evaluate1 sp variable) xs
             Array.zip xs ys |> Array.filter (function Constant x, Constant y -> Double.IsFinite y)
 
         /// If the given expression contains variables, then evaluate only the constant numeric terms.
