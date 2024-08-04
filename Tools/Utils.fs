@@ -267,6 +267,10 @@ module rec Utils =
             | x :: xs -> x :: removeMany pred xs
             | _ -> []
 
+        /// Flatten a list of tuples.
+        let inline public flattenTupleList (list: ('a * 'a) list) =
+            List.fold (fun acc (x, y) -> x :: y :: acc) [] list
+
     // Some extensions to the standard module.
     module public Map =
         exception public UpdatingNonExistentKeyException
