@@ -2011,9 +2011,9 @@ module rec Polynomial =
                         let _, b, c = SumPow.Const One, (b / a), (c / a)
 
                         let p = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; b / 2 ]
-                        let coeff = c - (b ** 2) / 4
+                        let c = fromCoefficients [ variable ] [ 0 ] [ c - (b ** 2) / 4 ]
 
-                        Some (coeff, (p, 2))
+                        Some ((c, 1), (p, 2)) // returns c¹p²
                 else
                     None
 
@@ -2036,7 +2036,7 @@ module rec Polynomial =
                     let a = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One; -q1; q2 ]
                     let b = fromCoefficients [ variable ] [ 2 ] [ SumPow.Const One;  q1; q2 ]
 
-                    Some (a, b) // returns a*b
+                    Some ((a, 1), (b, 1)) // returns a¹*b¹
                 else
                     None
 
