@@ -635,7 +635,6 @@ module rec SumPow =
 
     /// This module contains some utilities that make it easier to manipulate SumPow's sums.
     module public SimplifiedSum =
-        open ElementaryOperations
 
         exception public NotASimplifiedSum of SumPow
 
@@ -657,7 +656,7 @@ module rec SumPow =
         /// Convert the given `SimplifiedSum` to `SumPow`.
         let public simplifiedSumToSum (ss: SimplifiedSum) =
             let inline makeTerm term = [ for (b, p) in term -> ElementaryOperations.power'(b, p) ]
-            Sum [ for term in ss -> (Simplification.flattenTerm >> Term) (makeTerm term) ]
+            Sum [ for term in ss -> (Flatten.flattenTerm >> Term) (makeTerm term) ]
 
         /// Active pattern for `SumPow`'s sum to `SimplifiedSum`.
         let public (|SimplifiedSum|_|) =
@@ -1006,11 +1005,69 @@ module rec SumPow =
             | PureConstantExpressionFloat _ -> true
             | _ -> false
 
+    /// A SumPow expression is said to be "flattened" if it contains no nodes of the form `Term [ Pow(Sum [ Term term ], One) ]`.
+    /// In other words, flattening consists of modifying the SumPow representation to meet this criterion. This is very
+    /// important for the proper functioning and optimality of the algorithms used almost everywhere with SumPow, particularly
+    /// with regard to simplifications and expansions.
+    module public Flatten =
+        open ElementaryOperations
+        open SimplifiedSum
+
+        let private isFlatTerm =
+            function
+            | Term [ Pow(Sum [Term _], One) ] -> false
+            | _ -> true
+
+        let private isSumOfPowersWithSumBase =
+            let inn1 (Pow(b, p)) = Misc.isSum b && Misc.isOne p
+            let inn2 (Term term) = List.forall inn1 term
+
+            List.forall inn2
+
+        /// Determines whether the given SumPow expression is flattened.
+        let rec public isFlat =
+            function
+            | Sum sum -> List.forall isFlatTerm sum && not (isSumOfPowersWithSumBase sum)
+            | _ -> true
+
+        /// Rewrite all `Term [ Pow(Sum [ Term term ], One) ]` to `Term term` recursively in the given SumPow.
+        let rec public flatten (sp: SumPow) =
+            if isFlat sp then sp else
+            match sp with
+            | Power(b, One) -> flatten b
+            | Power(b, p) -> power(flatten b, flatten p)
+            | Sum sum when isSumOfPowersWithSumBase sum ->
+                let inn1 (Pow(Sum xs, One)) = xs
+                let inn2 (Term term) = List.collect inn1 term
+
+                Sum (List.collect inn2 sum)
+            | Sum sum -> Sum ((mapTerm' flattenTerm) sum)
+            | other -> other
+
+        /// Rewrite all `Term [ Pow(Sum [ Term term ], One) ]` to `Term term` recursively in the given term.
+        and public flattenTerm =
+
+            let rec inner result =
+                function
+                | [] -> result
+
+                | Pow (Sum [ Term term ], One) :: tail ->
+                    inner (inner [] term @ result) tail
+
+                | Pow (Sum sum, p) :: tail ->
+                    let sum = mapTerm' (inner []) sum
+                    inner (power' (Sum sum, p) :: result) tail
+
+                | other :: tail -> inner (other :: result) tail
+
+            inner []
+
     /// Elementary simplifications, concerned with common terms that simplify each other.
     /// This simplification module is the basis for all other simplifications in Liyh.
     module public Simplification =
         open ElementaryOperations
         open SimplifiedSum
+        open Flatten
 
         //
         // P͟e͟r͟f͟o͟r͟m͟a͟n͟c͟e͟ ͟n͟o͟t͟e͟: the current implementation uses the `Map` type from the F# library at the heart of its
@@ -1028,54 +1085,6 @@ module rec SumPow =
         // directly return a flattened expression...
         // That said, it's still useful when it's not possible to return a flattened expression in a simple way.
         //
-
-        let private isFlatTerm =
-            function
-            | Term [ Pow(Sum [Term _], One) ] -> false
-            | _ -> true
-
-        let rec private isFlat =
-            function
-            | Sum sum -> List.forall isFlatTerm sum && not (isSumOfPowersWithSumBase sum)
-            | _ -> true
-
-        /// Rewrite all `Term [ Pow(Sum [ Term term ], One) ]` to `Term term` recursively.
-        let public flattenTerm =
-
-            let rec inner result =
-                function
-                | [] -> result
-
-                | Pow (Sum [ Term term ], One) :: tail ->
-                    inner (inner [] term @ result) tail
-
-                | Pow (Sum sum, p) :: tail ->
-                    let sum = mapTerm' (inner []) sum
-                    inner (power' (Sum sum, p) :: result) tail
-
-                | other :: tail -> inner (other :: result) tail
-
-            inner []
-
-        let private isSumOfPowersWithSumBase =
-            let inn1 (Pow(b, p)) = Misc.isSum b && Misc.isOne p
-            let inn2 (Term term) = List.forall inn1 term
-
-            List.forall inn2
-
-        /// Rewrite all `Term [ Pow(Sum [ Term term ], One) ]` to `Term term` recursively in the given SumPow.
-        let public flatten (sp: SumPow) =
-            if isFlat sp then sp else
-            match sp with
-            | Power(b, One) -> flatten b
-            | Power(b, p) -> power(flatten b, flatten p)
-            | Sum sum when isSumOfPowersWithSumBase sum ->
-                let inn1 (Pow(Sum xs, One)) = xs
-                let inn2 (Term term) = List.collect inn1 term
-
-                Sum (List.collect inn2 sum)
-            | Sum sum -> Sum ((mapTerm' flattenTerm) sum)
-            | other -> other
 
         /// Cleans a product by removing terms equal to one.
         let public basicTermSimp =
@@ -1256,7 +1265,7 @@ module rec SumPow =
                 :: List.map (function Pow(b, p) -> power' (expand b, expand p * (spn - spk))) x
                  @ List.map (function Pow(b, p) -> power' (expand b, expand p * spk)) y
                 |> Simplification.basicTermSimp
-                |> Simplification.flattenTerm
+                |> Flatten.flattenTerm
                 |> Term
 
             Sum [ for k = 0 to n do binomialTerm k ]
