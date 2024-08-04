@@ -2000,7 +2000,7 @@ module rec Polynomial =
             /// If possible, complete the square of the given univariate polynomial.
             let public tryCompleteTheSquare (p: Polynomial) =
                 if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
-                
+
                 let variable, _ = getUnivariateVariableAndIndex p
                 let coefficients = completeCoefficients p
                 
@@ -2010,20 +2010,10 @@ module rec Polynomial =
                     else
                         let _, b, c = SumPow.Const One, (b / a), (c / a)
 
-                        let p1 =
-                            simplifyCoefficients
-                                { variables = [ variable ]
-                                  polynomial = Map.ofList [ (MonomialDegree [ 1 ], SumPow.Const One)
-                                                            (MonomialDegree [ 0 ], b / 2) ]
-                                  excludedVariables = p.excludedVariables }
+                        let p = fromCoefficients [ variable ] [ 1 ] [ SumPow.Const One; b / 2 ]
+                        let coeff = c - (b ** 2) / 4
 
-                        let p2 =
-                            simplifyCoefficients
-                                { variables = [ variable ]
-                                  polynomial = Map.ofList [ (MonomialDegree [ 0 ], c - (b ** 2) / 4) ]
-                                  excludedVariables = p.excludedVariables }
-
-                        Some ((p1, 2), (p2, 1))
+                        Some (coeff, (p, 2))
                 else
                     None
 
