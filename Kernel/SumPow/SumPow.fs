@@ -871,6 +871,11 @@ module rec SumPow =
                 | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->                    
                     csimplify x
 
+                | Power(Prod prod, p) ->
+                    let p = csimplify p
+                    let pprod = List.map (fun (b, p') -> power' (b, csimplify (p * p'))) prod
+                    csimplify (sumId (Term pprod))
+
                 | Power(b, p) -> power (csimplify b, csimplify p)
 
                 | Root(PureConstantExpressionInteger 1, _) -> Const One
