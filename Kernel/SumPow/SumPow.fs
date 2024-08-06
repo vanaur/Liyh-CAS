@@ -799,6 +799,12 @@ module rec SumPow =
             | 1, d -> SimpIntRoot.IrredRoot (d, nth)
             | c, d -> SimpIntRoot.IntRootProd (c, (d, nth))
 
+        let private csimplifyIntRootAsSumPow (x: int) (nth: int) =
+            match csimplifyIntRoot x nth with
+            | SimpIntRoot.Int r -> Const r
+            | SimpIntRoot.IrredRoot(x, nth) -> Fun("Root", [ Const x; Const nth ])
+            | SimpIntRoot.IntRootProd (c, (x, nth)) -> c * Fun("Root", [ Const x; Const nth ])
+
         /// Checks if the given expression is a "pure constant" (i.e. an expression containing no `Name string` data).
         /// The returned expression is unvalued.
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
@@ -862,15 +868,24 @@ module rec SumPow =
             <| function
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
+                | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->                    
+                    csimplify x 
+
                 | Power(b, p) -> power (csimplify b, csimplify p)
 
                 | Root(PureConstantExpressionInteger 1, _) -> Const One
                 | Root(PureConstantExpressionInteger x, PureConstantExpressionInteger nth) ->
+                    csimplifyIntRootAsSumPow x nth
 
-                    match csimplifyIntRoot x nth with
-                    | SimpIntRoot.Int r -> Const r
-                    | SimpIntRoot.IrredRoot(x, nth) -> Fun("Root", [ Const x; Const nth ])
-                    | SimpIntRoot.IntRootProd (c, (x, nth)) -> c * Fun("Root", [ Const x; Const nth ])
+                | Frac(PureConstantExpressionInteger 1, Root(PureConstantExpressionInteger x, PureConstantExpressionNatural nth)) ->
+                    let t = (csimplifyIntRootAsSumPow x nth) ** (nth - 1)
+                    csimplify (t / x)
+
+                | Root(PureConstantExpressionRational (a, b), PureConstantExpressionNatural nth) ->
+                    let a = csimplifyIntRootAsSumPow a nth
+                    let b = csimplifyIntRootAsSumPow b nth
+
+                    csimplify (a / b)
 
                 | Prod prod -> csimplifyProd prod
                 | Sum terms -> csimplifySum terms
