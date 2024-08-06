@@ -869,7 +869,7 @@ module rec SumPow =
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
                 | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->                    
-                    csimplify x 
+                    csimplify x
 
                 | Power(b, p) -> power (csimplify b, csimplify p)
 
@@ -879,12 +879,11 @@ module rec SumPow =
 
                 | Frac(PureConstantExpressionInteger 1, Root(PureConstantExpressionInteger x, PureConstantExpressionNatural nth)) ->
                     let t = (csimplifyIntRootAsSumPow x nth) ** (nth - 1)
-                    csimplify (t / x)
+                    csimplify (csimplify t / x)
 
                 | Root(PureConstantExpressionRational (a, b), PureConstantExpressionNatural nth) ->
                     let a = csimplifyIntRootAsSumPow a nth
                     let b = csimplifyIntRootAsSumPow b nth
-
                     csimplify (a / b)
 
                 | Prod prod -> csimplifyProd prod
