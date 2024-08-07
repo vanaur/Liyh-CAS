@@ -1541,12 +1541,12 @@ module rec SumPow =
 
         /// Determine whether the two expressions are numerically approximately equal up to the given precision. If `eps` is `None`
         /// then the comparison is made with a fixed femto-precision (`1e-15`).
-        let public approximatelyEquals (sp1: SumPow) (sp2: SumPow) (values: Dictionary<string, Constant>) (eps: double option) =
+        let public approximatelyEquals (sp1: SumPow) (sp2: SumPow) (values: Dictionary<string, Constant>) (eps: double voption) =
             Constant.approximatelyEquals (evaluate sp1 values) (evaluate sp2 values) eps
 
         /// Determine whether the given expressions is numerically approximately equal to zero up to the given precision.
         /// If `eps` is `None` then the comparison is made with a fixed femto-precision (`1e-15`).
-        let public approximatelyEqualsZero (sp: SumPow) (eps: double option) =
+        let public approximatelyEqualsZero (sp: SumPow) (eps: double voption) =
             approximatelyEquals sp (Const Zero) (Dictionary []) eps
 
         /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation is
@@ -1598,7 +1598,7 @@ module rec SumPow =
         /// Each new array corresponds to a new part of the graph separated by an asymptote.
         let public generatePoints2D' (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
             let xs = [| Constant min .. Constant step .. Constant max |]
-            let xs = Array.Parallel.map (function (Constant x) -> if Constant.approximatelyEquals x (Constant 0) None then Constant 0. else Constant x) xs
+            let xs = Array.Parallel.map (function (Constant x) -> if Constant.approximatelyEquals x (Constant 0) ValueNone then Constant 0. else Constant x) xs
             let ys = Array.Parallel.map (evaluate1 sp variable) xs
             let points = Array.zip xs ys
 
