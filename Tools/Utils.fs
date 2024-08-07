@@ -164,6 +164,19 @@ module rec Utils =
         let rec public digitCount number =
             if number < 10 then 1 else 1 + digitCount (number / 10)
 
+        /// Count the number of decimal places the value has.
+        let public decimalCount (value: double) =
+            if value = 0.0 then 0 else
+
+            let rec countDecimalsHelper (value: double) (count: int) =
+                let fraction = value - Math.Floor(value)
+                if fraction = 0.0 then count
+                else
+                    let newValue = fraction * 10.0
+                    countDecimalsHelper newValue (count + 1)
+
+            countDecimalsHelper value 0
+
         /// Returns the generic n-Cartesian product of the given list.
         let public cartProd lists =
             let inline inner xs ys =
