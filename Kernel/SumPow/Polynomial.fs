@@ -4,6 +4,7 @@ namespace Liyh.Kernel.SumPow
 #nowarn "193"
 #nowarn "25"
 #nowarn "46"
+#nowarn "57"
 
 /// Polynomials are extremely important. They are present in a large number of cases.
 /// This module enables working with 𝑓 ∈ K[x₁, x₂, ..., xₙ] polynomials of arbitrary finite degrees and variables.
@@ -2082,199 +2083,138 @@ module rec Polynomial =
             | PureConstantExpression.PureConstantExpression pc -> SumPow.Const (NumericEvaluation.evaluate0 pc)
             | result -> result
 
-    module public NumericEvaluation' =
-        exception public NotANumericUivariatePolynomial of Polynomial
-
-        [<Struct>]
-        type public NumericUivariatePolynomial = NUP of (int * double) list
-
-        let inline private evalNup (NUP p) (value: double) =
-            List.fold (fun acc (deg, coeff) -> acc + (pown value deg) * coeff) 0. p
-
-        let private newtonMethod p p' (initial: double) (ϵ: double) =
-            assert (ϵ > 0)
-
-            let evalP = evalNup p
-            let evalP' = evalNup p'
-
-            let rec next xn =
-                let xnp1 = xn - (evalP xn / evalP' xn)
-                let err = abs (xnp1 - xn)
-
-                if err < ϵ then xn else next xnp1
-
-            next initial
-
-        /// Returns the numerical derivative of the given numerical univariate polynomial.
-        let inline private derive (NUP nup) =
-            List.map (fun (deg, coeff) -> (deg - 1, coeff * double deg)) nup
-            |> List.filter (fun (_, coeff) -> coeff <> 0)
-            |> NUP
-
-        let public (|NumericUivariatePolynomial|_|) =
-            function
-            | { variables = [ _ ]
-                polynomial = polynomial } ->
-
-                let inner =
-                    function
-                    | MonomialDegree [ deg ], PureConstantExpression.PureConstantExpressionFloat coeff -> Some(deg, coeff)
-                    | _ -> None
-
-                /// Try to create a numerical univariate polynomial, browse the list of coefficients only once.
-                let tryProcessPolynomial polynomial =
-
-                    let rec process acc =
-                        function
-                        | [] -> Some acc
-                        | (key, value) :: rest ->
-                            match inner (key, value) with
-                            | Some res -> process (res :: acc) rest
-                            | None -> None
-
-                    process [] (Map.toList polynomial)
-
-                match tryProcessPolynomial polynomial with
-                | Some result -> Some(NUP (List.map (fun (a, Constant b) -> a, b) result))
-                | None -> None
-
-            | _ -> None
-
-        let public tryAsNumericUivariatePolynomial =
-            function
-            | NumericUivariatePolynomial result -> Some result
-            | _ -> None
-
-        let public asNumericUivariatePolynomial =
-            function
-            | NumericUivariatePolynomial result -> result
-            | other -> raise (NotANumericUivariatePolynomial other)
-
-        let public fullNumericPolynomial (NUP nup) =
-            let deg = List.maxBy fst nup |> fst //fst nup.[0]
-
-            NUP
-                [ for i = deg downto 0 do
-                      (i, List.tryFind (fst >> (=) i) nup |> Option.map snd |> Option.defaultValue 0.) ]
-
-        let inline private nupFromCoeffs (coeffs: double list) =
-            List.mapi (fun deg coeff -> (deg, coeff)) (List.rev coeffs) |> NUP
-
-        let private sturmChain (nup: NumericUivariatePolynomial) =
-            let nup = fullNumericPolynomial nup
-
-            let (NUP p0) = nup
-            let (NUP p1) = fullNumericPolynomial (derive nup)
-
-            let rec chain result =
-                match result with
-                | p1 :: p0 :: _ ->
-                    let _, rem = Division.Univariate.expandedSyntheticDivisionForDoubles p0 p1
-
-                    match List.map (( * ) -1.) rem with
-                    | [] -> result
-                    | rem -> chain (rem :: result)
-                | _ -> result
-
-            let p0 = List.map snd p0
-            let p1 = List.map snd p1
-
-            chain [ p1; p0 ] |> List.map nupFromCoeffs |> List.rev
-
-        let inline private signChanges (signs: int list) =
-
-            let rec countChanges last result =
-                function
-                | [] -> result
-                | x :: xs ->
-                    if x = 0 || x = last then
-                        countChanges last result xs
-                    else
-                        countChanges x (result + 1) xs
-
-            match signs with
-            | [] -> 0
-            | x :: xs -> countChanges x 0 xs
-
-        let private getSign (p: NumericUivariatePolynomial) =
-            function
-            | v when Double.IsInfinity v ->
-                let (NUP terms) = p
-                let highestDegreeTerm = List.maxBy fst terms
-                let (degree, coeff) = highestDegreeTerm
-
-                if v = infinity then
-                    if coeff > 0.0 then 1
-                    elif coeff < 0.0 then -1
-                    else 0 // theoretically should not happen as highest degree term should not have zero coefficient
-                else if
-                    // v = -infinity
-                    degree % 2 = 0
-                then
-                    if coeff > 0.0 then 1
-                    elif coeff < 0.0 then -1
-                    else 0
-                else if coeff > 0.0 then
-                    -1
-                elif coeff < 0.0 then
-                    1
-                else
-                    0
-            | value ->
-                let result = evalNup p value
-
-                if result > 0.0 then 1
-                elif result < 0.0 then -1
-                else 0
-
-        let private getSigns (schain: NumericUivariatePolynomial list) p (interval: double * double) =
-            let (a, b) = interval
-
-            let xs = List.map (flip getSign a) schain
-            let ys = List.map (flip getSign b) schain
-
-            (xs, ys)
-
-        /// Determines all the real roots of the polynomial in the given interval and with the specified precision.
-        let public realRoots (p: Polynomial) (ϵ: double) (interval: double * double) : double list =
-            let p = asNumericUivariatePolynomial p
-            let p' = derive p
-
-            let schain = sturmChain p
-            let (a, b) = interval
-            assert (b > a)
-
-            let signs1, signs2 = getSigns schain p interval
-            let sc1, sc2 = signChanges signs1, signChanges signs2
-            let realsRootsCount = sc1 - sc2
-            assert (realsRootsCount >= 0)
-
-            // WARN: il faut que (a, b) ne soient pas des raçines. On fait quoi sinon ?
-
-            let initval =
-                // gérer l'infinit
-                (fst interval - snd interval) / 2.
-
-            if realsRootsCount = 0 then
-                []
-            elif realsRootsCount = 1 then
-                [ newtonMethod p p' initval ϵ ]
-
-
-
-            else
-
-                []
-
     module public NumericEvaluation =
+        open System.Numerics
 
-        /// Practical representation of a purely numerical univariate polynomial.
-        type public NumericUnivariatePolynomial = (int * double) list
+        exception public NegativeNumberOfIterationsException of int
+        exception public NegativeToleranceException of double
 
+        let inline private complexf (x: double) = System.Numerics.Complex.op_Implicit x
+
+        /// Representation of a purely numerical univariate polynomial as an array of (degree, coefficient).
+        type public NumericUnivariatePolynomial = (int * Complex) array
+
+        /// An active pattern which match a purely numerical univariate polynomial.
         let public (|NumericUnivariatePolynomial|_|) (p: Polynomial) : NumericUnivariatePolynomial option =
-            let coeffs = completeCoefficients p
+            if not (isUnivariate p) then None else
 
-            if List.forall Misc.isPureConst coeffs
-            then Some (List.mapi (fun deg coeff -> deg, (NumericEvaluation.evaluate0 >> toDouble) coeff) coeffs)
+            let poly = Map.toArray p.polynomial
+
+            if not (Array.forall Misc.isPureConst (Array.map snd poly)) then None else
+
+            let inline mapper (MonomialDegree deg, coeff) =
+                deg.[0], complexf (toDouble (NumericEvaluation.evaluate0 coeff))
+
+            Some (Array.map mapper poly)
+
+        /// Converts the given univariate polynomial into a purely numerical univariate polynomial, if possible.
+        let public tryNumericUnivariatePolynomial =
+            function
+            | NumericUnivariatePolynomial nup -> Some nup
+            | _ -> None
+
+        let private completeNumericUnivariatePolynomial (nup: NumericUnivariatePolynomial) =
+            let deg = fst (Array.maxBy fst nup)
+
+            [| for i = deg downto 0 do
+                (i, Array.tryFind (fst >> ( = ) i) nup
+                    |> Option.map snd
+                    |> Option.defaultValue 0) |]
+
+        let private fromCoefficients (coefficients: Complex array) =
+            Array.mapi (fun deg coeff -> (deg, coeff)) (Array.rev coefficients)
+
+        let private normalize (nup: NumericUnivariatePolynomial) =
+            let lc = snd (Array.maxBy fst nup)
+            Array.map (fun (deg, coeff) -> (deg, coeff / lc)) nup
+
+        let private derive (nup: NumericUnivariatePolynomial) =
+               Array.map (fun (deg, coeff) -> (deg - 1, coeff * double deg)) nup
+            |> Array.filter (fun x -> fst x >= 0)
+
+        /// Evaluates the given numerical univariate polynomial to the given value.
+        let inline public evaluate (nup: NumericUnivariatePolynomial) (value: Complex) =
+            Array.fold (fun acc (deg, coeff) -> acc + (value ** double deg) * coeff) (complexf 0.0) nup
+
+        /// Implements the Newton-Raphson method to find a root close to the given initial point of the given
+        /// numerical univariate polynomial.
+        let public newtonRaphson (initial: Complex) (eps: double) (maxIterations: int) (nup: NumericUnivariatePolynomial) =
+            if maxIterations < 0 then raise (NegativeNumberOfIterationsException maxIterations)
+            if eps < 0 then raise (NegativeToleranceException eps)
+
+            let derivated = derive nup
+
+            let rec next (x0: Complex) (k: int) =
+                let x1 = x0 - (evaluate nup x0 / evaluate derivated x0)
+                let err = Complex.Abs (x1 - x0)
+
+                if err <= eps || k = maxIterations then x0 else next x1 (k + 1)
+
+            next initial 0
+
+        /// Round the given numerical value to the given tolerance.
+        let private roundUpToTolerance (eps: double) (value: Complex) =
+            let n = decimalCount eps
+            if n <= 0 || n > 15 then value else
+
+            let re = Math.Round(value.Real, n)
+            let im = Math.Round(value.Imaginary, n)
+
+            let re = if abs re = 0 then 0.0 else re
+            let im = if abs im = 0 then 0.0 else im
+
+            Complex(re, im)
+
+        /// Implement the Durand–Kerner method to find all the roots of the given numerical univariate polynomial.
+        /// This method is not generally convergent.
+        /// See https://en.wikipedia.org/wiki/Durand%E2%80%93Kerner_method.
+        let public findRoots (nup: NumericUnivariatePolynomial) (eps: double) (maxIterations: int) =
+            if maxIterations < 0 then raise (NegativeNumberOfIterationsException maxIterations)
+            if eps < 0 then raise (NegativeToleranceException eps)
+
+            let nup = completeNumericUnivariatePolynomial (normalize nup)
+            let n = Array.length nup - 1
+
+            let inline init i =
+                Complex.FromPolarCoordinates(1.0, 2.0 * Math.PI * double i / double n)
+
+            let mutable roots = Array.init n init
+            let mutable converged = false
+            let mutable iter = 0
+
+            while not converged && iter < maxIterations do
+                converged <- true
+
+                for i in 0 .. n - 1 do
+                    let oldRoot = roots.[i]
+                    let numerator = evaluate nup oldRoot
+                    let mutable denominator = Complex.One
+
+                    for j in 0 .. n - 1 do
+                        if i <> j then
+                            denominator <- denominator * (oldRoot - roots.[j])
+
+                    let newRoot = oldRoot - (numerator / denominator)
+
+                    if Complex.Abs(newRoot - oldRoot) > eps then
+                        converged <- false
+
+                    roots.[i] <- newRoot
+                iter <- iter + 1
+
+            if converged
+            then Some (Array.map (roundUpToTolerance eps) roots)
             else None
 
+        /// Use the Durand–Kerner method to find all the real roots of the given numerical univariate polynomial.
+        /// This method is not generally convergent.
+        /// See https://en.wikipedia.org/wiki/Durand%E2%80%93Kerner_method.
+        let public realRoots (nup: NumericUnivariatePolynomial) (eps: double) (maxIterations: int) =
+            match findRoots nup eps maxIterations with
+            | None -> None
+            | Some roots ->
+                let inline predicate (root: Complex) = approximatelyEquals (abs root.Imaginary) 0.0 (ValueSome eps)
+                let result = Array.filter predicate roots
+
+                if Array.isEmpty result then None else
+                Some (Array.map (fun (root: Complex) -> root.Real) result)
