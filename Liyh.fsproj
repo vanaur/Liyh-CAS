@@ -24,10 +24,7 @@
     <Compile Include="Kernel/SumPow/Equation.fs" />
     <Compile Include="Kernel/SumPow/MultiLinearAlgebra.fs" />
     <Compile Include="Kernel/SumPow/Polynomial.fs" />
-    <Compile Include="Kernel/SumPow/ElemFun.fs" />
-    <Compile Include="Kernel/SumPow/Transform.fs" />
     <Compile Include="Kernel/SumPow/Reduce.fs" />
-    <Compile Include="Kernel/SumPow/Serialize.fs" />
 
     <Compile Include="Language/Operator/LiyhUnits.fs" />
     <Compile Include="Language/Operator/LiyhOperators.fs" />
