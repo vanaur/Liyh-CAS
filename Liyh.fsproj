@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="Tools/Utils.fs" />
     <Compile Include="Tools/UnionFind.fs" />
-    <Compile Include="Tools/FFT.fs" />
 
     <Compile Include="Internal/DiagnosticKinds.fs" />
     <Compile Include="Internal/Diagnostics.fs" />

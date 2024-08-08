@@ -98,6 +98,8 @@ module rec Utils =
     // Some extensions to the standard module.
     [<AutoOpen>]
     module public Math =
+        open System.Numerics
+
         exception public IntegerSquareRootOfNegativeNumberException of int
 
         /// Calculates the GCD of `a` and `b`, big integers.
@@ -189,6 +191,28 @@ module rec Utils =
                       for y in ys -> x :: y ]
 
             List.foldBack inner lists [ [] ]
+
+        /// Recursive Cooley–Tukey fast Fourier transform.
+        let public fft (lst: Complex list) =
+
+            let inline fac k n =
+                let m2pi = -4. * acos 0.
+                Complex.FromPolarCoordinates(1., m2pi * float k / float n)
+
+            let inline merge l r n =
+                let f (k, t) x = (k + 1, (fac k n) * x :: t)
+                let z = List.rev (snd (List.fold f (0, []) r))
+                List.map2 ( + ) l z @ List.map2 ( - ) l z
+
+            let rec ditfft2 a n s =
+                if n = 1 then
+                    [ List.item a lst ]
+                else
+                    let odd = ditfft2 a (n / 2) (2 * s)
+                    let even = ditfft2 (a + s) (n / 2) (2 * s)
+                    merge odd even n
+
+            ditfft2 0 (List.length lst) 1
 
     // Some extensions to the standard module.
     module public List =
