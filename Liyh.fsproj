@@ -39,7 +39,6 @@
     <Compile Include="Kernel/LinearAlgebra/Matrix.fs" />
     <Compile Include="Kernel/LinearAlgebra/Tensor.fs" />
     <Compile Include="Kernel/LinearAlgebra/LinearAlgebra.fs" />
-    <Compile Include="Kernel/Equation/Equation.fs" />
 
     <Compile Include="Language/Operator/LiyhUnits.fs" />
     <Compile Include="Language/Operator/LiyhOperators.fs" />
