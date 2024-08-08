@@ -1,4 +1,4 @@
-namespace Liyh.Kernel.Constant
+namespace Liyh.Kernel
 
 [<AutoOpen>]
 module rec Constant =

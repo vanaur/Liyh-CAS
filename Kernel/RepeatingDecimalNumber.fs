@@ -1,4 +1,4 @@
-namespace Liyh.Kernel.Constant
+namespace Liyh.Kernel
 
 (* This module can be used to represent rational numbers with periodic decimal places using either the fraction data,
    the abbreviated data or the parameters essential to the representation of the number. A number with periodic decimals
