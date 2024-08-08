@@ -19,12 +19,11 @@
     <Compile Include="Kernel/Atomic.fs" />
     <Compile Include="Kernel/Set.fs" />
     <Compile Include="Kernel/Prime.fs" />
-
-    <Compile Include="Kernel/SumPow/SumPow.fs" />
-    <Compile Include="Kernel/SumPow/Equation.fs" />
-    <Compile Include="Kernel/SumPow/MultiLinearAlgebra.fs" />
-    <Compile Include="Kernel/SumPow/Polynomial.fs" />
-    <Compile Include="Kernel/SumPow/Reduce.fs" />
+    <Compile Include="Kernel/SumPow.fs" />
+    <Compile Include="Kernel/Equation.fs" />
+    <Compile Include="Kernel/MultiLinearAlgebra.fs" />
+    <Compile Include="Kernel/Polynomial.fs" />
+    <Compile Include="Kernel/Reduce.fs" />
 
     <Compile Include="Language/Operator/LiyhUnits.fs" />
     <Compile Include="Language/Operator/LiyhOperators.fs" />

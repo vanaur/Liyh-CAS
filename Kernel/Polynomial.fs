@@ -1,4 +1,4 @@
-namespace Liyh.Kernel.SumPow
+namespace Liyh.Kernel
 
 #nowarn "3391"
 #nowarn "193"

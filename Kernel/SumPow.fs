@@ -1,4 +1,4 @@
-namespace Liyh.Kernel.SumPow
+namespace Liyh.Kernel
 
 #nowarn "40"    // This warning is activated for the memoized function `simplify` for the active pattern "One".
 #nowarn "3391"  // The implicit conversion of an integer into a bigint causes a warning.

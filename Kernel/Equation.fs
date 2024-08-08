@@ -1,4 +1,4 @@
-namespace Liyh.Kernel.SumPow
+namespace Liyh.Kernel
 
 module public rec Equation =
     open System.Collections.Generic

@@ -4,7 +4,7 @@ module Hex =
     open System.IO
     open System.Collections.Generic
     open Liyh.Utils
-    open Liyh.Kernel.SumPow
+    open Liyh.Kernel
     open Liyh.Language.Evaluation.IL
     open ByteDev.Encoding
 
