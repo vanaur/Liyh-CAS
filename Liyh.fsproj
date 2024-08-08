@@ -35,11 +35,6 @@
     <Compile Include="Kernel/SumPow/Reduce.fs" />
     <Compile Include="Kernel/SumPow/Serialize.fs" />
 
-    <Compile Include="Kernel/LinearAlgebra/Vector.fs" />
-    <Compile Include="Kernel/LinearAlgebra/Matrix.fs" />
-    <Compile Include="Kernel/LinearAlgebra/Tensor.fs" />
-    <Compile Include="Kernel/LinearAlgebra/LinearAlgebra.fs" />
-
     <Compile Include="Language/Operator/LiyhUnits.fs" />
     <Compile Include="Language/Operator/LiyhOperators.fs" />
     <Compile Include="Language/Syntax/Indentation.fs" />
