@@ -400,7 +400,7 @@ module rec Polynomial =
 
                 { p with
                     variables = vorder
-                    polynomial = (Map.toArray >> Array.Parallel.map inner >> Map.ofArray) polynomial }
+                    polynomial = (Map.toArray >> Array.map inner >> Map.ofArray) polynomial }
 
         /// Reorganizes the internal structure of the given plynomial to extend it to new variables.
         /// Extension to new variables **does not** reorganize the internal order.
