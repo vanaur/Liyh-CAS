@@ -14,7 +14,6 @@
     <Compile Include="Internal/Diagnostics.fs" />
 
     <Compile Include="Kernel/Constant/RepeatingDecimalNumber.fs" />
-    <Compile Include="Kernel/Constant/MetaValue.fs" />
     <Compile Include="Kernel/Constant/Constant.fs" />
 
     <Compile Include="Kernel/Atomic.fs" />
