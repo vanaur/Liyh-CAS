@@ -40,11 +40,7 @@
     <Compile Include="Kernel/LinearAlgebra/Tensor.fs" />
     <Compile Include="Kernel/LinearAlgebra/LinearAlgebra.fs" />
     <Compile Include="Kernel/Equation/Equation.fs" />
-    <Compile Include="Kernel/Plotting/UI.fs" />
-    <Compile Include="Kernel/Plotting/LiyhPlot2D.fs" />
-    <Compile Include="Kernel/Plotting/LiyhPlot3D.fs" />
     <Compile Include="Kernel/Builtin/Data.fs" />
-    <Compile Include="Kernel/Builtin/Plot.fs" />
     <Compile Include="Kernel/Builtin/Numerics/DormandPrince.fs" />
 
     <Compile Include="Language/Operator/LiyhUnits.fs" />
