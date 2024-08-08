@@ -6,7 +6,6 @@ module Absyn =
     open Liyh.Language.Syntax.Cosyn
     open Liyh.Language.Syntax.Location
     open Liyh.Kernel
-    open Liyh.Kernel.Constant
 
     /// Instead of keeping the information in the AST directly, we associate each node
     /// in the tree with the relevant information.

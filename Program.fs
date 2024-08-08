@@ -18,7 +18,6 @@ open Liyh.Language.Evaluation.VirtualMachine
 open Liyh.Language.Evaluation.Hex
 open Liyh.Language.Evaluation.LinearScan
 open System.ComponentModel
-open Liyh.Kernel.Constant
 open Liyh.Kernel
 open ByteDev.Encoding
 open Liyh.Kernel.Prime

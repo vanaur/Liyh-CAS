@@ -10,7 +10,6 @@ module rec SumPow =
     open System.Runtime.CompilerServices
     open Liyh.Utils
     open Liyh.Kernel
-    open Liyh.Kernel.Constant
 
     exception public UnknownSumPowExpressionException of SumPow
 

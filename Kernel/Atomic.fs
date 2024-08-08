@@ -3,7 +3,6 @@ namespace Liyh.Kernel
 [<AutoOpen>]
 module rec Atomic =
     open System
-    open Liyh.Kernel.Constant
     open ByteDev.Encoding
 
     exception public UnknownSymbolicMatchException of Symbol
@@ -94,7 +93,6 @@ module rec Atomic =
 module AtomicParser =
     open FParsec
     open System
-    open Liyh.Kernel.Constant
 
     let private pIdentifier =
 
@@ -177,7 +175,6 @@ module AtomicParser =
     let public parseSymb = runParserOnString pSymbol () ""
 
 module Transform =
-    open System.Collections.Generic
     open FParsec
 
     type public Rule =

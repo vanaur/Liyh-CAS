@@ -4,7 +4,6 @@ namespace Liyh.Kernel
 module rec Constant =
     open System
     open Liyh.Utils
-    open System.Numerics
 
     [<Struct>]
     type public Constant =

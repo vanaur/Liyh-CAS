@@ -5,7 +5,6 @@ module public rec Equation =
     open System
     open Liyh.Kernel
     open System.Runtime.CompilerServices
-    open Liyh.Kernel.Constant
     open Liyh.Utils
 
     type public Variable = SumPow

@@ -6,7 +6,6 @@ module VirtualMachine =
     open Liyh.Kernel
     open Liyh.Utils
     open Liyh.Language.Evaluation.IL
-    open Liyh.Kernel.Constant
 
     exception private IncompatibleAdditionException of EvalValue * EvalValue
     exception private IncompatibleMultiplicationException of EvalValue * EvalValue

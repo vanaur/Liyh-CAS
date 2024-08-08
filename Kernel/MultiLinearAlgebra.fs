@@ -5,7 +5,6 @@ module public rec MultiLinearAlgebra =
     open System
     open Liyh.Kernel
     open System.Runtime.CompilerServices
-    open Liyh.Kernel.Constant
     open Liyh.Utils
 
     module public Vector =
