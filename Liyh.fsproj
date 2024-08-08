@@ -35,9 +35,6 @@
     <Compile Include="Kernel/SumPow/Reduce.fs" />
     <Compile Include="Kernel/SumPow/Serialize.fs" />
 
-    <Compile Include="Kernel/Polynomial/Univariate.fs" />
-    <Compile Include="Kernel/Polynomial/Multivariate.fs" />
-    <Compile Include="Kernel/Polynomial/Polynomial.fs" />
     <Compile Include="Kernel/LinearAlgebra/Vector.fs" />
     <Compile Include="Kernel/LinearAlgebra/Matrix.fs" />
     <Compile Include="Kernel/LinearAlgebra/Tensor.fs" />
@@ -73,7 +70,9 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchShark" Version="1.0.0"><NoWarn>NU1701</NoWarn></PackageReference>
+    <PackageReference Include="BenchShark" Version="1.0.0">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
     <PackageReference Include="ByteDev.Encoding" Version="2.0.0" />
     <PackageReference Include="Eto.Forms" Version="2.7.3" />
     <PackageReference Include="Eto.Platform.Gtk" Version="2.7.3" />
@@ -82,7 +81,9 @@
     <PackageReference Include="Plotly.NET" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="Plotly.NET.ImageExport" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="PrettyPrompt" Version="4.0.4" />
-    <PackageReference Include="Process.NET" Version="1.0.8"><NoWarn>NU1701</NoWarn></PackageReference>
+    <PackageReference Include="Process.NET" Version="1.0.8">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
     <PackageReference Include="ScottPlot.Eto" Version="4.1.60" />
     <PackageReference Include="Spectre.Console" Version="0.44.0" />
   </ItemGroup>
