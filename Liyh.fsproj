@@ -20,7 +20,6 @@
 
     <Compile Include="Kernel/Atomic.fs" />
     <Compile Include="Kernel/Set.fs" />
-
     <Compile Include="Kernel/Prime.fs" />
 
     <Compile Include="Kernel/SumPow/SumPow.fs" />
@@ -38,11 +37,7 @@
     <Compile Include="Language/Syntax/Location.fs" />
     <Compile Include="Language/Syntax/Cosyn.fs" />
     <Compile Include="Language/Syntax/Parser.fs" />
-    <Compile Include="Language/Checker/Checker.fs" />
-    <Compile Include="Language/Scope.fs" />
     <Compile Include="Language/Absyn/Absyn.fs" />
-    <Compile Include="Language/DefinitionTable.fs" />
-    <Compile Include="Language/SymbolTable.fs" />
     <Compile Include="Language/Evaluation/LinearScan.fs" />
     <Compile Include="Language/Evaluation/Foreign.fs" />
     <Compile Include="Language/Evaluation/IL.fs" />
