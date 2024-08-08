@@ -14,8 +14,6 @@
     <Compile Include="Internal/DiagnosticKinds.fs" />
     <Compile Include="Internal/Diagnostics.fs" />
 
-    <Compile Include="Kernel/LaTeX.fs" />
-
     <Compile Include="Kernel/Constant/RepeatingDecimalNumber.fs" />
     <Compile Include="Kernel/Constant/MetaValue.fs" />
     <Compile Include="Kernel/Constant/Constant.fs" />
