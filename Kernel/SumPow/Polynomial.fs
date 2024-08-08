@@ -1832,10 +1832,6 @@ module rec Polynomial =
         [<RequireQualifiedAccess>]
         module public IntegerCoefficients =
 
-            // !!!
-            // https://www.jeremykun.com/2014/03/13/programming-with-finite-fields/
-            // !!!
-
             /// Check whether the given univariate polynomial has integer coefficients only.
             let public hasIntegerCoefficients (p: Polynomial) =
                 List.forall Misc.isPureConstInteger (completeCoefficients p)
@@ -2050,11 +2046,74 @@ module rec Polynomial =
             let sub = List.partition (snd >> Misc.isPureConstInteger) poly
             0
 
-        let public tryFactoring (p: Polynomial) =
-            if not (isUnivariate p) then
-                () // ...
-            else
-                () // ...
+        [<NoEquality; NoComparison; RequireQualifiedAccess>]
+        type public FactoringResult =
+
+            /// In the case of a multivariate polynomial without specification of the variables to be forced.
+            | Alternatives of (SumPow * Polynomial) seq
+
+            /// The polynomial is factored as the product of several powers of polynomials.
+            | Univariate of (Polynomial * int) list
+
+            /// The polynomial was unable to be factored.
+            | Nothing
+
+        let inline private trySpecific (p: Polynomial) =
+            None |> Option.orElseWith (konst (Specific.tryCompleteTheSquare p))
+                 |> Option.orElseWith (konst (Specific.tryQuadraticFormula p))
+                 |> Option.orElseWith (konst (Specific.trySophieGermain p))
+
+        let inline private tryIntCoeff (p: Polynomial) =
+            if IntegerCoefficients.hasIntegerCoefficients p
+            then IntegerCoefficients.RationalRoots.tryFactoring p
+            else None
+
+        let inline private initialFactoring (p: Polynomial) =
+            let c, p = termFactoringWithRespectTo p p.variables.Head
+            (fromCoefficients [ p.variables.Head ] [ 0 ] [ c ], 1) :: SquareFree.squareFreeFactoring p
+
+        let rec private factor1 (p: Polynomial) =
+            if totalDegree p = 1 then [ p, 1 ] else
+
+            let onep = fromCoefficients [ p.variables.Head ] [ 0 ] [ SumPow.Const One ]
+            let mutable result = []
+
+            let inline distributePower d = List.map (fun (p', d') -> (p', d * d'))
+
+            for (p, d) in initialFactoring p do
+                match tryIntCoeff p with
+                | None ->
+                    match trySpecific p with
+                    | None -> result <- (p, d) :: result
+                    | Some res -> result <- distributePower d res @ result
+                | Some res ->
+                    let res = distributePower d res
+                    let res = List.map (fun (p, d) -> distributePower d (factor1 p)) res
+                    let res = List.flatten res
+                    result <- res @ result
+
+            result |> List.filter (fun (p, _) -> p <> onep)
+
+        let public tryFactoring' (p: Polynomial) (variable: Variable option) =
+            if Option.isSome variable && not (List.contains variable.Value p.variables) then
+                raise (PolynomialNotContainsVariablesException (p, [ variable.Value ]))
+
+            if isMultivariate p && Option.isNone variable
+            then FactoringResult.Alternatives (Seq.map (termFactoringWithRespectTo p) p.variables)
+            else FactoringResult.Univariate (factor1 p)
+
+        let public showFactoringResult =
+            function
+            | FactoringResult.Nothing -> @"\text{Nothing}"
+
+            | FactoringResult.Alternatives alternatives ->
+                let alternatives = Seq.toList alternatives
+                sprintf @"\begin{align*} %s \end{align*}"
+                        (System.String.Join(@"\\", List.map (fun (c, p) -> sprintf @"%s\cdot\left(%s\right)" (toLatexValue c) (toLatexValue p)) alternatives))
+
+            | FactoringResult.Univariate ps ->
+                System.String.Join(@" \cdot ",
+                    List.map (fun (p, d) -> sprintf @"\left(%s\right)^%d" (toLatexValue p) d) ps)
 
     module public Interpolation =
 
