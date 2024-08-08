@@ -9,7 +9,6 @@ open System.Collections
 open System.Linq
 open Liyh.Utils
 open Liyh.Language.Syntax.Parser
-open Liyh.Language.Absyn
 open FParsec
 open Liyh.Kernel.SumPow
 open FSharp.Collections.ParallelSeq
@@ -25,7 +24,6 @@ open ByteDev.Encoding
 open Liyh.Kernel.Prime
 
 
-
 //match compileFile "test.lysm" with
 //| Some program ->
 //    let vm = new LiyhVM(program)
@@ -37,12 +35,6 @@ open Liyh.Kernel.Prime
 // noice: I simply put a unique id on each node and have auxiliary information in a hash map. Worked well for me so far.
 // comme ça on met les informations dans un hashmap :open_mouth:
 
-
-
-let sp text =
-    match startExprParser text with
-    | Success ((res, _), _, _) -> cosynToSumProd res
-    | _ -> raise (Exception "BADABOUM")
 
 let sp' text =
     match startExprParser text with

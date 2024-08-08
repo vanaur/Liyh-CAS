@@ -7,8 +7,6 @@ module rec REPL =
     open Liyh.Language.Syntax.Cosyn
     open Liyh.Language.Syntax.Parser
     open Liyh.Language.Syntax.Indentation
-    open Liyh.Kernel.SumProd
-    open Liyh.Language.Absyn
 
     open FParsec
     open System
@@ -127,28 +125,28 @@ module rec REPL =
         printfn "\nBye bye."
         exit 0
 
-    let private handleBench (nbr: int) (expr: CosynExpr') =
-        let shark = BenchShark()
-        let sp = cosynToSumProd expr
-        let watch = Diagnostics.Stopwatch.StartNew()
-        let res = shark.EvaluateTask(Action(fun _ -> ignore (simp sp)), uint nbr)
-        watch.Stop()
-        printfn "\n[Performed %d tests: avg %g ms tot %d ms]" nbr res.AverageExecutionTime.TotalMilliseconds watch.ElapsedMilliseconds
-        handleInlineExpr expr
-
-    let private handleInlineExpr (expr: CosynExpr') =
-        Console.ForegroundColor <- ConsoleColor.Cyan
-        printfn "\n%s\n" (simp (cosynToSumProd expr)).ToLatex
-        Console.ResetColor ()
+//    let private handleBench (nbr: int) (expr: CosynExpr') =
+//        let shark = BenchShark()
+//        let sp = cosynToSumProd expr
+//        let watch = Diagnostics.Stopwatch.StartNew()
+//        let res = shark.EvaluateTask(Action(fun _ -> ignore (simp sp)), uint nbr)
+//        watch.Stop()
+//        printfn "\n[Performed %d tests: avg %g ms tot %d ms]" nbr res.AverageExecutionTime.TotalMilliseconds watch.ElapsedMilliseconds
+//        handleInlineExpr expr
+//
+//    let private handleInlineExpr (expr: CosynExpr') =
+//        Console.ForegroundColor <- ConsoleColor.Cyan
+//        printfn "\n%s\n" (simp (cosynToSumProd expr)).ToLatex
+//        Console.ResetColor ()
 
     let private handleCommand = function
         | Help text -> handleHelp text
         | Load path -> handleLoad path
         | Clear -> handleClear ()
         | Quit -> handleQuit ()
-        | Bench (BenchExpr (expr, _)) -> handleBench 50 expr
-        | Repeat (nbr, (expr, _)) -> handleBench nbr expr
-        | InlineExpr (expr, _) -> handleInlineExpr expr
+        | Bench (BenchExpr (expr, _)) -> failwith "TODO"
+        | Repeat (nbr, (expr, _)) -> failwith "TODO"
+        | InlineExpr (expr, _) -> failwith "TODO"
         | _ -> ()
 
     let public startREPL () =
