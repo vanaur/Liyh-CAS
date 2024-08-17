@@ -258,6 +258,7 @@ module public rec MultiLinearAlgebra =
             static member op_Multiply(a: Matrix, b: Matrix) = Operations.multiplication a b
             static member op_Multiply(scalar: SumPow, m: Matrix) = Operations.scalarMultiplication scalar m
             static member op_Division(m: Matrix, scalar: SumPow) = Operations.scalarDivision m scalar
+            static member Pow(m: Matrix, n: int) = Operations.pown m n
 
         /// Returns an `Array2D` of components.
         /// Note: modifying the return value does not modify the initial matrix.
@@ -397,7 +398,25 @@ module public rec MultiLinearAlgebra =
 
                 Matrix result
 
-        let private simplifyComponents (m: Matrix) =
+            /// Exponentiate the given square matrix to the given integer.
+            let rec public pown (matrix: Matrix) (n: int) =
+                if not (isSquareMatrix matrix) then
+                    raise (NotASquareMatrixException matrix)
+
+                let rec loop (m: Matrix) (n: float) (acc: Matrix) =
+                    printfn "%A" n
+                    if n <= 1 then acc * m
+                    else let p = if floor (float n % 2.) = 0. then acc else acc * m
+                         loop (m * m) (n / 2.) p
+
+                if n = 0 then idMatrix (fst (size matrix))
+                elif n > 0 then (loop matrix n (idMatrix (fst (size matrix))))
+                else
+                    match tryInverse matrix with
+                    | None -> raise (SingularMatrixException matrix)
+                    | Some inv -> pown inv (abs n)
+
+        let public simplifyComponents (m: Matrix) =
             let cs = components m
             Matrix (Array2D.map Simplification.simplify cs)
 
