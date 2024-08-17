@@ -298,7 +298,8 @@ module public rec MultiLinearAlgebra =
         /// This is mainly used for testing and debuging purposes.
         let public generateRandom (rows: int) (cols: int) =
             let rnd = new Random()
-            generate rows cols (konst2 <| Const (double (rnd.Next())))
+            [| for r in 0 .. rows - 1 -> [| for c in 0 .. cols - 1 ->  Const (double (rnd.Next(min r c, max r c))) |] |]
+            |> fromArray
 
         let public size (Matrix components) =
             Array2D.length1 components, Array2D.length2 components
