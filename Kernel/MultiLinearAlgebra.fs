@@ -138,7 +138,7 @@ module public rec MultiLinearAlgebra =
 
             Array.fold2 (fun acc a b -> acc + (a * b)) (Const Zero) cs1 cs2
 
-        let private size (Vector components) =
+        let public size (Vector components) =
             Array.length components
 
         let private simplifyComponents (Vector components) =
