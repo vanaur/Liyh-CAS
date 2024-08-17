@@ -460,7 +460,7 @@ module public rec MultiLinearAlgebra =
         /// Use the Laplace expansion method to compute the determinant of the given matrix.
         /// Note: this method is not efficient for large matrix (time complexity: O(n!)).
         /// See https://en.wikipedia.org/wiki/Laplace_expansion.
-        let public determinant (m: Matrix) =
+        let public slowDeterminant (m: Matrix) =
             if not (isSquareMatrix m) then
                 raise (NotASquareMatrixException m)
 
@@ -586,7 +586,7 @@ module public rec MultiLinearAlgebra =
         /// Returns the co-factor of the indicated sub-matrix.
         let public cofactor (matrix: Matrix) (row: int) (col: int) =
             let sub = subMatrix matrix row col
-            let det = determinant sub
+            let det = VectorSpaceUtility.fastDeterminant sub
             let sign = if (row + col) % 2 = 0 then 1 else -1
             sign * det
 
@@ -622,7 +622,7 @@ module public rec MultiLinearAlgebra =
             let rows = Array2D.length1 cs
             let cols = Array2D.length2 cs
 
-            let det = determinant matrix
+            let det = VectorSpaceUtility.fastDeterminant matrix
             if Misc.isZero det then None else
 
             let adjoint = adjoint matrix
@@ -658,8 +658,11 @@ module public rec MultiLinearAlgebra =
             if not (isSquareMatrix matrix) then
                 raise (NotASquareMatrixException matrix)
 
+            // Note: the Faddeev–LeVerrier algorithm is probably better.
+            // See https://en.wikipedia.org/wiki/Faddeev%E2%80%93LeVerrier_algorithm.
+
             let λI = variable * idMatrix (fst (size matrix))
-            determinant (matrix - λI)
+            VectorSpaceUtility.fastDeterminant (matrix - λI)
 
         /// Find the numerical eigenvalues of the given matrix.
         let public nEigenvalues (matrix: Matrix) (eps: double) (maxIterations: int) =
@@ -715,6 +718,189 @@ module public rec MultiLinearAlgebra =
         let public fromNumeric (matrix: double[,]): Matrix =
             Matrix (Array2D.map (Constant >> Const) matrix)
 
+    /// This module covers some other elements of linear algebra.
+    module public VectorSpaceUtility =
+        open Vector
+        open Matrix
+
+        exception public VectorsDoNotHaveSameDimensionException of Vector seq
+        exception public DefectiveMatrixException of Vector seq
+        exception public UndefinedSizeForVectorSpaceException of int
+        exception public NotABasisException of Vector seq * int
+
+        /// Swap the indicated columns of the given matrix.
+        /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
+        let inline private swapRows (matrix: SumPow[,]) (r1: int) (r2: int) =
+            for col in 0 .. Array2D.length2 matrix - 1 do
+                let tmp = matrix.[r1, col]
+                matrix.[r1, col] <- matrix.[r2, col]
+                matrix.[r2, col] <- tmp
+
+            matrix
+
+        /// Perform the Gaussian elimination to the given matrix, and return the resulting matrix.
+        /// See https://en.wikipedia.org/wiki/Gaussian_elimination.
+        let public gaussianElimination (matrix: Matrix) =
+            let mutable cs = components matrix
+
+            // Row operations:
+            //  1. Swap the positions of two rows.
+            //  2. Multiply a row by a non-zero scalar.
+            //  3. Add to one row a scalar multiple of another.
+
+            let inline reduceRow (matrix: SumPow[,]) (r1: int) (r2: int) (col: int) =
+                let factor = matrix.[r2, col] / matrix.[r1, col]
+
+                for col in col .. Array2D.length2 matrix - 1 do
+                    matrix.[r2, col] <- matrix.[r2, col] - factor * matrix.[r1, col]
+
+                matrix
+
+            let rows, cols = size matrix
+            let mutable lead = 0
+
+            // The tail-recursive function below modifies the `cs` matrix in-place. We use a tail-recursive function
+            // because it's more convenient given that F# allow breaing loops.
+
+            let rec processRow r lead =
+                if r >= rows || lead >= cols then
+                    cs
+                else
+
+                    // The naive implementation of the Gaussian elimination is likely to involve divisions by 0 for a
+                    // pivot chosen awkwardly, so we make sure that the pivot is non-zero before the reduction.
+
+                    // What's more, F# has no mechanism for breaking loops, the chosen implementation being semi-imperative,
+                    // we trick using a while loop and a mutable index.
+
+                    // Note: in literature, the term "pivot" is analogous to "leading value".
+
+                    let mutable i = r
+
+                    while i < rows && Misc.isZero cs.[i, lead] do
+                        i <- i + 1
+
+                    if i < rows then
+                        cs <- swapRows cs i r
+                        let pivot = cs.[r, lead]
+
+                        if not (Misc.isZero pivot) then
+                            for col in lead .. cols - 1 do
+                                cs.[r, col] <- cs.[r, col] / pivot
+
+                            for i in 0 .. rows - 1 do
+                                if i <> r && not (Misc.isZero cs.[i, lead]) then
+                                    cs <- reduceRow cs r i lead
+
+                        processRow (r + 1) (lead + 1)
+                    else
+                        processRow r (lead + 1)
+
+            cs <- processRow 0 lead
+            Matrix cs |> simplifyComponents
+
+        /// Compute the rank of the given matrix, i.e. the dimension of the vector space spanned by its columns.
+        /// See https://en.wikipedia.org/wiki/Rank_(linear_algebra).
+        let public matrixRank (matrix: Matrix) =
+            let ge = gaussianElimination matrix
+            let rows, cols = size ge
+
+            let mutable result = 0
+
+            for row in 0 .. rows - 1 do
+                if Array.exists (not << Misc.isZero) (Array.init cols (fun col -> ge.[row, col])) then
+                    result <- result + 1
+
+            result
+
+        /// Check that the given vectors are linearly independent.
+        let public areLinearlyIndependent (vectors: Vector array) =
+            let numOfVectors = Array.length vectors
+            let dim = Vector.size (Array.head vectors)
+
+            if not (Array.forall (fun vec -> Vector.size vec = dim) vectors) then
+                raise (VectorsDoNotHaveSameDimensionException vectors)
+
+            // 1. If there are as many vectors as their dimension, then we check that the associated determinant is not 0.
+            // 2. If there are more vectors than their dimension, then they are necessarily linearly dependent.
+            // 3. If there are fewer vectors than their dimension, then we look to see if the rank of the associated matrix
+            //    is equal to the number of vectors. If so, then they are linearly independent.
+
+            if   numOfVectors = dim then (not << Misc.isZero) (fastDeterminant (fromVectors vectors))
+            elif numOfVectors > dim then false
+            else numOfVectors = matrixRank (fromVectors vectors)
+
+        /// Check that the given vectors are linearly dependent.
+        let public areLinearlyDependent = not << areLinearlyIndependent
+
+        /// Use the Bareiss algorithm to calculate the determinant of the given matrix.
+        /// This need O(n^3) arithmetics operations, while `Matrix.slowDeterminant` need O(n!) ones.
+        /// See https://en.wikipedia.org/wiki/Bareiss_algorithm.
+        let public fastDeterminant (matrix: Matrix): SumPow =
+            if not (isSquareMatrix matrix) then
+                raise (NotASquareMatrixException matrix)
+
+            let mutable cs = components matrix
+            let dim = Array2D.length1 cs
+
+            // The tail-recursive function below modifies the `cs` matrix in-place. We use a tail-recursive function
+            // because it's more convenient given that F# allow breaing loops.
+
+            let rec loop k sign =
+                if k = dim - 1 then
+                    sign * cs.[dim - 1, dim - 1]
+
+                else if Misc.isZero cs.[k, k] then
+
+                    let rec findPivot m =
+                        if m = dim then
+                            Const Zero // If no pivot is found, then the determinant is zero.
+                        elif not (Misc.isZero cs.[m, k]) then
+                            cs <- swapRows cs k m
+                            loop k -sign
+                        else
+                            findPivot (m + 1)
+
+                    findPivot (k + 1)
+                else
+                    for i in k + 1 .. dim - 1 do
+                        for j in k + 1 .. dim - 1 do
+                            cs.[i, j] <- cs.[k, k] * cs.[i, j] - cs.[i, k] * cs.[k, j]
+
+                            if k <> 0 then
+                                cs.[i, j] <- cs.[i, j] / cs.[k - 1, k - 1]
+
+                    loop (k + 1) sign
+
+            loop 0 1 |> Simplification.simplify
+
+        /// Check that the given family of vectors "forms a basis" for a n-vector space.
+        /// Note: In fact, it doesn't make much sense to say that "a family of vectors forms a basis" without specifying
+        /// over which field, we assume that the user knows what he or she is doing (SumPow is a particular space).
+        let public isBasis (vectors: Vector array) (spaceDim: int) =
+            if spaceDim <= 0 then
+                raise (UndefinedSizeForVectorSpaceException spaceDim)
+
+            // In the absence of knowing whether the vector family "spans" we simply check
+            // that the dimension of the basis corresponds to that of the vector space.
+
+            Array.length vectors = spaceDim && areLinearlyIndependent vectors
+
+        let public jordanMatrix (matrix: Matrix) =
+            // https://empslocal.ex.ac.uk/people/staff/rjchapma/courses/jcf.pdf
+            ()
+
+        let public changeBasis (basis: Vector array) (cobMatrix: Matrix) =
+            if not (isSquareMatrix cobMatrix) then
+                raise (NotASquareMatrixException cobMatrix)
+
+            let dim, _ = size cobMatrix
+            if not (isBasis basis dim) then
+                raise (NotABasisException (basis, dim))
+
+            Array.map (fun vec -> cobMatrix * fromVector vec Matrix1D.ColumnVector |> components |> Array2D.column 0 |> fromSeq) basis
+
+    /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
 
         type public Tensor =
