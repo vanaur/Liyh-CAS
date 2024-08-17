@@ -9,7 +9,7 @@ module public rec MultiLinearAlgebra =
     open Liyh.Kernel
     open Liyh.Utils
 
-    /// This module deals with naive vector algebra over SumPow.
+    /// This module deals with classical vector algebra over SumPow.
     module public Vector =
         exception public VectorsHaveDifferentLengthException of Vector seq
         exception public VectorHasNoComponentException
@@ -227,9 +227,7 @@ module public rec MultiLinearAlgebra =
         let public gramSchmidtNormalized (vectors: Vector array) =
             Array.map (fun v -> simplifyComponents (v / enorm v)) (gramSchmidt vectors)
 
-        let public areLinearlyDependent (vectors: Vector array) =
-            false
-
+    /// This module deals with classical matrix algebra over SumPow.
     module public Matrix =
         open System.Collections.Generic
         open Vector
