@@ -290,6 +290,12 @@ module public rec MultiLinearAlgebra =
 
             env body
 
+        /// Returns the columns of the given matrix.
+        let public getColumns (matrix: Matrix) =
+            let cs = components matrix
+
+            [| for col in 0 .. Array2D.length1 cs -> Array2D.column col cs |]
+
         /// Generates a matrix of a given size based on the specified generating function.
         let public generate (rows: int) (cols: int) (f: int -> int -> SumPow) =
             Matrix (Array2D.init rows cols f)
