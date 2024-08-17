@@ -76,11 +76,12 @@ module public rec MultiLinearAlgebra =
             | _ -> false
 
         /// Returns the components of the vector.
+        /// Note: modifying the return value does not modify the initial vector.
         let public components (Vector components) =
             if Array.isEmpty components then
                 raise VectorHasNoComponentException
 
-            components
+            Array.copy components
 
         /// Create a vector from the given components.
         let public fromSeq (components: SumPow seq) =
@@ -259,12 +260,13 @@ module public rec MultiLinearAlgebra =
             static member op_Division(m: Matrix, scalar: SumPow) = Operations.scalarDivision m scalar
 
         /// Returns an `Array2D` of components.
+        /// Note: modifying the return value does not modify the initial matrix.
         let public components (Matrix components) =
             if Array2D.length1 components = 0
             && Array2D.length2 components = 0 then
                 raise MatrixHasNoComponentException
 
-            components
+            Array2D.copy components
 
         let private toSymbolic (matrix: Matrix) =
             let cs = components matrix
