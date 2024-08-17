@@ -98,6 +98,7 @@ Persons:
  - [PrettyPrompt](https://github.com/waf/PrettyPrompt) (Mozilla Public License Version 2.0 -- Copyright (c) Will Fuqua): *A cross-platform command line input library that provides syntax highlighting, autocompletion, history and multi-line input* ;
  - [Spectre.Console](https://github.com/spectreconsole/spectre.console) (MIT License -- Copyright (c) Patrik Svensson, Phil Scott, Nils Andresen): *A .NET library that makes it easier to create beautiful console applications* ;
  - [ScottPlot](https://github.com/ScottPlot/ScottPlot) (MIT License -- Copyright (c) Scott Harden / Harden Technologies, LLC): *Interactive plotting library for .NET*.
+ - [BenchmarkDotNet](https://github.com/dotnet/BenchmarkDotNet) (MIT License -- Copyright (c) .NET Foundation and contributors): *Powerful .NET library for benchmarking*.
 
 **Liyh's standard library** will be licensed under [Apache 2.0](https://opensource.org/license/apache-2-0) (copyright 2024 vanaur).
 

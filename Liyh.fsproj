@@ -44,6 +44,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageReference Include="BenchShark" Version="1.0.0">
       <NoWarn>NU1701</NoWarn>
     </PackageReference>

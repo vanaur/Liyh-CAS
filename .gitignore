@@ -459,3 +459,6 @@ ignore
 # Performance profiler
 *.nettrace
 *.speedscope.json
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/*
