@@ -323,6 +323,16 @@ module public rec MultiLinearAlgebra =
 
             Matrix matrix
 
+        /// Create a matrix where each column corresponds to one of the given vectors.
+        let public fromVectors (vectors: Vector array) =
+            if Array.isEmpty vectors then
+                raise MatrixHasNoComponentException
+
+            let m = Array.length vectors
+            let n = Vector.size (Array.head vectors)
+
+            Matrix (Array2D.init m n (fun i j -> vectors.[i].[j])) |> transpose
+
         /// Specifies what a uni-dimenstional matrix (a covariant or contravariant vector) must look like.
         [<RequireQualifiedAccess; Struct; NoEquality; NoComparison>]
         type public Matrix1D =
