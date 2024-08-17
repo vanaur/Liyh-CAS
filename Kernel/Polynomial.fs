@@ -16,6 +16,7 @@ module rec Polynomial =
     open System
     open Liyh.Kernel
     open System.Runtime.CompilerServices
+    open Liyh.Kernel.Constant
     open Liyh.Utils
 
     exception public EmptyPolynomialException
@@ -2276,3 +2277,137 @@ module rec Polynomial =
 
                 if Array.isEmpty result then None else
                 Some (Array.map (fun (root: Complex) -> root.Real) result)
+
+    /// Some predefined polynomials expressions.
+    [<RequireQualifiedAccess>]
+    module public Prefab =
+
+        // Define the following polynomials:
+        //  - Falling and rising factorial polynomials ;
+        //  - Bessel and reversed Bessel polynomials ;
+        //  - Chebyshev of first and second kind polynomials ;
+        //  - Hermite (Physicist and Probabilist conventions) polynomials ;
+        //  - Laguerre polynomials ;
+
+        exception public InvalidChebyshevKindException of int
+
+        [<Struct; RequireQualifiedAccess; NoEquality; NoComparison>]
+        type public FallingOrRising =
+            | Falling   // x(x - 1)(x - 2) ... (x - n + 1)
+            | Rising    // x(x + 1)(x + 2) ... (x + n - 1)
+
+        /// Generates the falling and rising factorials.
+        /// See https://en.wikipedia.org/wiki/Falling_and_rising_factorials.
+        let public factorial (variable: Variable) (order: int) (kind: FallingOrRising) =
+            match order with
+            | 0 -> zeroPolynomial [ variable ]
+            | 1 -> fromCoefficients [ variable ] [ 1 ] [ Const One ]
+            | n ->
+                let inline op k =
+                    match kind with
+                    | FallingOrRising.Falling -> variable - Const k
+                    | FallingOrRising.Rising -> variable + Const k
+
+                [| 0 .. n - 1 |]
+                |> Array.fold (fun acc k -> acc * op k) (Const One)
+                |> asUnivariatePolynomial variable []   // slow
+                |> fst
+
+        /// Generates the Bessel polynomial.
+        /// See https://en.wikipedia.org/wiki/Bessel_polynomials.
+        let public bessel (variable: Variable) (order: int) =
+            let coefficients =
+                [ for k = order downto 0 do
+                    let num0 = Const (fromBigInt (ifactorial (order + k)))
+                    let den1 = Const (fromBigInt (ifactorial (order - k)))
+                    let den2 = Const (fromBigInt (ifactorial k))
+                    let den3 = Const 2 ** Const (fromBigInt k)
+                    let den0 = den1 * den2 * den3
+                    Simplification.simplify (num0 / den0) ]
+
+            fromCoefficients [ variable ] [ order ] coefficients
+
+        /// Generates the reversed Bessel polynomial.
+        /// See https://en.wikipedia.org/wiki/Bessel_polynomials.
+        let public reversedBessel (variable: Variable) (order: int) =
+            reciprocalPolynomial (bessel variable order)
+
+        /// Generates the Chebyshev polynomial of the `kind` (1 or 2) kind.
+        /// See https://en.wikipedia.org/wiki/Chebyshev_polynomials.
+        let private chebyshev (variable: Variable) (order: int) (kind: int) =
+            if (kind <> 1 && kind <> 2) then
+                raise (InvalidChebyshevKindException kind)
+
+            // Definition by recurrence relation
+            let loop n =
+                let rec loopAux n prev curr =
+                    match n with
+                    | 0 -> prev
+                    | n -> loopAux (n - 1) curr (2 * variable * curr - prev)
+                loopAux n (Const One) (kind * variable)
+
+            loop order
+            |> asUnivariatePolynomial variable []   // slow
+            |> fst
+
+        /// Generates the Chebyshev polynomial of the first kind.
+        /// See https://en.wikipedia.org/wiki/Chebyshev_polynomials.
+        let public chebyshev1 (variable: Variable) (order: int) =
+            chebyshev variable order 1
+
+        /// Generates the Chebyshev polynomial of the second kind.
+        /// See https://en.wikipedia.org/wiki/Chebyshev_polynomials.
+        let public chebyshev2 (variable: Variable) (order: int) =
+            chebyshev variable order 2
+
+        [<Struct; RequireQualifiedAccess; NoEquality; NoComparison>]
+        type private HermiteConvention =
+            | Physicist
+            | Probabilist
+
+        /// Generate the Hermite polynomial of order `order` and following the given convention.
+        /// See https://en.wikipedia.org/wiki/Hermite_polynomials.
+        let private hermite (variable: Variable) (order: int) (convention: HermiteConvention) =
+            let coeffs = Array.init (order + 1) (fun _ -> Array.zeroCreate (order + 1))
+            
+            let convFactor =
+                match convention with
+                | HermiteConvention.Physicist -> 2I
+                | HermiteConvention.Probabilist -> 1I
+
+            coeffs.[0].[0] <- 1I
+
+            if order > 0 then
+                coeffs.[1].[1] <- convFactor
+
+            for i in 1 .. (order - 1) do
+                for k in 0 .. (i + 1) do
+                    let coeff1 = if k > 0 then convFactor * coeffs.[i].[k - 1] else 0I
+                    let coeff2 = if k <= i then convFactor * bigint i * coeffs.[i - 1].[k] else 0I
+                    coeffs.[i + 1].[k] <- coeff1 - coeff2
+
+            let coefficients =
+                List.ofArray (Array.map (fromBigInt >> Const) (Array.rev coeffs.[order]))
+
+            fromCoefficients [ variable ] [ order ] coefficients
+
+        /// Generate the Hermite polynomial of order `order` and following the physicist convention.
+        /// See https://en.wikipedia.org/wiki/Hermite_polynomials.
+        let public physicistHermite (variable: Variable) (order: int) =
+            hermite variable order (HermiteConvention.Physicist)
+
+        /// Generate the Hermite polynomial of order `order` and following the probabilist convention.
+        /// See https://en.wikipedia.org/wiki/Hermite_polynomials.
+        let public probabilistHermite (variable: Variable) (order: int) =
+            hermite variable order (HermiteConvention.Probabilist)
+
+        /// Generate the closed-form Laguerre polynomial of order `order`.
+        /// See https://en.wikipedia.org/wiki/Laguerre_polynomials.
+        let public laguerre (variable: Variable) (order: int) =
+            let coefficients =
+                [ for k = order downto 0 do
+                    let num = (pown -1 k) * (binomial order k)
+                    let den = ifactorial k
+                    Simplification.simpPureConst (Const num / Const (fromBigInt den)) ]
+
+            fromCoefficients [ variable ] [ order ] coefficients
