@@ -131,6 +131,8 @@ module rec Utils =
         open System.Numerics
 
         exception public IntegerSquareRootOfNegativeNumberException of int
+        exception public NegativeFactorialException of int
+        exception public BadStirlingKindException of int
 
         /// Calculates the GCD of `a` and `b`, big integers.
         let inline public bigintGCD a b =
@@ -157,6 +159,21 @@ module rec Utils =
         /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
         let inline binomial n k =
             List.fold (fun s i -> s * (n - i + 1) / i) 1 [ 1..k ]
+
+        /// Calculates the binomial coefficient (n k).
+        /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
+        let inline fbinomial (n: double) (k: double) =
+            Array.fold (fun s i -> s * (n - i + 1.0) / i) 1.0 [| 1.0 .. k |]
+
+        /// Calculates the binomial coefficient (n k).
+        /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
+        let inline dbinomial (n: decimal) (k: decimal) =
+            Array.fold (fun s i -> s * (n - i + 1m) / i) 1m [| 1m .. k |]
+
+        /// Calculates the binomial coefficient (n k).
+        /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
+        let inline ibinomial (n: bigint) (k: bigint) =
+            Array.fold (fun s i -> s * (n - i + 1I) / i) 1I [| 1I .. k |]
 
         /// Calculates the multinomial coefficient.
         /// See https://en.wikipedia.org/wiki/Multinomial_theorem.
@@ -243,6 +260,43 @@ module rec Utils =
                     merge odd even n
 
             ditfft2 0 (List.length lst) 1
+
+        /// Calculate the natural factorial of the given number.
+        let inline public ifactorial (n: int) =
+            if n < 0 then
+                raise (NegativeFactorialException n)
+
+            let rec loop result n =
+                if n <= 1 then result
+                else loop (result * bigint n) (n - 1)
+
+            loop 1I n
+
+        /// Calculate the first or second kind Stirling number.
+        /// See https://en.wikipedia.org/wiki/Stirling_number#Notation.
+        let private stirling (kind: int) (n: int) (k: int) =
+            if kind <> 1 && kind <> 2 then
+                raise (BadStirlingKindException kind)
+
+            let mutable temp = Array2D.zeroCreate (n + 1) (k + 1)
+            temp.[0, 0] <- 1I
+
+            for i in 1 .. n do
+                for j in 1 .. min i k do
+                    let kfactor = if kind = 1 then (i - 1) else (j - 0)
+                    temp.[i, j] <- temp.[i - 1, j - 1] + bigint kfactor * temp.[i - 1, j]
+
+            temp.[n, k]
+
+        /// Calculate the first kind Stirling number.
+        /// See https://en.wikipedia.org/wiki/Stirling_numbers_of_the_first_kind.
+        let public stirling1 =
+            stirling 1
+
+        /// Calculate the second kind Stirling number.
+        /// See https://en.wikipedia.org/wiki/Stirling_numbers_of_the_second_kind.
+        let public stirling2 =
+            stirling 2
 
     // Some extensions to the standard module.
     module public List =
