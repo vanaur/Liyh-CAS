@@ -33,10 +33,40 @@ module rec Utils =
     // Some extensions to the standard module.
     module public Array2D =
         /// Obtains the row `i` of the given 2D array.
-        let inline public row i (table: 'T[,]) = table.[i..i, *] |> Seq.cast<'T>
+        let inline public row i (table: 'T[,]) = table.[i, *] |> Seq.cast<'T>
 
         /// Obtains the column `i` of the given 2D array.
-        let inline public column i (table: 'T[,]) = table.[*, i..i] |> Seq.cast<'T>
+        let inline public column i (table: 'T[,]) = table.[*, i] |> Seq.cast<'T>
+
+        /// Tests if all elements of the collection satisfy the given predicate.
+        let public forall (predicate: 't -> bool) (matrix: 't[,]) =
+            let mutable running1 = true
+            let mutable result = true
+
+            let mutable i, j = 0, 0
+            
+            while running1 do
+                let mutable running2 = running1
+
+                while running2 do
+                    if not (predicate matrix.[i, j]) then
+                        running1 <- false
+                        running2 <- false
+                        result <- false
+                    else
+                        if j = Array2D.length2 matrix then
+                            running2 <- false
+                            j <- 0
+                        else
+                            j <- j + 1
+
+                if i = Array2D.length1 matrix then
+                    running1 <- false
+                    i <- 0
+                else
+                    i <- i + 1
+
+            result
 
     [<AutoOpen>]
     module public Functional =
