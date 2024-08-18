@@ -908,6 +908,18 @@ module public rec MultiLinearAlgebra =
 
             Array.map mapper basis
 
+        /// Append the given column to the given matrix on the right.
+        let public augmentedMatrix (matrix: Matrix) (column: Vector) =
+            let rows, cols = size matrix
+            
+            if Vector.size column <> cols then
+                raise (IncompatibleMatrixException [ matrix; fromVector column Matrix1D.ColumnVector ])
+
+            let inline initializer i j =
+                if j < cols then matrix.[i, j] else column.[i]
+
+            Matrix (Array2D.init rows (cols + 1) initializer)
+
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
 
