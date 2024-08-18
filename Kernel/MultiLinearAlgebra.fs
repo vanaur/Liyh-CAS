@@ -890,6 +890,7 @@ module public rec MultiLinearAlgebra =
             // https://empslocal.ex.ac.uk/people/staff/rjchapma/courses/jcf.pdf
             ()
 
+        /// Performs a basis change on the given basis given a basis change matrix.
         let public changeBasis (basis: Vector array) (cobMatrix: Matrix) =
             if not (isSquareMatrix cobMatrix) then
                 raise (NotASquareMatrixException cobMatrix)
@@ -898,7 +899,14 @@ module public rec MultiLinearAlgebra =
             if not (isBasis basis dim) then
                 raise (NotABasisException (basis, dim))
 
-            Array.map (fun vec -> cobMatrix * fromVector vec Matrix1D.ColumnVector |> components |> Array2D.column 0 |> fromSeq) basis
+            let inline mapper vec =
+                let cv = fromVector vec Matrix1D.ColumnVector
+                let rs = cobMatrix * cv
+                let cs = Array2D.column 0 (components rs)
+
+                fromSeq cs
+
+            Array.map mapper basis
 
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
