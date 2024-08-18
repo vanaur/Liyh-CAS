@@ -757,7 +757,6 @@ module public rec MultiLinearAlgebra =
                 matrix
 
             let rows, cols = size matrix
-            let mutable lead = 0
 
             // The tail-recursive function below modifies the `cs` matrix in-place. We use a tail-recursive function
             // because it's more convenient given that F# allow breaing loops.
@@ -796,7 +795,7 @@ module public rec MultiLinearAlgebra =
                     else
                         processRow r (lead + 1)
 
-            cs <- processRow 0 lead
+            cs <- processRow 0 0
             Matrix cs |> simplifyComponents
 
         /// Compute the rank of the given matrix, i.e. the dimension of the vector space spanned by its columns.
