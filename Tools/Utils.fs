@@ -68,6 +68,31 @@ module rec Utils =
 
             result
 
+        /// Applies a function to each element of the collection, threading an accumulator argument through the computation.
+        let public foldi (folder: int -> int -> 'State -> 'T -> 'State) (state: 'State) (array: 'T[,]) =
+            let mutable result = state
+
+            for x in 0 .. Array2D.length1 array - 1 do
+                for y in 0 .. Array2D.length2 array - 1 do
+                    result <- folder x y result (array.[x, y])
+
+            result
+        
+        /// Applies a function to each element of the collection, threading an accumulator argument through the computation.
+        let public fold (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[,]) =
+            foldi (fun _ _ -> folder) state array
+
+        /// Extracts a submatrix from the given 2D matrix, specifying the starting row and column and the
+        /// number of rows and columns to extract.
+        let public getSubMatrix (matrix: 'a [,]) (startRow: int) (startCol: int) (numRows: int) (numCols: int) : 'a[,] =
+            let mutable result = Array2D.zeroCreate<'a> numRows numCols
+
+            for i in 0 .. numRows - 1 do
+                for j in 0 .. numCols - 1 do
+                    result.[i, j] <- matrix.[startRow + i, startCol + j]
+
+            result
+
     [<AutoOpen>]
     module public Functional =
 
