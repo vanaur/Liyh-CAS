@@ -787,6 +787,59 @@ module public rec MultiLinearAlgebra =
                 
                 matrix
 
+        /// This function performs a single step of Gaussian elimination. The initial `step` is `(0, 0)` and should not
+        /// be different, otherwise the result could be inconsistent. The return value is a tuple containing the new matrix
+        /// obtained (it may not change between two steps) and the next `step`, which should be called to perform the next
+        /// step of the gaussian elimination if necessary. And so on. For example:
+        /// 
+        ///     let mutable step = Some (0, 0)
+        ///     let mutable prev = initialMatrix
+        ///     
+        ///     while Option.isSome step do
+        ///         let prev', step' = gaussianEliminationStep prev (Option.get step)
+        ///         prev <- prev'
+        ///         step <- step'
+        /// 
+        /// When no more steps are possible, the algorithm is finished and the next step is `None`.
+        let public gaussianEliminationStep (matrix: Matrix) (step: int * int) =
+            let rows, cols = size matrix
+            let r, lead = step
+
+            if (r < 0 || lead < 0) || (r > rows || lead > cols) then
+                raise (BadStepInGaussianEliminationException step)
+
+            // If the matrix is already in the desired form, then we don't need to continue the algorithm.
+            if isRowEchelonForm matrix then (matrix, None) else
+
+            let mutable cs = components matrix
+
+            /// This function returns the return value (since `cs` is modified).
+            let inline ret() = simplifyComponents (Matrix cs)
+
+            if r >= rows || lead >= cols then (ret (), None)
+            else
+                let mutable i = r
+
+                while i < rows && Misc.isZero cs.[i, lead] do
+                    i <- i + 1
+
+                if i < rows then
+                    cs <- RowOperations.rowSwitching cs i r
+                    let pivot = cs.[r, lead]
+
+                    if not (Misc.isZero pivot) then
+                        for col in lead .. cols - 1 do
+                            cs.[r, col] <- cs.[r, col] / pivot
+                                           |> Simplification.simplify
+
+                        for i in 0 .. rows - 1 do
+                            if i <> r && not (Misc.isZero cs.[i, lead]) then
+                                cs <- RowOperations.rowReduce cs r i lead
+
+                    (ret(), Some (r + 1, lead + 1))
+                else
+                    (ret(), Some (r, lead + 1))
+
         /// Perform the Gaussian elimination to the given matrix, and return the resulting matrix.
         /// See https://en.wikipedia.org/wiki/Gaussian_elimination.
         let public gaussianElimination (matrix: Matrix) =
