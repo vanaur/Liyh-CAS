@@ -843,6 +843,48 @@ module public rec MultiLinearAlgebra =
                 else
                     (ret(), Some (r, lead + 1))
 
+        /// Checks whether the given matrix is in the row echelon form, i.e. the following properties are required:
+        ///     - All rows having only zero entries are at the bottom of the matrix.
+        ///     - The left-most nonzero entry of every nonzero row is on the right of the leading entry of every row above.
+        let public isRowEchelonForm (matrix: Matrix) =
+            let cs = copyFreeComponents matrix
+            let rows, cols = size matrix
+
+            /// This function finds the first column with a non-null element in a given row.
+            /// If no non-null value is found, it returns `None`.
+            let rec findFirstNonZero (row: int) (startCol: int) =
+                if startCol >= cols then None
+                elif not (Misc.isZero cs.[row, startCol]) then Some startCol
+                else findFirstNonZero row (startCol + 1)
+
+            /// This function checks each row of the matrix. It ensures that the pivot of the current row is to the
+            /// right of the pivot of the previous row and that all rows after a null row are also null.
+            let rec checkRow (currentRow: int) (lastPivotCol: int) =
+                if currentRow >= rows then true
+                else
+                    match findFirstNonZero currentRow 0 with
+                    | None ->
+
+                        // In this case, the current row is all zeros.
+                        // We ensure all following rows are also all zeros
+
+                        if currentRow = rows - 1 then true
+                        else
+                            let sbmx = Array2D.map Misc.isZero (Array2D.getSubMatrix cs currentRow 0 1 cols)
+                            let allZeros = Array2D.fold ( && ) true sbmx
+
+                            allZeros && checkRow (currentRow + 1) lastPivotCol
+
+                    | Some pivotCol ->
+                        if lastPivotCol >= pivotCol then false
+                        else checkRow (currentRow + 1) pivotCol
+
+            checkRow 0 -1
+
+        /// Checks whether the transpose of the given matrix is in the row echelon form.
+        let public isColumnEchelonForm (matrix: Matrix) =
+            isRowEchelonForm (transpose matrix)
+
         /// Perform the Gaussian elimination to the given matrix, and return the resulting matrix.
         /// See https://en.wikipedia.org/wiki/Gaussian_elimination.
         let public gaussianElimination (matrix: Matrix) =
