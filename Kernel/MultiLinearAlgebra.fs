@@ -311,7 +311,13 @@ module public rec MultiLinearAlgebra =
         let public getColumns (matrix: Matrix) =
             let cs = components matrix
 
-            [| for col in 0 .. Array2D.length1 cs -> Array2D.column col cs |]
+            [| for col in 0 .. Array2D.length1 cs - 1 -> Array.ofSeq (Array2D.column col cs) |]
+
+        /// Returns the rows of the given matrix.
+        let public getRows (matrix: Matrix) =
+            let cs = components matrix
+
+            [| for col in 0 .. Array2D.length1 cs - 1 -> Array.ofSeq (Array2D.row col cs) |]
 
         /// Generates a matrix of a given size based on the specified generating function.
         let public generate (rows: int) (cols: int) (f: int -> int -> SumPow) =
@@ -455,8 +461,8 @@ module public rec MultiLinearAlgebra =
 
         /// Check if the matrix is square.
         let public isSquareMatrix (m: Matrix) =
-            let cs = components m
-            Array2D.length1 cs = Array2D.length2 cs
+            let n, m = size m
+            n = m
 
         /// Returns the main diagonal of the given matrix.
         let public diagonal (m: Matrix) =
