@@ -961,6 +961,11 @@ module public rec MultiLinearAlgebra =
 
             result
 
+        /// Compute the nullity of the given matrix, i.e. the number of vectors present in the null space.
+        /// See https://en.wikipedia.org/wiki/Rank%E2%80%93nullity_theorem.
+        let public matrixNullity (matrix: Matrix) =
+            snd (size matrix) - matrixRank matrix
+
         /// Check that the given vectors are linearly independent.
         let public areLinearlyIndependent (vectors: Vector array) =
             let numOfVectors = Array.length vectors
