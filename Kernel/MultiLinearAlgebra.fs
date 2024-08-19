@@ -645,7 +645,7 @@ module public rec MultiLinearAlgebra =
             let cols = Array2D.length2 cs
 
             let det = VectorSpaceUtility.fastDeterminant matrix
-            if Misc.isZero det then None else
+            if not (VectorSpaceUtility.isInvertible matrix) then None else
 
             let adjoint = adjoint matrix
             let mutable result = Array2D.zeroCreate rows cols
@@ -1140,6 +1140,19 @@ module public rec MultiLinearAlgebra =
         /// Check whether the given vectors form a basis of the given matrix.
         let public isKernelBasis (vectors: Vector array) (matrix: Matrix) =
             isBasis vectors (matrixNullity matrix)
+
+        /// Check whether the given matrix has an inverse.
+        let public isInvertible (matrix: Matrix) =
+            let result = isSquareMatrix matrix && matrixRank matrix = fst (size matrix)
+            #if DEBUG // Gaussian elimination can lead to heavy calculations that
+                      // are not always simplified by SumPow...
+                      // In debug mode, a double check is performed.
+            if not (Misc.isZero (fastDeterminant matrix)) <> result then
+                failwithf "Incompatible results: %A" matrix
+            result
+            #else
+            result
+            #endif
 
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
