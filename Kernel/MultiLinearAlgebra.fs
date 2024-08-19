@@ -858,6 +858,7 @@ module public rec MultiLinearAlgebra =
 
                 for col in col .. Array2D.length2 matrix - 1 do
                     matrix.[r2, col] <- matrix.[r2, col] - factor * matrix.[r1, col]
+                                        |> Simplification.simplify
 
                 matrix
 
@@ -891,6 +892,7 @@ module public rec MultiLinearAlgebra =
                         if not (Misc.isZero pivot) then
                             for col in lead .. cols - 1 do
                                 cs.[r, col] <- cs.[r, col] / pivot
+                                               |> Simplification.simplify
 
                             for i in 0 .. rows - 1 do
                                 if i <> r && not (Misc.isZero cs.[i, lead]) then
