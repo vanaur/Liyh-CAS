@@ -1100,6 +1100,47 @@ module public rec MultiLinearAlgebra =
                 if not pivotColumns.[j] then
                     yield j |]
 
+        /// Compute a basis of the kernel of the given matrix.
+        /// See https://en.wikipedia.org/wiki/Kernel_(linear_algebra).
+        let public kernelBasis (matrix: Matrix) =
+            let mref = gaussianElimination matrix
+            let rows, cols = size mref
+
+            // The algorithm works as follows: we calculate the row echelon form of the matrix, which gives us access 
+            // to the free variables and the lined variables (or, equivalently in our case, the free and non-free columns).
+            // The non-free variables are the ‘pivots’ and all we have to do is solve the associated equations to obtain
+            // the components of the base vectors.
+            // For better explanation, see
+            //  - https://math.stackexchange.com/questions/88301/finding-the-basis-of-a-null-space
+            //  - https://people.math.carleton.ca/~kcheung/math/books/manuel-AL/fr/retour-sur-le-noyau-dune-matrice.html
+
+            let pivots = // Search for columns with pivot points
+                Array.init cols
+                    (fun j -> Array.tryFindIndex (fun i -> Misc.isOne mref.[i, j]) [| 0 .. rows - 1 |])
+
+            let inline initializer freeCol i =
+                if i = freeCol then Const One
+                elif i > freeCol then Const Zero
+                else match pivots.[i] with
+                     | Some r -> -mref.[r, freeCol]
+                     | None -> Const Zero
+
+            let inline mapper freeCol =
+                Array.init cols (initializer freeCol)
+
+            // The dimension of the kernel corresponds to the number of free variables (~columns)
+            // according to the Rank–nullity theorem. https://en.wikipedia.org/wiki/Rank%E2%80%93nullity_theorem
+
+            let freeVariables = freeColumns mref
+            if matrixNullity matrix <> Array.length freeVariables then
+                raise (ViolationOfRankNullityTheoremException matrix)
+
+            Array.map (mapper >> Vector) freeVariables
+
+        /// Check whether the given vectors form a basis of the given matrix.
+        let public isKernelBasis (vectors: Vector array) (matrix: Matrix) =
+            isBasis vectors (matrixNullity matrix)
+
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
 
