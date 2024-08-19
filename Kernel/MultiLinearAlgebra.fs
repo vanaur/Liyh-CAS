@@ -749,6 +749,9 @@ module public rec MultiLinearAlgebra =
         exception public DefectiveMatrixException of Vector seq
         exception public UndefinedSizeForVectorSpaceException of int
         exception public NotABasisException of Vector seq * int
+        exception public BadStepInGaussianEliminationException of int * int
+        exception public NotRowEchelonFormMatrixException of Matrix
+        exception public ViolationOfRankNullityTheoremException of Matrix
 
         module private RowOperations =
 
