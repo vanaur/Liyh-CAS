@@ -244,16 +244,16 @@ module rec SumPow =
             | a, One -> a
 
             // Instead of dividing two integer and obtaining a double, we simplify the fraction into an irreducible one.
-            | Const(CInteger a), Const(CInteger b) ->
+            | Const(CBigInteger a), Const(CBigInteger b) ->
                 let fixSign p q = if sign q > 0 then (p, q) else (-p, -q)
-                let g = intGCD a b
+                let g = bigintGCD a b
 
                 // Note: Since Constant is currently implemented via `double`, the value/precision of a `bigint`
                 // can potentially be lost when converting to `double`.
 
                 match fixSign (a / g) (b / g) with
-                | a, b when b = 1 -> Const(fromBigInt a)
-                | 1, b -> Sum [ Term [ negPowId (Const(fromBigInt b)) ] ]
+                | a, b when b = 1I -> Const(fromBigInt a)
+                | a, b when a = 1I -> Sum [ Term [ negPowId (Const(fromBigInt b)) ] ]
                 | a, b -> Sum [ Term [ powId (Const(fromBigInt a))
                                        negPowId (Const(fromBigInt b)) ] ]
 
