@@ -1073,6 +1073,33 @@ module public rec MultiLinearAlgebra =
 
             Matrix (Array2D.init rows (cols + 1) initializer)
 
+        /// Given a matrix in row echelon form, identify the columns for which there is no pivot (the free columns).
+        let private freeColumns (matrix: Matrix) =
+            if not (isRowEchelonForm matrix) then
+                raise (NotRowEchelonFormMatrixException matrix)
+
+            let m, n = size matrix
+
+            // Contains information about whether a column is a free column or not.
+            let mutable pivotColumns = Array.init n (konst false)
+
+            for i in 0 .. m - 1 do
+                let mutable foundPivot = false
+
+                for j in 0 .. n - 1 do
+                    if
+                        not foundPivot
+                        && Misc.isOne matrix.[i, j]
+                        && Array.forall Misc.isZero
+                            [| for k in 0 .. m - 1 -> if k <> i then matrix.[k, j] else Const Zero |]
+                    then
+                        pivotColumns.[j] <- true
+                        foundPivot <- true
+
+            [| for j in 0 .. n - 1 do
+                if not pivotColumns.[j] then
+                    yield j |]
+
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
 
