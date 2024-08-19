@@ -750,15 +750,42 @@ module public rec MultiLinearAlgebra =
         exception public UndefinedSizeForVectorSpaceException of int
         exception public NotABasisException of Vector seq * int
 
-        /// Swap the indicated columns of the given matrix.
-        /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
-        let inline private swapRows (matrix: SumPow[,]) (r1: int) (r2: int) =
-            for col in 0 .. Array2D.length2 matrix - 1 do
-                let tmp = matrix.[r1, col]
-                matrix.[r1, col] <- matrix.[r2, col]
-                matrix.[r2, col] <- tmp
+        module private RowOperations =
 
-            matrix
+            /// Swap the indicated rows of the given matrix.
+            /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
+            let inline public rowSwitching (matrix: SumPow[,]) (r1: int) (r2: int) =
+                for col in 0 .. Array2D.length2 matrix - 1 do
+                    let tmp = matrix.[r1, col]
+                    matrix.[r1, col] <- matrix.[r2, col]
+                    matrix.[r2, col] <- tmp
+
+                matrix
+
+            let inline rowReduce (matrix: SumPow[,]) (r1: int) (r2: int) (col: int) =
+                let factor = matrix.[r2, col] / matrix.[r1, col]
+
+                for col in col .. Array2D.length2 matrix - 1 do
+                    matrix.[r2, col] <- matrix.[r2, col] - factor * matrix.[r1, col]
+                                        |> Simplification.simplify
+
+                matrix
+
+            /// Multiply the indicated row of the given matrix by the given scalar.
+            /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
+            let inline public rowScaling (matrix: SumPow[,]) (r: int) (factor: SumPow) =
+                for c in 0 .. Array2D.length2 matrix - 1 do
+                    matrix.[r, c] <- factor * matrix.[r, c]
+                
+                matrix
+
+            /// Sum the indicated row of the given matrix by itself plus the given scalar.
+            /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
+            let inline public rowAddition (matrix: SumPow[,]) (r: int) (factor: SumPow) =
+                for c in 0 .. Array2D.length2 matrix - 1 do
+                    matrix.[r, c] <- matrix.[r, c] + factor * matrix.[r, c]
+                
+                matrix
 
         /// Perform the Gaussian elimination to the given matrix, and return the resulting matrix.
         /// See https://en.wikipedia.org/wiki/Gaussian_elimination.
@@ -802,7 +829,7 @@ module public rec MultiLinearAlgebra =
                         i <- i + 1
 
                     if i < rows then
-                        cs <- swapRows cs i r
+                        cs <- RowOperations.rowSwitching cs i r
                         let pivot = cs.[r, lead]
 
                         if not (Misc.isZero pivot) then
@@ -811,7 +838,7 @@ module public rec MultiLinearAlgebra =
 
                             for i in 0 .. rows - 1 do
                                 if i <> r && not (Misc.isZero cs.[i, lead]) then
-                                    cs <- reduceRow cs r i lead
+                                    cs <- RowOperations.rowReduce cs r i lead //reduceRow cs r i lead
 
                         processRow (r + 1) (lead + 1)
                     else
@@ -877,7 +904,7 @@ module public rec MultiLinearAlgebra =
                         if m = dim then
                             Const Zero // If no pivot is found, then the determinant is zero.
                         elif not (Misc.isZero cs.[m, k]) then
-                            cs <- swapRows cs k m
+                            cs <- RowOperations.rowSwitching cs k m
                             loop k -sign
                         else
                             findPivot (m + 1)
