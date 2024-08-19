@@ -83,6 +83,14 @@ module public rec MultiLinearAlgebra =
 
             Array.copy components
 
+        /// Returns the components of the vector.
+        /// Note: modifying the return value does not modify the initial vector.
+        let public copyFreeComponents (Vector components) =
+            if Array.isEmpty components then
+                raise VectorHasNoComponentException
+
+            components
+
         /// Create a vector from the given components.
         let public fromSeq (components: SumPow seq) =
             if Seq.isEmpty components then
@@ -93,8 +101,8 @@ module public rec MultiLinearAlgebra =
         module private Operations =
 
             let public addition (v1: Vector) (v2: Vector) =
-                let cs1 = components v1
-                let cs2 = components v2
+                let cs1 = copyFreeComponents v1
+                let cs2 = copyFreeComponents v2
 
                 if Array.length cs1 <> Array.length cs2 then
                     raise (VectorsHaveDifferentLengthException [ v1; v2 ])
@@ -102,8 +110,8 @@ module public rec MultiLinearAlgebra =
                 Vector (Array.map2 ( + ) cs1 cs2) |> simplifyComponents
 
             let public subtraction (v1: Vector) (v2: Vector) =
-                let cs1 = components v1
-                let cs2 = components v2
+                let cs1 = copyFreeComponents v1
+                let cs2 = copyFreeComponents v2
 
                 if Array.length cs1 <> Array.length cs2 then
                     raise (VectorsHaveDifferentLengthException [ v1; v2 ])
@@ -130,8 +138,8 @@ module public rec MultiLinearAlgebra =
 
         /// Returns the sum of the component-by-component product of the two given vectors of the same size.
         let public dotProduct (v1: Vector) (v2: Vector) =
-            let cs1 = components v1
-            let cs2 = components v2
+            let cs1 = copyFreeComponents v1
+            let cs2 = copyFreeComponents v2
 
             if Array.length cs1 <> Array.length cs2 then
                 raise (VectorsHaveDifferentLengthException [ v1; v2 ])
@@ -155,8 +163,8 @@ module public rec MultiLinearAlgebra =
 
         /// Returns the angle formed by the two vectors.
         let public angle (v1: Vector) (v2: Vector) =
-            let cs1 = components v1
-            let cs2 = components v2
+            let cs1 = copyFreeComponents v1
+            let cs2 = copyFreeComponents v2
 
             if Array.length cs1 <> Array.length cs2 then
                 raise (VectorsHaveDifferentLengthException [ v1; v2 ])
@@ -167,8 +175,8 @@ module public rec MultiLinearAlgebra =
         /// Project the vector `v1` onto the vector `v2`.
         /// See https://en.wikipedia.org/wiki/Vector_projection.
         let public project (v1: Vector) (v2: Vector) =
-            let cs1 = components v1
-            let cs2 = components v2
+            let cs1 = copyFreeComponents v1
+            let cs2 = copyFreeComponents v2
 
             if Array.length cs1 <> Array.length cs2 then
                 raise (VectorsHaveDifferentLengthException [ v1; v2 ])
@@ -182,8 +190,8 @@ module public rec MultiLinearAlgebra =
         /// Returns the cross-product of the two given vectors.
         /// See https://en.wikipedia.org/wiki/Cross_product.
         let public crossProduct (v1: Vector) (v2: Vector) =
-            let cs1 = components v1
-            let cs2 = components v2
+            let cs1 = copyFreeComponents v1
+            let cs2 = copyFreeComponents v2
 
             if Array.length cs1 <> 3 || Array.length cs2 <> 3 then
                 raise (CrossProductOfNon3VectorsException (v1, v2))
@@ -269,6 +277,15 @@ module public rec MultiLinearAlgebra =
 
             Array2D.copy components
 
+        /// Returns an `Array2D` of components.
+        /// Note: modifying the return value do modify the initial matrix.
+        let public copyFreeComponents (Matrix components) =
+            if Array2D.length1 components = 0
+            && Array2D.length2 components = 0 then
+                raise MatrixHasNoComponentException
+
+            components
+
         let private toSymbolic (matrix: Matrix) =
             let cs = components matrix
 
@@ -348,8 +365,8 @@ module public rec MultiLinearAlgebra =
         module private Operations =
 
             let public addition (m1: Matrix) (m2: Matrix) =
-                let cs1 = components m1
-                let cs2 = components m2
+                let cs1 = copyFreeComponents m1
+                let cs2 = copyFreeComponents m2
 
                 if Array2D.length1 cs1 <> Array2D.length1 cs2
                 || Array2D.length2 cs1 <> Array2D.length2 cs2 then
@@ -367,8 +384,8 @@ module public rec MultiLinearAlgebra =
                 Matrix result
 
             let public subtraction (m1: Matrix) (m2: Matrix) =
-                let cs1 = components m1
-                let cs2 = components m2
+                let cs1 = copyFreeComponents m1
+                let cs2 = copyFreeComponents m2
 
                 if Array2D.length1 cs1 <> Array2D.length1 cs2
                 || Array2D.length2 cs1 <> Array2D.length2 cs2 then
@@ -387,16 +404,16 @@ module public rec MultiLinearAlgebra =
 
             /// Multiply each component of the given matrix by the given scalar.
             let public scalarMultiplication (scalar: SumPow) (m: Matrix) =
-                Matrix (Array2D.map (( * ) scalar) (components m))
+                Matrix (Array2D.map (( * ) scalar) (copyFreeComponents m))
 
             /// Divise each component of the given matrix by the given scalar.
             let public scalarDivision (m: Matrix) (scalar: SumPow) =
-                Matrix (Array2D.map (fun c -> c / scalar) (components m))
+                Matrix (Array2D.map (fun c -> c / scalar) (copyFreeComponents m))
 
             /// Implements naive matrix multiplication.
             let public multiplication (m1: Matrix) (m2: Matrix) =
-                let cs1 = components m1
-                let cs2 = components m2
+                let cs1 = copyFreeComponents m1
+                let cs2 = copyFreeComponents m2
 
                 let rows1 = Array2D.length1 cs1
                 let cols1 = Array2D.length2 cs1
@@ -434,8 +451,7 @@ module public rec MultiLinearAlgebra =
                     | Some inv -> pown inv (abs n)
 
         let public simplifyComponents (m: Matrix) =
-            let cs = components m
-            Matrix (Array2D.map Simplification.simplify cs)
+            Matrix (Array2D.map Simplification.simplify (copyFreeComponents m))
 
         /// Check if the matrix is square.
         let public isSquareMatrix (m: Matrix) =
@@ -493,7 +509,7 @@ module public rec MultiLinearAlgebra =
                         det <- det + coFactor
                     det
 
-            loop (components m)
+            loop (copyFreeComponents m)
             |> Simplification.simplify
 
         /// Returns the transpose of the given matrix.
@@ -508,8 +524,8 @@ module public rec MultiLinearAlgebra =
         /// Compute the Kronecker product (~"tensor product") of the two given matrix.
         /// See https://en.wikipedia.org/wiki/Kronecker_product.
         let public kroneckerProduct (m1: Matrix) (m2: Matrix) =
-            let cs1 = components m1
-            let cs2 = components m2
+            let cs1 = copyFreeComponents m1
+            let cs2 = copyFreeComponents m2
 
             let aRows = Array2D.length1 cs1
             let aCols = Array2D.length2 cs1
@@ -530,8 +546,8 @@ module public rec MultiLinearAlgebra =
         /// Compute the Hadamard product of the two given matrix.
         /// See https://en.wikipedia.org/wiki/Hadamard_product_(matrices).
         let public hadamardProduct (m1: Matrix) (m2: Matrix) =
-            let cs1 = components m1
-            let cs2 = components m2
+            let cs1 = copyFreeComponents m1
+            let cs2 = copyFreeComponents m2
 
             if Array2D.length1 cs1 <> Array2D.length1 cs2
             || Array2D.length2 cs1 <> Array2D.length2 cs2 then
@@ -560,16 +576,16 @@ module public rec MultiLinearAlgebra =
             if not (isSquareMatrix m) then
                 raise (NotASquareMatrixException m)
 
-            let cs = components (simplifyComponents m)
+            let cs = copyFreeComponents (simplifyComponents m)
             m = idMatrix (Array2D.length1 cs)
 
         /// Review the submatrix indicated.
         let public subMatrix (matrix: Matrix) (row: int) (col: int) =
-            let cs = components matrix
+            let cs = copyFreeComponents matrix
             let rows = Array2D.length1 cs
             let cols = Array2D.length2 cs
 
-            let sub = Array2D.zeroCreate (rows - 1) (cols - 1)
+            let mutable sub = Array2D.zeroCreate (rows - 1) (cols - 1)
             
             let mutable subRow = 0
             for r in 0 .. (rows - 1) do
@@ -595,7 +611,7 @@ module public rec MultiLinearAlgebra =
             if not (isSquareMatrix matrix) then
                 raise (NotASquareMatrixException matrix)
 
-            let cs = components matrix
+            let cs = copyFreeComponents matrix
             let rows = Array2D.length1 cs
             let cols = Array2D.length2 cs
 
@@ -618,7 +634,7 @@ module public rec MultiLinearAlgebra =
             if not (isSquareMatrix matrix) then
                 raise (NotASquareMatrixException matrix)
 
-            let cs = components matrix
+            let cs = copyFreeComponents matrix
             let rows = Array2D.length1 cs
             let cols = Array2D.length2 cs
 
@@ -703,7 +719,7 @@ module public rec MultiLinearAlgebra =
 
         /// Transpose the given matrix and take the conjugate of each entry.
         let public hermitianTranspose (matrix: Matrix) =
-            let cs = components (transpose matrix)
+            let cs = copyFreeComponents (transpose matrix)
             Matrix (Array2D.map (fun e -> Simplification.simplify (Fun("Conj", [ e ]))) cs) // need good support for complexes...
 
         /// Check if the given matrix is self-adjoint (equals its hermitian transpose).
