@@ -238,6 +238,8 @@ module public rec MultiLinearAlgebra =
 
     /// This module deals with classical matrix algebra over SumPow.
     module public Matrix =
+
+        open System.Threading.Tasks
         open System.Collections.Generic
         open Vector
 
@@ -416,27 +418,47 @@ module public rec MultiLinearAlgebra =
             let public scalarDivision (m: Matrix) (scalar: SumPow) =
                 Matrix (Array2D.map (fun c -> c / scalar) (copyFreeComponents m))
 
-            /// Implements naive matrix multiplication.
+            /// A parallelized variant of the classic matrix multiplication. This method is faster for large matrices.
+            let private pmultiplication (cs1: SumPow[,]) (cs2: SumPow[,]) (r1: int) (c1: int) (c2: int) =
+                let mutable result = Array2D.create r1 c2 (Const Zero)
+
+                [| for i in 0 .. r1 - 1 do
+                    for j in 0 .. c2 - 1 do
+                        yield
+                            Task.Run(fun () ->
+                                let mutable sum = Const Zero
+
+                                for k in 0 .. c1 - 1 do
+                                    sum <- sum + cs1.[i, k] * cs2.[k, j]
+
+                                result.[i, j] <- sum) |]
+
+                |> Task.WaitAll
+
+                Matrix result
+
+            /// Implements naive matrix multiplication. The calculation is parallelized for large matrices.
             let public multiplication (m1: Matrix) (m2: Matrix) =
                 let cs1 = copyFreeComponents m1
                 let cs2 = copyFreeComponents m2
 
-                let rows1 = Array2D.length1 cs1
-                let cols1 = Array2D.length2 cs1
-                let rows2 = Array2D.length1 cs2
-                let cols2 = Array2D.length2 cs2
+                let rows1, cols1 = size m1
+                let rows2, cols2 = size m2
 
                 if cols1 <> rows2 then
                     raise (IncompatibleMatrixException [ m1; m2 ])
 
-                let mutable result = Array2D.create rows1 cols2 (Const Zero)
+                if rows1 >= 100 then
+                    pmultiplication cs1 cs2 rows1 cols1 cols2
+                else
+                    let mutable result = Array2D.create rows1 cols2 (Const Zero)
 
-                for i in 0 .. rows1 - 1 do
-                    for j in 0 .. cols2 - 1 do
-                        for k in 0 .. cols1 - 1 do
-                            result.[i, j] <- result.[i, j] + cs1.[i, k] * cs2.[k, j]
+                    for i in 0 .. rows1 - 1 do
+                        for j in 0 .. cols2 - 1 do
+                            for k in 0 .. cols1 - 1 do
+                                result.[i, j] <- result.[i, j] + cs1.[i, k] * cs2.[k, j]
 
-                Matrix result
+                    Matrix result
 
             /// Exponentiate the given square matrix to the given integer.
             let rec public pown (matrix: Matrix) (n: int) =
