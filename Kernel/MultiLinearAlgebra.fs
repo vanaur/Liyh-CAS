@@ -681,21 +681,17 @@ module public rec MultiLinearAlgebra =
         /// Returns the QR decomposition of the given matrix (using Gram-Schmidt process).
         /// The matrix Q is an orthogonal and the matrix R is a upper triangular matrix.
         let public qrDecomposition (matrix: Matrix) =
-            let cs = components matrix
-
-            let m = Array2D.length1 cs
-            let n = Array2D.length2 cs
+            let m, n = size matrix
 
             if m < n then
                 raise (IncompatibleMatrixException [ matrix ])
-            
-            let columns = [| for j in 0 .. n - 1 -> Vector [| for i in 0 .. m - 1 -> cs.[i, j] |] |]
-            let normsVs = gramSchmidtNormalized columns
-            let Q = Array2D.init m n (fun r c -> normsVs.[r].[c])
-            let f r c = if r <= c then dotProduct normsVs.[r] columns.[c] else Const Zero
-            let R = Array2D.init m n f
 
-            Matrix Q, Matrix R
+            let columns = Array.map Vector (getColumns matrix)
+            let normsVs = gramSchmidtNormalized columns
+            let Q = fromVectors normsVs
+            let f r c = if r <= c then dotProduct normsVs.[r] columns.[c] else Const Zero
+            let R = generate n n f
+            Q, R
 
         /// Returns the characteristic polynomial of the given matrix.
         let public characteristicPolynomial (matrix: Matrix) (variable: SumPow) =
