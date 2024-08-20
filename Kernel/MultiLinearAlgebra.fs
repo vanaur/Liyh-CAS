@@ -496,6 +496,10 @@ module public rec MultiLinearAlgebra =
             let l = min (Array2D.length1 cs) (Array2D.length2 cs) - 1
             [| for i in 0 .. l -> cs.[i, i] |]
 
+        /// Generates a square diagonal matrix whose diagonal elements are given in order.
+        let public diagonalMatrix (diag: SumPow[]) =
+            generate (Array.length diag) (Array.length diag) (fun i j -> if i = j then diag.[i] else Const Zero)
+
         /// Compute the sum of the diagonal of the given matrix.
         let public trace (m: Matrix) =
             Array.reduce ( + ) (diagonal m)
