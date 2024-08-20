@@ -742,6 +742,7 @@ module public rec MultiLinearAlgebra =
 
     /// This module covers some other elements of linear algebra.
     module public VectorSpaceUtility =
+        open System.Linq
         open Vector
         open Matrix
 
@@ -1136,6 +1137,12 @@ module public rec MultiLinearAlgebra =
                 raise (ViolationOfRankNullityTheoremException matrix)
 
             Array.map (mapper >> Vector) freeVariables
+
+        /// Compute a basis of the kernel of the given matrix.
+        /// See https://en.wikipedia.org/wiki/Row_and_column_spaces.
+        let public imageBasis (matrix: Matrix) =
+            let mref = gaussianElimination (transpose matrix)
+            Array.filter (fun (a: _ array) -> a.Any (not << Misc.isZero)) (getRows mref)
 
         /// Check whether the given vectors form a basis of the given matrix.
         let public isKernelBasis (vectors: Vector array) (matrix: Matrix) =
