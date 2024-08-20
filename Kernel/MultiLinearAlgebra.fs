@@ -693,6 +693,22 @@ module public rec MultiLinearAlgebra =
             let R = generate n n f
             Q, R
 
+        /// Perform the LU decomposition to the given matrix, and return the resulting matrices L and U.
+        /// See https://en.wikipedia.org/wiki/LU_decomposition.
+        let public luDecomposition (matrix: Matrix) =
+            let n, m = size matrix            
+            let mutable L = Array2D.init n n (fun i j -> if i = j then Const One else Const Zero)
+            let mutable U = components matrix
+
+            for k in 0 .. n - 1 do
+                for i in k + 1 .. n - 1 do
+                    let factor = Simplification.simplify (U.[i, k] / U.[k, k])
+                    L.[i, k] <- factor
+                    for j in k .. m - 1 do
+                        U.[i, j] <- Simplification.simplify (U.[i, j] - factor * U.[k, j])
+
+            Matrix L, Matrix U
+
         /// Returns the characteristic polynomial of the given matrix.
         let public characteristicPolynomial (matrix: Matrix) (variable: SumPow) =
             if not (isSquareMatrix matrix) then
