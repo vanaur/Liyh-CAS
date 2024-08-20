@@ -313,13 +313,13 @@ module public rec MultiLinearAlgebra =
         let public getColumns (matrix: Matrix) =
             let cs = components matrix
 
-            [| for col in 0 .. Array2D.length1 cs - 1 -> Array.ofSeq (Array2D.column col cs) |]
+            [| for col in 0 .. Array2D.length2 cs - 1 -> Array.ofSeq (Array2D.column col cs) |]
 
         /// Returns the rows of the given matrix.
         let public getRows (matrix: Matrix) =
             let cs = components matrix
 
-            [| for col in 0 .. Array2D.length1 cs - 1 -> Array.ofSeq (Array2D.row col cs) |]
+            [| for row in 0 .. Array2D.length1 cs - 1 -> Array.ofSeq (Array2D.row row cs) |]
 
         /// Generates a matrix of a given size based on the specified generating function.
         let public generate (rows: int) (cols: int) (f: int -> int -> SumPow) =
