@@ -1066,6 +1066,24 @@ module public rec MultiLinearAlgebra =
 
             loop 0 1 |> Simplification.simplify
 
+        /// Use the Faddeev–LeVerrier algorithm to calculate the characteristic polynomial of the given matrix.
+        /// See https://en.wikipedia.org/wiki/Faddeev%E2%80%93LeVerrier_algorithm.
+        let public fastCharacteristicPolynomial (matrix: Matrix) (variable: SumPow) =
+            if not (isSquareMatrix matrix) then
+                raise (NotASquareMatrixException matrix)
+
+            let n, _ = size matrix
+            let mutable akMat = components matrix
+            let mutable result = Array.init (n + 1) (konst (Const One))
+
+            for k in 1 .. n do
+                let ak = - trace (Matrix akMat) / k
+                result.[k] <- ak
+                akMat <- components (Matrix akMat + diagonalMatrix [| for _ in 1 .. n -> ak |])
+                akMat <- components (matrix * Matrix akMat)
+
+            Polynomial.Convertion.fromCoefficients [ variable ] [ n ] (List.ofArray result)
+
         /// Check that the given family of vectors "forms a basis" for a n-vector space.
         /// Note: In fact, it doesn't make much sense to say that "a family of vectors forms a basis" without specifying
         /// over which field, we assume that the user knows what he or she is doing (SumPow is a particular space).
