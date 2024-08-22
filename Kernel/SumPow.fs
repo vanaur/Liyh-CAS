@@ -1510,7 +1510,7 @@ module rec SumPow =
             function
             | Fun("Log", [ x; b ]) -> Some (x, b)
             | Fun("Log", [ x ]) -> Some (x, Const 10)
-            | Fun("Ln", [ x ]) -> Some (x, Const Math.E)
+            | Fun("Ln", [ x ]) -> Some (x, Name "E")
             | _ -> None
 
         let public (|Sin|_|) =
