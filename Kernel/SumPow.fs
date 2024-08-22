@@ -400,6 +400,7 @@ module rec SumPow =
             | ElemFun.Root(x, nth) -> toLatexRoot x (Const One) nth
             | Frac(num, den) -> sprintf @"\frac{%s}{%s}" (toLatex num) (toLatex den)
             | Power(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
+            | InternalFunction.InternalFunction ifun -> toLatexInternalFun ifun
             | Fun(fname, arguments) -> toLatexFun fname arguments
             | Sum ss -> toLatexSum ss
             | _ -> failwith "??"
@@ -454,17 +455,44 @@ module rec SumPow =
             let r = String.concat "" terms
             if r.StartsWith "+" then r.[1..] else r
 
+        and private toLatexInternalFun =
+            function
+            | InternalFunction.LiyhPow(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
+            | InternalFunction.LiyhRoot(x, None) -> sprintf @"\sqrt{%s}" (toLatex x)
+            | InternalFunction.LiyhRoot(x, Some b) -> sprintf @"\sqrt[%s]{%s}" (toLatex b) (toLatex x)
+            | InternalFunction.LiyhLog(x, None) -> sprintf @"\log\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhLog(x, Some b) -> sprintf @"\log_{%s}\left(%s\right)" (toLatex b) (toLatex x)
+            | InternalFunction.LiyhExp x -> sprintf @"e^{%s}" (toLatex x)
+            | InternalFunction.LiyhSin x -> sprintf @"\sin\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCos x -> sprintf @"\cos\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhTan x -> sprintf @"\tan\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCsc x -> sprintf @"\csc\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhSec x -> sprintf @"\sec\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCot x -> sprintf @"\cot\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArSin x -> sprintf @"\arcsin\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCos x -> sprintf @"\arccos\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArTan x -> sprintf @"\arctan\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCsc x -> sprintf @"\text{arcsc}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArSec x -> sprintf @"\text{arsec}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCot x -> sprintf @"\text{arcot}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhSinh x -> sprintf @"\sinh\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCosh x -> sprintf @"\cosh\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhTanh x -> sprintf @"\tanh\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCsch x -> sprintf @"\text{csch}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhSech x -> sprintf @"\text{sech}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhCoth x -> sprintf @"\text{coth}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArSinh x -> sprintf @"\text{arsinh}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCosh x -> sprintf @"\text{arcosh}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArTanh x -> sprintf @"\text{artanh}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCsch x -> sprintf @"\text{arcsch}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArSech x -> sprintf @"\text{arsech}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhArCoth x -> sprintf @"\text{arcoth}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhSinc x -> sprintf @"\text{sinc}\left(%s\right)" (toLatex x)
+            | InternalFunction.LiyhAbs x -> sprintf @"\left|{%s}\right|" (toLatex x)
+
         and private toLatexFun (fname: string) (arguments: SumPow list) =
             let latexArguments = System.String.Join(',', List.map toLatex arguments)
-
-            let fname =
-                match fname with
-                | "Sqrt" -> sprintf @"\sqrt{%s}"
-                | "Abs" -> sprintf @"\left|{%s}\right|"
-                | "Exp" -> sprintf @"e^{%s}"
-                | fname -> sprintf @"\text{%s}\left(%s\right)" fname
-
-            fname latexArguments
+            sprintf @"%s\left(%s\right)" fname latexArguments
 
     /// The module that interfaces with Symbolic.
     [<AutoOpen>]
