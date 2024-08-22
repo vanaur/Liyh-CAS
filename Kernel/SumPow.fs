@@ -1390,109 +1390,142 @@ module rec SumPow =
             inner expr
 
     /// A module that implements the evaluation of elementary functions.
-    [<RequireQualifiedAccess>]
     module public InternalFunction =
 
         type public InternalFunction =
-            | Pow of base': SumPow * exp: SumPow
-            | Root of base': SumPow * exp: SumPow option // default: Sqrt
-            | Log of arg: SumPow * base': SumPow option // default: Ln
-            | Exp of arg: SumPow
-            | Sin of arg: SumPow
-            | Cos of arg: SumPow
-            | Tan of arg: SumPow
-            | Csc of arg: SumPow
-            | Sec of arg: SumPow
-            | Cot of arg: SumPow
-            | ArSin of arg: SumPow
-            | ArCos of arg: SumPow
-            | ArTan of arg: SumPow
-            | ArCsc of arg: SumPow
-            | ArSec of arg: SumPow
-            | ArCot of arg: SumPow
-            | Sinh of arg: SumPow
-            | Cosh of arg: SumPow
-            | Tanh of arg: SumPow
-            | Csch of arg: SumPow
-            | Sech of arg: SumPow
-            | Coth of arg: SumPow
-            | ArSinh of arg: SumPow
-            | ArCosh of arg: SumPow
-            | ArTanh of arg: SumPow
-            | ArCsch of arg: SumPow
-            | ArSech of arg: SumPow
-            | ArCoth of arg: SumPow
-            | Sinc of arg: SumPow
-            | Abs of arg: SumPow
+            | LiyhPow of base': SumPow * exp: SumPow
+            | LiyhRoot of base': SumPow * exp: SumPow option // default: Sqrt
+            | LiyhLog of arg: SumPow * base': SumPow option // default: Ln
+            | LiyhExp of arg: SumPow
+            | LiyhSin of arg: SumPow
+            | LiyhCos of arg: SumPow
+            | LiyhTan of arg: SumPow
+            | LiyhCsc of arg: SumPow
+            | LiyhSec of arg: SumPow
+            | LiyhCot of arg: SumPow
+            | LiyhArSin of arg: SumPow
+            | LiyhArCos of arg: SumPow
+            | LiyhArTan of arg: SumPow
+            | LiyhArCsc of arg: SumPow
+            | LiyhArSec of arg: SumPow
+            | LiyhArCot of arg: SumPow
+            | LiyhSinh of arg: SumPow
+            | LiyhCosh of arg: SumPow
+            | LiyhTanh of arg: SumPow
+            | LiyhCsch of arg: SumPow
+            | LiyhSech of arg: SumPow
+            | LiyhCoth of arg: SumPow
+            | LiyhArSinh of arg: SumPow
+            | LiyhArCosh of arg: SumPow
+            | LiyhArTanh of arg: SumPow
+            | LiyhArCsch of arg: SumPow
+            | LiyhArSech of arg: SumPow
+            | LiyhArCoth of arg: SumPow
+            | LiyhSinc of arg: SumPow
+            | LiyhAbs of arg: SumPow
 
         let public (|InternalFunction|_|) =
             function
-            | Fun("Pow", [ base'; exp ]) -> Some(InternalFunction.Pow(base', exp))
-            | Fun("Root", [ base'; exp ]) -> Some(InternalFunction.Root(base', Some exp))
-            | Fun("Sqrt", [ arg ]) -> Some(InternalFunction.Root(arg, None))
-            | Fun("Log", [ arg; base' ]) -> Some(InternalFunction.Log(arg, Some base'))
-            | Fun("Log", [ arg ]) -> Some(InternalFunction.Log(arg, None))
-            | Fun("Exp", [ arg ]) -> Some(InternalFunction.Exp arg)
-            | Fun("Sin", [ arg ]) -> Some(InternalFunction.Sin arg)
-            | Fun("Cos", [ arg ]) -> Some(InternalFunction.Cos arg)
-            | Fun("Tan", [ arg ]) -> Some(InternalFunction.Tan arg)
-            | Fun("Csc", [ arg ]) -> Some(InternalFunction.Csc arg)
-            | Fun("Sec", [ arg ]) -> Some(InternalFunction.Sec arg)
-            | Fun("Cot", [ arg ]) -> Some(InternalFunction.Cot arg)
-            | Fun("ArSin", [ arg ]) -> Some(InternalFunction.ArSin arg)
-            | Fun("ArCos", [ arg ]) -> Some(InternalFunction.ArCos arg)
-            | Fun("ArTan", [ arg ]) -> Some(InternalFunction.ArTan arg)
-            | Fun("ArCsc", [ arg ]) -> Some(InternalFunction.ArCsc arg )
-            | Fun("ArSec", [ arg ]) -> Some(InternalFunction.ArSec arg )
-            | Fun("ArCot", [ arg ]) -> Some(InternalFunction.ArCot arg )
-            | Fun("Sinh", [ arg ]) -> Some(InternalFunction.Sinh arg)
-            | Fun("Cosh", [ arg ]) -> Some(InternalFunction.Cosh arg)
-            | Fun("Tanh", [ arg ]) -> Some(InternalFunction.Tanh arg)
-            | Fun("Csch", [ arg ]) -> Some(InternalFunction.Csch arg)
-            | Fun("Sech", [ arg ]) -> Some(InternalFunction.Sech arg)
-            | Fun("Coth", [ arg ]) -> Some(InternalFunction.Coth arg)
-            | Fun("ArSinh", [ arg ]) -> Some(InternalFunction.ArSinh arg)
-            | Fun("ArCosh", [ arg ]) -> Some(InternalFunction.ArCosh arg)
-            | Fun("ArTanh", [ arg ]) -> Some(InternalFunction.ArTanh arg)
-            | Fun("ArCsch", [ arg ]) -> Some(InternalFunction.ArCsch arg)
-            | Fun("ArSech", [ arg ]) -> Some(InternalFunction.ArSech arg)
-            | Fun("ArCoth", [ arg ]) -> Some(InternalFunction.ArCoth arg)
-            | Fun("Sinc", [ arg ]) -> Some(InternalFunction.Sinc arg)
-            | Fun("Abs", [ arg ]) -> Some(InternalFunction.Abs(arg))
+            | Fun("Pow", [ base'; exp ]) -> Some(InternalFunction.LiyhPow(base', exp))
+            | Fun("Root", [ base'; exp ]) -> Some(InternalFunction.LiyhRoot(base', Some exp))
+            | Fun("Sqrt", [ arg ]) -> Some(InternalFunction.LiyhRoot(arg, None))
+            | Fun("Log", [ arg; base' ]) -> Some(InternalFunction.LiyhLog(arg, Some base'))
+            | Fun("Log", [ arg ]) -> Some(InternalFunction.LiyhLog(arg, None))
+            | Fun("Exp", [ arg ]) -> Some(InternalFunction.LiyhExp arg)
+            | Fun("Sin", [ arg ]) -> Some(InternalFunction.LiyhSin arg)
+            | Fun("Cos", [ arg ]) -> Some(InternalFunction.LiyhCos arg)
+            | Fun("Tan", [ arg ]) -> Some(InternalFunction.LiyhTan arg)
+            | Fun("Csc", [ arg ]) -> Some(InternalFunction.LiyhCsc arg)
+            | Fun("Sec", [ arg ]) -> Some(InternalFunction.LiyhSec arg)
+            | Fun("Cot", [ arg ]) -> Some(InternalFunction.LiyhCot arg)
+            | Fun("ArSin", [ arg ]) -> Some(InternalFunction.LiyhArSin arg)
+            | Fun("ArCos", [ arg ]) -> Some(InternalFunction.LiyhArCos arg)
+            | Fun("ArTan", [ arg ]) -> Some(InternalFunction.LiyhArTan arg)
+            | Fun("ArCsc", [ arg ]) -> Some(InternalFunction.LiyhArCsc arg )
+            | Fun("ArSec", [ arg ]) -> Some(InternalFunction.LiyhArSec arg )
+            | Fun("ArCot", [ arg ]) -> Some(InternalFunction.LiyhArCot arg )
+            | Fun("Sinh", [ arg ]) -> Some(InternalFunction.LiyhSinh arg)
+            | Fun("Cosh", [ arg ]) -> Some(InternalFunction.LiyhCosh arg)
+            | Fun("Tanh", [ arg ]) -> Some(InternalFunction.LiyhTanh arg)
+            | Fun("Csch", [ arg ]) -> Some(InternalFunction.LiyhCsch arg)
+            | Fun("Sech", [ arg ]) -> Some(InternalFunction.LiyhSech arg)
+            | Fun("Coth", [ arg ]) -> Some(InternalFunction.LiyhCoth arg)
+            | Fun("ArSinh", [ arg ]) -> Some(InternalFunction.LiyhArSinh arg)
+            | Fun("ArCosh", [ arg ]) -> Some(InternalFunction.LiyhArCosh arg)
+            | Fun("ArTanh", [ arg ]) -> Some(InternalFunction.LiyhArTanh arg)
+            | Fun("ArCsch", [ arg ]) -> Some(InternalFunction.LiyhArCsch arg)
+            | Fun("ArSech", [ arg ]) -> Some(InternalFunction.LiyhArSech arg)
+            | Fun("ArCoth", [ arg ]) -> Some(InternalFunction.LiyhArCoth arg)
+            | Fun("Sinc", [ arg ]) -> Some(InternalFunction.LiyhSinc arg)
+            | Fun("Abs", [ arg ]) -> Some(InternalFunction.LiyhAbs(arg))
             | _ -> None
 
         let inline public evaluate (spEval: SumPow -> Constant) =
             function
-            | InternalFunction.Pow(base', exp) -> spEval base' ** spEval exp
-            | InternalFunction.Root(base', None) -> mapf sqrt (spEval base')
-            | InternalFunction.Root(base', Some exp) -> spEval base' ** (One / spEval exp)
-            | InternalFunction.Log(arg, None) -> mapf log (spEval arg)
-            | InternalFunction.Log(arg, Some base') -> mapf log (spEval arg) / mapf log (spEval base')
-            | InternalFunction.Sin(arg) -> mapf sin (spEval arg)
-            | InternalFunction.Exp(arg) -> mapf exp (spEval arg)
-            | InternalFunction.Cos(arg) -> mapf cos (spEval arg)
-            | InternalFunction.Tan(arg) -> mapf tan (spEval arg)
-            | InternalFunction.Csc(arg) -> mapf (fun x -> 1.0 / sin x) (spEval arg)
-            | InternalFunction.Sec(arg) -> mapf (fun x -> 1.0 / cos x) (spEval arg)
-            | InternalFunction.Cot(arg) -> mapf (fun x -> 1.0 / tan x) (spEval arg)
-            | InternalFunction.ArSin(arg) -> mapf asin (spEval arg)
-            | InternalFunction.ArCos(arg) -> mapf acos (spEval arg)
-            | InternalFunction.ArTan(arg) -> mapf atan (spEval arg)
-            | InternalFunction.ArCsc(arg) -> mapf (fun x -> 1.0 / asin x) (spEval arg)
-            | InternalFunction.ArSec(arg) -> mapf (fun x -> 1.0 / acos x) (spEval arg)
-            | InternalFunction.ArCot(arg) -> mapf (fun x -> 1.0 / atan x) (spEval arg)
-            | InternalFunction.Sinh(arg) -> mapf sinh (spEval arg)
-            | InternalFunction.Cosh(arg) -> mapf cosh (spEval arg)
-            | InternalFunction.Tanh(arg) -> mapf tanh (spEval arg)
-            | InternalFunction.Csch(arg) -> mapf (fun x -> 1.0 / sinh x) (spEval arg)
-            | InternalFunction.Sech(arg) -> mapf (fun x -> 1.0 / cosh x) (spEval arg)
-            | InternalFunction.Coth(arg) -> mapf (fun x -> 1.0 / tanh x) (spEval arg)
-            | InternalFunction.ArSinh(arg) -> mapf (fun x -> log (sqrt (pown x 2 + 1.0) + x)) (spEval arg)
-            | InternalFunction.ArCosh(arg) -> mapf (fun x -> log (x + sqrt (x - 1.0) * sqrt (x + 1.0))) (spEval arg)
-            | InternalFunction.ArTanh(arg) -> mapf (fun x -> 0.5 * log (x + 1.0) - 0.5 * log (1.0 - x)) (spEval arg)
-            | InternalFunction.Sinc(arg) -> mapf (fun x -> sin x / x) (spEval arg)
-            | InternalFunction.Abs(arg) -> mapf abs (spEval arg)
+            | InternalFunction.LiyhPow(base', exp) -> spEval base' ** spEval exp
+            | InternalFunction.LiyhRoot(base', None) -> mapf sqrt (spEval base')
+            | InternalFunction.LiyhRoot(base', Some exp) -> spEval base' ** (One / spEval exp)
+            | InternalFunction.LiyhLog(arg, None) -> mapf log (spEval arg)
+            | InternalFunction.LiyhLog(arg, Some base') -> mapf log (spEval arg) / mapf log (spEval base')
+            | InternalFunction.LiyhSin(arg) -> mapf sin (spEval arg)
+            | InternalFunction.LiyhExp(arg) -> mapf exp (spEval arg)
+            | InternalFunction.LiyhCos(arg) -> mapf cos (spEval arg)
+            | InternalFunction.LiyhTan(arg) -> mapf tan (spEval arg)
+            | InternalFunction.LiyhCsc(arg) -> mapf (fun x -> 1.0 / sin x) (spEval arg)
+            | InternalFunction.LiyhSec(arg) -> mapf (fun x -> 1.0 / cos x) (spEval arg)
+            | InternalFunction.LiyhCot(arg) -> mapf (fun x -> 1.0 / tan x) (spEval arg)
+            | InternalFunction.LiyhArSin(arg) -> mapf asin (spEval arg)
+            | InternalFunction.LiyhArCos(arg) -> mapf acos (spEval arg)
+            | InternalFunction.LiyhArTan(arg) -> mapf atan (spEval arg)
+            | InternalFunction.LiyhArCsc(arg) -> mapf (fun x -> 1.0 / asin x) (spEval arg)
+            | InternalFunction.LiyhArSec(arg) -> mapf (fun x -> 1.0 / acos x) (spEval arg)
+            | InternalFunction.LiyhArCot(arg) -> mapf (fun x -> 1.0 / atan x) (spEval arg)
+            | InternalFunction.LiyhSinh(arg) -> mapf sinh (spEval arg)
+            | InternalFunction.LiyhCosh(arg) -> mapf cosh (spEval arg)
+            | InternalFunction.LiyhTanh(arg) -> mapf tanh (spEval arg)
+            | InternalFunction.LiyhCsch(arg) -> mapf (fun x -> 1.0 / sinh x) (spEval arg)
+            | InternalFunction.LiyhSech(arg) -> mapf (fun x -> 1.0 / cosh x) (spEval arg)
+            | InternalFunction.LiyhCoth(arg) -> mapf (fun x -> 1.0 / tanh x) (spEval arg)
+            | InternalFunction.LiyhArSinh(arg) -> mapf (fun x -> log (sqrt (pown x 2 + 1.0) + x)) (spEval arg)
+            | InternalFunction.LiyhArCosh(arg) -> mapf (fun x -> log (x + sqrt (x - 1.0) * sqrt (x + 1.0))) (spEval arg)
+            | InternalFunction.LiyhArTanh(arg) -> mapf (fun x -> 0.5 * log (x + 1.0) - 0.5 * log (1.0 - x)) (spEval arg)
+            | InternalFunction.LiyhSinc(arg) -> mapf (fun x -> sin x / x) (spEval arg)
+            | InternalFunction.LiyhAbs(arg) -> mapf abs (spEval arg)
             | other -> failwithf "Not implemented: %A" other
+
+        let inline public liyhPow (b, p) = Fun("Pow", [ b; p ])
+        let inline public liyhRoot (x, nth) = Fun("Root", [ x; nth ])
+        let inline public liyhSqrt x = Fun("Sqrt", [ x ])
+        let inline public liyhLog (x, b) = Fun("Log", [ x; b ])
+        let inline public liyhLn x = Fun("Log", [ x; Name "E" ])
+        let inline public liyhExp x = Fun("Exp", [ x ])
+        let inline public liyhSin x = Fun("Sin", [ x ])
+        let inline public liyhCos x = Fun("Cos", [ x ])
+        let inline public liyhTan x = Fun("Tan", [ x ])
+        let inline public liyhCsc x = Fun("Csc", [ x ])
+        let inline public liyhSec x = Fun("Sec", [ x ])
+        let inline public liyhCot x = Fun("Cot", [ x ])
+        let inline public liyhArSin x = Fun("ArSin", [ x ])
+        let inline public liyhArCos x = Fun("ArCos", [ x ])
+        let inline public liyhArTan x = Fun("ArTan", [ x ])
+        let inline public liyhArCsc x = Fun("ArCsc", [ x ])
+        let inline public liyhArSec x = Fun("ArSec", [ x ])
+        let inline public liyhArCot x = Fun("ArCot", [ x ])
+        let inline public liyhSinh x = Fun("Sinh", [ x ])
+        let inline public liyhCosh x = Fun("Cosh", [ x ])
+        let inline public liyhTanh x = Fun("Tanh", [ x ])
+        let inline public liyhCsch x = Fun("Csch", [ x ])
+        let inline public liyhSech x = Fun("Sech", [ x ])
+        let inline public liyhCoth x = Fun("Coth", [ x ])
+        let inline public liyhArSinh x = Fun("ArSinh", [ x ])
+        let inline public liyhArCosh x = Fun("ArCosh", [ x ])
+        let inline public liyhArTanh x = Fun("ArTanh", [ x ])
+        let inline public liyhArCsch x = Fun("ArCsch", [ x ])
+        let inline public liyhArSech x = Fun("ArSech", [ x ])
+        let inline public liyhArCoth x = Fun("ArCoth", [ x ])
+        let inline public liyhSinc x = Fun("Sinc", [ x ])
+        let inline public liyhAbs x = Fun("Abs", [ x ])
+        let inline public liyhSgn x = Fun("Sgn", [ x ])
 
     /// A module for elementary functions (see https://en.wikipedia.org/wiki/Elementary_function).
     module public ElemFun =
