@@ -1203,7 +1203,10 @@ module rec SumPow =
 
                     | factor, term ->
                         match Map.tryFind term result with
-                        | None -> makeSimp (Map.add term factor result) constant xs
+                        | None ->
+                            match factor with
+                            | Zero -> makeSimp result constant xs
+                            | factor -> makeSimp (Map.add term factor result) constant xs
                         | Some v ->
                             match factor + v with
                             | Zero -> makeSimp (Map.remove term result) constant xs
