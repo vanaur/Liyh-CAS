@@ -159,18 +159,37 @@ module rec SumPow =
         /// be found and where `n` is the number of time it appears.
         let public (|ProdWith|_|) (pred: SumPow -> bool) =
             function
-            | Prod [ p ] when pred (power p) -> Some ([ p ], 1)
+            | Prod [ p ] when pred (power p) -> Some ([ ], 1)
             | Prod xs ->
                 match List.partition (fun p -> pred (power p)) xs with
                 | [], _ -> None
                 | ts, xs' -> Some(xs', List.length ts)
             | _ -> None
 
-        /// An active pattern that matches a product that contains exactly one the given expression. In case of Some,
+        /// An active pattern that matches a sum that contains the given expression at least once. In case of Some,
+        /// returns a tuple `Sum (sum, n)` where `sum` is the sum expression list without the the expression to
+        /// be found and where `n` is the number of time it appears.
+        let public (|SumWith|_|) (pred: SumPow -> bool) =
+            function
+            | SimplifiedSum.SumList [ term ] when pred term -> Some ([ ], 1)
+            | SimplifiedSum.SumList xs ->
+                match List.partition pred xs with
+                | [], _ -> None
+                | ts, xs' -> Some(xs', List.length ts)
+            | _ -> None
+
+        /// An active pattern that matches a product that contains exactly once the given expression. In case of Some,
         /// returns product expression list without the the expression to be found.
         let public (|ProdWith1|_|) (pred: SumPow -> bool) =
             function
             | ProdWith pred (prod, 1) -> Some prod
+            | _ -> None
+
+        /// An active pattern that matches a sum that contains exactly once the given expression. In case of Some,
+        /// returns sum expression list without the the expression to be found.
+        let public (|SumWith1|_|) (pred: SumPow -> bool) =
+            function
+            | SumWith pred (sum, 1) -> Some sum
             | _ -> None
 
     /// The module containing SumPow's elementary arithmetic operations.
@@ -726,9 +745,9 @@ module rec SumPow =
             | other -> [ other ]
 
         /// An active pattern that converts the sum into a SumPow list.
-        let inline public (|SumList|_|) (sp: SumPow) =
+        let public (|SumList|_|) (sp: SumPow) =
             let t = sumAsSumPowList sp
-            if List.length t <= 1 then None else Some t
+            if List.length t < 1 then None else Some t
 
     /// A "pure constant expression" is an expression containing no variables or parameters, just numbers. For simplicity,
     /// even constants such as pi and e are not considered (for now). This module provides utilities for simplifying and
