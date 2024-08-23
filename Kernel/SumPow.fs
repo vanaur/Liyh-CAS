@@ -1565,7 +1565,7 @@ module rec SumPow =
             | InternalFunction.LiyhArSinh(arg) -> mapf (fun x -> log (sqrt (pown x 2 + 1.0) + x)) (spEval arg)
             | InternalFunction.LiyhArCosh(arg) -> mapf (fun x -> log (x + sqrt (x - 1.0) * sqrt (x + 1.0))) (spEval arg)
             | InternalFunction.LiyhArTanh(arg) -> mapf (fun x -> 0.5 * log (x + 1.0) - 0.5 * log (1.0 - x)) (spEval arg)
-            | InternalFunction.LiyhSinc(arg) -> mapf (fun x -> sin x / x) (spEval arg)
+            | InternalFunction.LiyhSinc(arg) -> mapf (fun x -> if x = 0 then 1. else sin x / x) (spEval arg)
             | InternalFunction.LiyhAbs(arg) -> mapf abs (spEval arg)
             | other -> failwithf "Not implemented: %A" other
 
