@@ -192,6 +192,20 @@ module rec SumPow =
             | SumWith pred (sum, 1) -> Some sum
             | _ -> None
 
+        /// Match an expression that reduce to a product with a negative number. The return value consists of a tuple
+        /// containing the absolute value of the negative constant and the rest of the product.
+        let public (|Negative|_|) (sp: SumPow) =
+            match Simplification.simplify sp with
+            | NegOne -> Some (Const One, Const One)
+            | Prod xs ->
+                match List.partition Misc.isPureConstInteger (List.map power xs) with
+                | [], _ -> None
+                | ts, fs ->
+                    match List.reduce (Simplification.simpPureConst >> ( * )) ts with
+                    | Const (CBigInteger n) when n < 0 -> Some (Const (fromBigInt (abs n)), List.reduce ( * ) fs)
+                    | _ -> None
+            | _ -> None
+
     /// The module containing SumPow's elementary arithmetic operations.
     module public ElementaryOperations =
         open PureConstantExpression
