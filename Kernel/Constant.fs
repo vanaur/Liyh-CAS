@@ -52,6 +52,7 @@ module rec Constant =
         (if precision < 0 || precision >= 29 then latexDouble else sprintf "%.*g" precision) cst
 
     let inline public fromBigInt (a: bigint) = Constant(double a)
+    let inline public fromDouble (a: double) = Constant(a)
 
     /// An active pattern to match the constant to a `bigint` (within the precision limits of `double`).
     let inline public (|CBigInteger|_|) (Constant cst) =
@@ -67,7 +68,7 @@ module rec Constant =
     let public (|CFloat|_|) =
         function
         | CBigInteger _ -> None
-        | other -> Some other
+        | Constant other -> Some other
 
     /// Performs a basic division between the two given constants and applies the default argument when
     /// the result of the division is `NaN`.
