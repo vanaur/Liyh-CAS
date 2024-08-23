@@ -1460,6 +1460,12 @@ module rec SumPow =
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
 
+        /// List of elementary functions handled by Liyh.
+        let public ifuns =
+            [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"
+              "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"
+              "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs" |]
+
         type public InternalFunction =
             | LiyhPow of base': SumPow * exp: SumPow
             | LiyhRoot of base': SumPow * exp: SumPow option // default: Sqrt
@@ -1494,6 +1500,8 @@ module rec SumPow =
 
         let public (|InternalFunction|_|) =
             function
+            | Fun(fname, _) when not (Array.contains fname ifuns) -> None
+
             | Fun("Pow", [ base'; exp ]) -> Some(InternalFunction.LiyhPow(base', exp))
             | Fun("Root", [ base'; exp ]) -> Some(InternalFunction.LiyhRoot(base', Some exp))
             | Fun("Sqrt", [ arg ]) -> Some(InternalFunction.LiyhRoot(arg, None))
