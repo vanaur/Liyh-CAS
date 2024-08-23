@@ -427,6 +427,10 @@ module rec SumPow =
         let rec public toLatex =
             function
             | Name name -> name
+            | Negative (factor, rest) ->
+                match factor with
+                | One -> sprintf @"-{%s}" (toLatex rest)
+                | cst -> sprintf @"-%s\cdot{%s}" (toLatex cst) (toLatex rest)
             | Const cst -> string cst
             | Fun("Complex", [ Re; Im ]) -> sprintf @"\left(%s + i%s\right)" (toLatex Re) (toLatex Im)
             | Power(b, One) -> toLatex b
