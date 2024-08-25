@@ -1980,6 +1980,61 @@ module rec SumPow =
         let private division = binOp ( / )
         let private power = binOp ( ** )
 
+    /// Heuristics for equality testing.
+    [<RequireQualifiedAccess>]
+    module public EqualityTest =
+        open System.Collections.Generic
+        open System.Threading.Tasks
+
+        [<Literal>]
+        let private maxIteration = 80
+
+        /// Checks whether the two given expressions are equal or not using a random value generation heuristic.
+        /// This method is good for disproving equality, but is not safe for proving equality. This method of
+        /// checking equality has the advantage of not using canonical transformations and is therefore fast.
+        let public equalityTest (sp1: SumPow) (sp2: SumPow) =
+
+            // There are two passes: the first filters out the possibility of non-equality, which is quick
+            // to stop, and the second tests equality in parallel, which is slower to stop.
+
+            match (sp1 - sp2) with
+            | Zero -> true // when the result is easily and symbolically detected as 0.
+            | expr ->
+                let vars = Array.ofList (Misc.listVariables expr)
+                let rnd = new Random()
+
+                let mutable result = true
+                let mutable running = true
+                let mutable count = 0
+
+                // The first pass highlights the inequality more quickly. In other words, if the two
+                // expressions are clearly unequal, the code will finish more quickly.
+
+                while running && count < maxIteration / 2 do
+                    let dc = dict (Array.map (fun a -> a, Constant(rnd.NextDouble())) vars)
+                    let ev = NumericEvaluation.evaluate expr (Dictionary dc)
+
+                    if not (approximatelyEquals ev Zero ValueNone) then
+                        result <- false
+                        running <- false
+
+                    count <- count + 1
+
+                // The second pass runs in parallel to test more cases, but stops more slowly in the case
+                // of unequal expressions. Hence a first pass that filters a first time.
+
+                if result then
+                    Parallel.For(0, maxIteration,
+                        fun _ state ->
+                            let dc = dict (Array.map (fun a -> a, Constant(rnd.NextDouble())) vars)
+                            let ev = NumericEvaluation.evaluate expr (Dictionary dc)
+
+                            if not (approximatelyEquals ev Zero ValueNone) then
+                                result <- false
+                                state.Break()) |> ignore
+
+                result
+
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
     module public Misc =
