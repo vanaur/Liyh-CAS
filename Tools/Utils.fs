@@ -323,6 +323,17 @@ module rec Utils =
         let public stirling2 =
             stirling 2
 
+        /// Compute each permutation of the given items.
+        let rec public permutations =
+            function
+            | [] -> seq [List.empty]
+            | x :: xs -> Seq.collect (insertions x) (permutations xs)
+
+        and private insertions x =
+            function
+            | [] -> [[x]]
+            | (y :: ys) as xs -> (x :: xs) :: (List.map (fun x -> y :: x) (insertions x ys))
+
     // Some extensions to the standard module.
     module public List =
 
