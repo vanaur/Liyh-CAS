@@ -690,6 +690,12 @@ module rec SumPow =
 
         static member op_Explicit(a: int) = SumPow.Const(Constant a)
 
+    /// Checks whether the two given expressions are equal or not using a random value generation heuristic.
+    /// This method is good for disproving equality, but is not safe for proving equality. This method of checking
+    /// equality has the advantage of not using canonical transformations and is therefore fast.
+    let inline public ( == ) (sp1: SumPow) (sp2: SumPow) =
+        EqualityTest.equalityTest sp1 sp2
+
     /// A "Term" is a product of powers.
     [<Struct; CustomEquality; CustomComparison>]
     type public Term =
