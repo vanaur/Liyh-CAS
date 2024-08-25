@@ -195,7 +195,7 @@ module rec SumPow =
         /// Match an expression that reduce to a product with a negative number. The return value consists of a tuple
         /// containing the absolute value of the negative constant and the rest of the product.
         let public (|Negative|_|) (sp: SumPow) =
-            match Simplification.simplify sp with
+            match sp with //match Simplification.simplify sp with
             | NegOne -> Some (Const One, Const One)
             | Prod xs ->
                 match List.partition Misc.isPureConstInteger (List.map power xs) with
