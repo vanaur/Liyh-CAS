@@ -1398,6 +1398,11 @@ module rec Polynomial =
 
         totalDegree p
 
+    /// Returns the coefficient of the constant term of the given polynomial.
+    let public getConstantTerm (p: Polynomial) =
+        if (isZeroPolynomial p) then Const Zero
+        else fst (List.min (getMonomials p))
+
     // This module contains useful algorithms for dividing and factoring polynomials.
     module public Division =
 
