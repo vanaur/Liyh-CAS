@@ -1480,6 +1480,22 @@ module rec SumPow =
 
             inner expr
 
+        /// Replaces the variables (many `Name string`) with the associated constant.
+        let public manySubstVarConst (pairs: Dictionary<string, Constant>) (expr: SumPow) =
+
+            let rec inner =
+                function
+                | Name name' ->
+                    match pairs.TryGetValue name' with
+                    | true, sub -> Const sub
+                    | _ -> Name name'
+
+                | Fun(fname, args) -> Fun(fname, List.map inner args)
+                | Sum xs -> Sum(mapPow' (fun b p -> Pow(inner b, inner p)) xs)
+                | remains -> remains
+
+            inner expr
+
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
 
@@ -1683,6 +1699,7 @@ module rec SumPow =
         /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation is
         /// subject to `double` capabilities. This function might throw an exception if some variables are not assigned.
         let public evaluate (sp: SumPow) (values: Dictionary<string, Constant>) =
+            let varFreeExpression = Subst.manySubstVarConst values sp
 
             let rec inner =
                 function
@@ -1693,23 +1710,18 @@ module rec SumPow =
                 | Name "tau" | Name "τ"             -> Constant 6.283185307179586 // tau τ
                 | Name "phi" | Name "φ"             -> Constant 1.618033988749895 // phi φ
 
-                // Variables are replaced by their associated values
-                | Name name ->
-                    match values.TryGetValue name with
-                    | true, constant -> constant
-                    | _ -> raise (UnboundVariableException name)
-
                 | Const cst -> cst
                 | Frac(a, b) -> inner a / inner b
                 | Power(b, p) -> inner b ** inner p
                 | Sum xs -> List.fold (fun acc a -> acc + evalTerm a) Zero xs
                 | InternalFunction.InternalFunction f -> InternalFunction.evaluate inner f
                 | Fun(fname, _) -> raise (UnboundFunctionException fname)
+                | Name name -> raise (UnboundVariableException name)
 
             and evalTerm (Term prod) = List.fold (fun acc a -> acc * evalPow a) One prod
             and evalPow (Pow(b, p)) = inner b ** inner p
 
-            inner sp
+            inner varFreeExpression
 
         /// Assuming the expression contains only constants, returns the approximate result of the expression.
         let public evaluate0 (sp: SumPow) =
