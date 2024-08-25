@@ -1501,7 +1501,7 @@ module rec SumPow =
 
         /// List of elementary functions handled by Liyh.
         let public ifuns =
-            [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"
+            [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"; "Sgn"; "Delta"
               "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"
               "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs" |]
 
@@ -1536,6 +1536,8 @@ module rec SumPow =
             | LiyhArCoth of arg: SumPow
             | LiyhSinc of arg: SumPow
             | LiyhAbs of arg: SumPow
+            | LiyhSgn of arg: SumPow
+            | LiyhDelta of arg: SumPow  // dirac-delta
 
         let public (|InternalFunction|_|) =
             function
@@ -1572,7 +1574,10 @@ module rec SumPow =
             | Fun("ArSech", [ arg ]) -> Some(InternalFunction.LiyhArSech arg)
             | Fun("ArCoth", [ arg ]) -> Some(InternalFunction.LiyhArCoth arg)
             | Fun("Sinc", [ arg ]) -> Some(InternalFunction.LiyhSinc arg)
-            | Fun("Abs", [ arg ]) -> Some(InternalFunction.LiyhAbs(arg))
+            | Fun("Abs", [ arg ]) -> Some(InternalFunction.LiyhAbs arg)
+            | Fun("Sgn", [ arg ]) -> Some(InternalFunction.LiyhSgn arg)
+            | Fun("Delta", [ arg ]) -> Some(InternalFunction.LiyhDelta arg)
+
             | _ -> None
 
         let inline public evaluate (spEval: SumPow -> Constant) =
@@ -1606,6 +1611,9 @@ module rec SumPow =
             | InternalFunction.LiyhArTanh(arg) -> mapf (fun x -> 0.5 * log (x + 1.0) - 0.5 * log (1.0 - x)) (spEval arg)
             | InternalFunction.LiyhSinc(arg) -> mapf (fun x -> if x = 0 then 1. else sin x / x) (spEval arg)
             | InternalFunction.LiyhAbs(arg) -> mapf abs (spEval arg)
+            | InternalFunction.LiyhSgn(arg) -> mapf (double << sign) (spEval arg)
+            | InternalFunction.LiyhDelta(Zero) -> Constant Double.PositiveInfinity
+            | InternalFunction.LiyhDelta(x) -> mapf (fun a -> if a = 0. then Double.PositiveInfinity else 0) (spEval x)
             | other -> failwithf "Not implemented: %A" other
 
         let inline public liyhPow (b, p) = Fun("Pow", [ b; p ])
