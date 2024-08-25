@@ -206,6 +206,28 @@ module rec SumPow =
                     | _ -> None
             | _ -> None
 
+        let public Pi = Name "Pi"
+        let public E = Name "E"
+        let public I = Name "i"
+
+        /// Equivalent to `Name "Pi"` for the π constant.
+        let public (|Pi|_|) =
+            function
+            | Name "Pi" -> Some ()
+            | _ -> None
+
+        /// Equivalent to `Name "E"` for the e constant.
+        let public (|E|_|) =
+            function
+            | Name "E" -> Some ()
+            | _ -> None
+
+        /// Equivalent to `Name "i"` for the imaginary unit.
+        let public (|I|_|) =
+            function
+            | Name "i" -> Some ()
+            | _ -> None
+
     /// The module containing SumPow's elementary arithmetic operations.
     module public ElementaryOperations =
         open PureConstantExpression
@@ -426,6 +448,7 @@ module rec SumPow =
 
         let rec public toLatex =
             function
+            | Pi -> @"\pi"
             | Name name -> name
             | Negative (factor, rest) ->
                 match factor with
@@ -1665,10 +1688,10 @@ module rec SumPow =
                 function
 
                 // Common constants
-                | Name "pi"  | Name "π" -> Constant 3.141592653589793 // pi  π
-                | Name "e"   | Name "E" -> Constant 2.718281828459045 // e   E
-                | Name "tau" | Name "τ" -> Constant 6.283185307179586 // tau τ
-                | Name "phi" | Name "φ" -> Constant 1.618033988749895 // phi φ
+                | Name "pi"  | Name "π" | Name "Pi" -> Constant 3.141592653589793 // pi  π
+                | Name "e"   | Name "E"             -> Constant 2.718281828459045 // e   E
+                | Name "tau" | Name "τ"             -> Constant 6.283185307179586 // tau τ
+                | Name "phi" | Name "φ"             -> Constant 1.618033988749895 // phi φ
 
                 // Variables are replaced by their associated values
                 | Name name ->
