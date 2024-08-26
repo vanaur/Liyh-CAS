@@ -2480,6 +2480,7 @@ module rec SumPow =
 
         exception public UnboundVariableException of vname: string
         exception public UnboundFunctionException of fname: string
+        exception public ExpressionCannotBeConvertedToLambdaException of expr: SumPow
 
         /// Determine whether the two expressions are numerically approximately equal up to the given precision. If `eps` is `None`
         /// then the comparison is made with a fixed femto-precision (`1e-15`).
@@ -2569,6 +2570,18 @@ module rec SumPow =
         let rec public partialEval (sp: SumPow) =
 
             ()
+
+        /// Given an expression and a variable, returns a lambda `double -> double`. This makes univariate numerical
+        /// evaluations more convenient to work with since we will no longer be dependent on `evaluate1`.
+        /// Note: throws an exception if there are incompatibilities with the variable involved.
+        let inline public makef1 (expr: SumPow) (variable: string) =
+            if Misc.listVariables expr <> [ variable ] then
+                raise (ExpressionCannotBeConvertedToLambdaException expr)
+
+            fun (value: double) ->
+                evaluate1 expr variable (Constant value) |>
+                    function Constant result -> result
+
 
     /// Extends the field of reals (modeled by SumPow) to the field of complexes.
     module public Complex =
