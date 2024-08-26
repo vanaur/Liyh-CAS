@@ -87,6 +87,37 @@ module public rec Equation =
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
 
+        // Numerical root finding algorithms implemented:
+        //
+        //  1. Newton's method:
+        //      - great for speed
+        //      - require the derivative (not a problem in a symbolic engine)
+        //      - no guarantee of convergence
+        //  2. Bisection method:
+        //      - guarantee of convergence
+        //      - very slow
+        //  3. ITP method:
+        //      - guarantee of convergence
+        //      - good speed
+        //  4. Steffensen method:
+        //      - same convergence as Newton but not require the derivative
+        //      - slower than Newton
+        //      - no guarantee of convergence
+        //  5. Illinois method:
+        //      - improved regula falsi method
+        //      - good speed
+        //      - guarantee of convergence
+        //
+
+        [<NoComparison; NoEquality>]
+        type public RootFinder =
+            | ITP           of {| a: double; b: double; eps: double; κ1: double; κ2: double; n: int; f: double -> double |}
+            | ITP'          of {| a: double; b: double; eps: double; f: double -> double |}
+            | Bisection     of {| a: double; b: double; eps: double; maxIter: int option; f: double -> double |}
+            | Illinois      of {| a: double; b: double; eps: double; maxIter: int option; f: double -> double |}
+            | Steffensen    of {| initialGuess: double; eps: double; maxIter: int option; f: double -> double |}
+            | NewtonRaphson of {| initialGuess: double; eps: double; maxIter: int option; f: double -> double; f': double -> double |}
+
         /// Recursive version of the ITP (Interpolate Truncate and Project) method.
         /// See https://en.wikipedia.org/wiki/ITP_method.
         /// See https://dl.acm.org/doi/10.1145/3423597.
@@ -129,4 +160,96 @@ module public rec Equation =
 
             loop a b (f a) (f b) 0
 
+        /// Recursive version of the Steffensen's method.
+        /// See https://en.wikipedia.org/wiki/Steffensen%27s_method.
+        let private steffensen (initialGuess: double) (eps: double) (maxIter: int option) (f: double -> double) =
+
+            let rec loop x k =
+                let fx = f x
+
+                if abs fx <= eps
+                    || Math.approximatelyEquals fx 0 (ValueSome eps)
+                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
+                then x
+                else loop (x - (pown fx 2) / (fx - f (x - fx))) (k + 1)
+
+            loop initialGuess 0
+
+        /// Recursive version of the secant method.
+        /// See https://en.wikipedia.org/wiki/Secant_method.
+        let private bisection (a: double) (b: double) (eps: double) (maxIter: int option) (f: double -> double) =
+
+            let rec loop a b x k =
+                let fx = f x
+
+                if abs fx <= eps
+                    || Math.approximatelyEquals fx 0 (ValueSome eps)
+                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
+                then x
+                else
+                    let a, b = if f a * fx > 0 then x, b else a, x
+                    loop a b ((a + b) / 2.) (k + 1)
+
+            loop a b ((a + b) / 2.) 0
+
+        /// Recursive version of the Illinois method.
+        /// See https://en.wikipedia.org/wiki/Regula_falsi#The_Illinois_algorithm.
+        let private illinois (a: double) (b: double) (eps: double) (maxIter: int option) (f: double -> double) =
+
+            let rec loop a b fa fb k =
+                let x = (a + b) / 2.
+                let fx = f x
+
+                if abs fx <= eps
+                    || Math.approximatelyEquals fx 0 (ValueSome eps)
+                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
+                then x
+                else
+                    let c = b - fb * (b - a) / (fb - fa)
+                    let fc = f c
+                    
+                    let a, fa = if fb * fc < 0. then b, fb else a, (fa / 2.)
+                    let b, fb = c, fc
+
+                    loop a b fa fb (k + 1)
+
+            loop a b (f a) (f b) 0
+
+        /// Recursive version of the Newton's method.
+        /// See https://en.wikipedia.org/wiki/Newton%27s_method.
+        let private newtonRaphson (initialGuess: double) (eps: double) (maxIter: int option) (f: double -> double) (f': double -> double) =
+
+            let rec loop x0 k =
+                let fx = f x0
+
+                if abs fx <= eps
+                    || Math.approximatelyEquals fx 0 (ValueSome eps)
+                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
+                then x0
+                else
+                    let x1 = x0 - fx / f' x0
+                    loop x1 (k + 1)
+
+            loop initialGuess 0
+
+        /// Use a given method and its parameters to find an approximated real root.
+        let public findRoot (method: RootFinder) =
+            match method with
+            | ITP rf -> ITP rf.a rf.b rf.eps rf.κ1 rf.κ2 rf.n rf.f
+            | ITP' rf -> ITP rf.a rf.b rf.eps 0.1 (0.98 * (1. + (1. + sqrt 5.) / 2.)) 2 rf.f
+            | Bisection rf -> bisection rf.a rf.b rf.eps rf.maxIter rf.f
+            | Illinois rf -> illinois rf.a rf.b rf.eps rf.maxIter rf.f
+            | Steffensen rf -> steffensen rf.initialGuess rf.eps rf.maxIter rf.f
+            | NewtonRaphson rf -> newtonRaphson rf.initialGuess rf.eps rf.maxIter rf.f rf.f'
+
+        /// The default root finder for Liyh. The function takes the bounds between which to try to deduce
+        /// a root, as well as the function to be tested.
+        let public defaultRootFinder' (a: double) (b: double) (f: double -> double) =
+            let a, b = min a b, max a b
+            findRoot (Illinois {| a = a; b = b; eps = 0.001; maxIter = Some 25; f = f |})
+
+        /// The default root finder for Liyh. The function takes the bounds between which to try to deduce
+        /// a root, as well as the SumPow expression function of the given variable to be tested.
+        let public defaultRootFinder (a: double) (b: double) (expr: SumPow) (variable: string) =
+            defaultRootFinder' a b (makef1 expr variable)
 
