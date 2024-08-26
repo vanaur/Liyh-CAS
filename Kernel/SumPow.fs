@@ -2932,3 +2932,15 @@ module rec SumPow =
             | Fun(fname, args) -> Fun(fname, List.map convertAllRationalPowersToRoot args)
             | SumList xs -> Sum (manyTermId (List.map convertAllRationalPowersToRoot xs))
             | other -> other
+
+        /// Counts the number of operations involved in the given expression.
+        let public countop (expr: SumPow) =
+
+            let rec loop result =
+                function
+                | Name _ | Const _ -> result
+                | Fun(_, [ arg ]) -> loop result arg
+                | Fun(_, xs) -> List.sum (List.map (loop 0) xs)
+                | SimplifiedSum xs -> List.sum (mapPowFlatten (fun x -> loop 1 (fst x) + loop 0 (snd x)) xs)
+
+            loop 0 expr
