@@ -986,6 +986,7 @@ module rec SumPow =
 
                 | Prod prod -> csimplifyProd prod
                 | Sum terms -> csimplifySum terms
+                | InternalFunction.InternalFunction ifun -> InternalFunction.simplifyd ifun
                 | Fun(fname, args) -> Fun(fname, List.map csimplify args)
                 | other -> other
 
@@ -1177,6 +1178,7 @@ module rec SumPow =
     /// Elementary simplifications, concerned with common terms that simplify each other.
     /// This simplification module is the basis for all other simplifications in Liyh.
     module public Simplification =
+        open InternalFunction
         open ElementaryOperations
         open SimplifiedSum
         open Flatten
@@ -1350,6 +1352,7 @@ module rec SumPow =
 
                 | Sum xs -> simpSum xs
 
+                | InternalFunction.InternalFunction ifun -> InternalFunction.simplifyd ifun
                 | Fun(name, args) -> Fun(name, List.map simplify args)
                 | other -> other
 
@@ -1504,6 +1507,7 @@ module rec SumPow =
 
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
+        open PureConstantExpression
 
         /// List of elementary functions handled by Liyh.
         let public ifuns =
@@ -1511,6 +1515,7 @@ module rec SumPow =
               "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"; "Ceil"; "Round"
               "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs"; "Floor" |]
 
+        /// List the various built-in elementary functions in Liyh.
         type public InternalFunction =
             | LiyhPow of base': SumPow * exp: SumPow
             | LiyhRoot of base': SumPow * exp: SumPow option // default: Sqrt
@@ -1548,10 +1553,12 @@ module rec SumPow =
             | LiyhFloor of arg: SumPow
             | LiyhRound of arg: SumPow
 
+        /// Pattern-match an elementary built-in function.
         let public (|InternalFunction|_|) =
             function
             | Fun(fname, _) when not (Array.contains fname ifuns) -> None
 
+            | Power(base', exp)
             | Fun("Pow", [ base'; exp ]) -> Some(InternalFunction.LiyhPow(base', exp))
             | Fun("Root", [ base'; exp ]) -> Some(InternalFunction.LiyhRoot(base', Some exp))
             | Fun("Sqrt", [ arg ]) -> Some(InternalFunction.LiyhRoot(arg, None))
@@ -1592,6 +1599,88 @@ module rec SumPow =
 
             | _ -> None
 
+        [<AutoOpen>]
+        module public σ =
+            let public liyhPow (b, p) = Fun("Pow", [ b; p ])
+            let public liyhRoot (x, nth) = Fun("Root", [ x; nth ])
+            let public liyhSqrt x = Fun("Sqrt", [ x ])
+            let public liyhLog (x, b) = Fun("Log", [ x; b ])
+            let public liyhLn x = Fun("Log", [ x; Name "E" ])
+            let public liyhExp x = Fun("Exp", [ x ])
+            let public liyhSin x = Fun("Sin", [ x ])
+            let public liyhCos x = Fun("Cos", [ x ])
+            let public liyhTan x = Fun("Tan", [ x ])
+            let public liyhCsc x = Fun("Csc", [ x ])
+            let public liyhSec x = Fun("Sec", [ x ])
+            let public liyhCot x = Fun("Cot", [ x ])
+            let public liyhArSin x = Fun("ArSin", [ x ])
+            let public liyhArCos x = Fun("ArCos", [ x ])
+            let public liyhArTan x = Fun("ArTan", [ x ])
+            let public liyhArCsc x = Fun("ArCsc", [ x ])
+            let public liyhArSec x = Fun("ArSec", [ x ])
+            let public liyhArCot x = Fun("ArCot", [ x ])
+            let public liyhSinh x = Fun("Sinh", [ x ])
+            let public liyhCosh x = Fun("Cosh", [ x ])
+            let public liyhTanh x = Fun("Tanh", [ x ])
+            let public liyhCsch x = Fun("Csch", [ x ])
+            let public liyhSech x = Fun("Sech", [ x ])
+            let public liyhCoth x = Fun("Coth", [ x ])
+            let public liyhArSinh x = Fun("ArSinh", [ x ])
+            let public liyhArCosh x = Fun("ArCosh", [ x ])
+            let public liyhArTanh x = Fun("ArTanh", [ x ])
+            let public liyhArCsch x = Fun("ArCsch", [ x ])
+            let public liyhArSech x = Fun("ArSech", [ x ])
+            let public liyhArCoth x = Fun("ArCoth", [ x ])
+            let public liyhSinc x = Fun("Sinc", [ x ])
+            let public liyhAbs x = Fun("Abs", [ x ])
+            let public liyhSgn x = Fun("Sgn", [ x ])
+            let public liyhDelta x = Fun("Delta", [ x ])
+            let public liyhCeil x = Fun("Ceil", [ x ])
+            let public liyhFloor x = Fun("Floor", [ x ])
+            let public liyhRound x = Fun("Round", [ x ])
+
+        /// Convert the InternalFunction representation to the SumPow representation.
+        let public toSumPow =
+            function
+            | LiyhPow(b, p) -> liyhPow (b, p)
+            | LiyhRoot(x, None) -> liyhSqrt x
+            | LiyhRoot(x, Some nth) -> liyhRoot (x, nth)
+            | LiyhLog(x, None) -> liyhLn x
+            | LiyhLog(x, Some b) -> liyhLog (x, b)
+            | LiyhExp x -> liyhExp x
+            | LiyhSin x -> liyhSin x
+            | LiyhCos x -> liyhCos x
+            | LiyhTan x -> liyhTan x
+            | LiyhCsc x -> liyhCsc x
+            | LiyhSec x -> liyhSec x
+            | LiyhCot x -> liyhCot x
+            | LiyhArSin x -> liyhArSin x
+            | LiyhArCos x -> liyhArCos x
+            | LiyhArTan x -> liyhArTan x
+            | LiyhArCsc x -> liyhArCsc x
+            | LiyhArSec x -> liyhArSec x
+            | LiyhArCot x -> liyhArCot x
+            | LiyhSinh x -> liyhSinh x
+            | LiyhCosh x -> liyhCosh x
+            | LiyhTanh x -> liyhTanh x
+            | LiyhCsch x -> liyhCsch x
+            | LiyhSech x -> liyhSech x
+            | LiyhCoth x -> liyhCoth x
+            | LiyhArSinh x -> liyhArSinh x
+            | LiyhArCosh x -> liyhArCosh x
+            | LiyhArTanh x -> liyhArTanh x
+            | LiyhArCsch x -> liyhArCsch x
+            | LiyhArSech x -> liyhArSech x
+            | LiyhArCoth x -> liyhArCoth x
+            | LiyhSinc x -> liyhSinc x
+            | LiyhAbs x -> liyhAbs x
+            | LiyhSgn x -> liyhSgn x
+            | LiyhDelta x -> liyhDelta x
+            | LiyhCeil x -> liyhCeil x
+            | LiyhFloor x -> liyhFloor x
+            | LiyhRound x -> liyhRound x
+
+        /// Evaluates the given elementary function numerically.
         let inline public evaluate (spEval: SumPow -> Constant) =
             function
             | InternalFunction.LiyhPow(base', exp) -> spEval base' ** spEval exp
@@ -1631,39 +1720,722 @@ module rec SumPow =
             | InternalFunction.LiyhFloor(x) -> mapf floor (spEval x)
             | other -> failwithf "Not implemented: %A" other
 
-        let inline public liyhPow (b, p) = Fun("Pow", [ b; p ])
-        let inline public liyhRoot (x, nth) = Fun("Root", [ x; nth ])
-        let inline public liyhSqrt x = Fun("Sqrt", [ x ])
-        let inline public liyhLog (x, b) = Fun("Log", [ x; b ])
-        let inline public liyhLn x = Fun("Log", [ x; Name "E" ])
-        let inline public liyhExp x = Fun("Exp", [ x ])
-        let inline public liyhSin x = Fun("Sin", [ x ])
-        let inline public liyhCos x = Fun("Cos", [ x ])
-        let inline public liyhTan x = Fun("Tan", [ x ])
-        let inline public liyhCsc x = Fun("Csc", [ x ])
-        let inline public liyhSec x = Fun("Sec", [ x ])
-        let inline public liyhCot x = Fun("Cot", [ x ])
-        let inline public liyhArSin x = Fun("ArSin", [ x ])
-        let inline public liyhArCos x = Fun("ArCos", [ x ])
-        let inline public liyhArTan x = Fun("ArTan", [ x ])
-        let inline public liyhArCsc x = Fun("ArCsc", [ x ])
-        let inline public liyhArSec x = Fun("ArSec", [ x ])
-        let inline public liyhArCot x = Fun("ArCot", [ x ])
-        let inline public liyhSinh x = Fun("Sinh", [ x ])
-        let inline public liyhCosh x = Fun("Cosh", [ x ])
-        let inline public liyhTanh x = Fun("Tanh", [ x ])
-        let inline public liyhCsch x = Fun("Csch", [ x ])
-        let inline public liyhSech x = Fun("Sech", [ x ])
-        let inline public liyhCoth x = Fun("Coth", [ x ])
-        let inline public liyhArSinh x = Fun("ArSinh", [ x ])
-        let inline public liyhArCosh x = Fun("ArCosh", [ x ])
-        let inline public liyhArTanh x = Fun("ArTanh", [ x ])
-        let inline public liyhArCsch x = Fun("ArCsch", [ x ])
-        let inline public liyhArSech x = Fun("ArSech", [ x ])
-        let inline public liyhArCoth x = Fun("ArCoth", [ x ])
-        let inline public liyhSinc x = Fun("Sinc", [ x ])
-        let inline public liyhAbs x = Fun("Abs", [ x ])
-        let inline public liyhSgn x = Fun("Sgn", [ x ])
+        /// Checks numerically whether the given floating-point number is an integer.
+        let inline private isFInt (a: double) =
+            abs (a % 1.) <= 1e-15  // It's a "dangerous" thing to do (IEEE), but we're waiting for something better.
+
+        // Some predicate statements:
+
+        let private f1 = ( = ) (Pi)             // x = π
+        let private f2 = ( = ) (Pi / 2)         // x = π/2
+        let private f3 = ( = ) (3 * Pi / 2)     // x = 3π/2
+        let private f4 = ( = ) (2 * Pi)         // x = 2π
+        let private f5 = ( = ) (Pi * I)         // x = πi
+        let private f6 = ( = ) (2 * Pi * I)     // x = 2πi
+
+        //
+        //  We hard-code some of the identities associated with the elementary functions...
+        //
+
+        /// Algebraically simplifies `Sin[x]` elementary function.
+        let private simplifydSin (x: SumPow) =
+            match Simplification.simplify x with
+            // sin(0) = 0
+            | Zero -> Const Zero
+
+            // sin(π/6) = 1/2
+            | Frac(Pi, PureConstantExpressionInteger 6) -> Const One / Const 2
+
+            // sin(π/4) = 1/√2
+            | Frac(Pi, PureConstantExpressionInteger 4) -> Const One / liyhSqrt (Const 2)
+
+            // sin(π/3) = √3/2
+            | Frac(Pi, PureConstantExpressionInteger 3) -> liyhSqrt (Const 3) / 2
+
+            // sin(π/2) = 1
+            | Frac(Pi, PureConstantExpressionInteger 2) -> Const One
+
+            // sin(π) = 0
+            | Pi -> Const Zero
+
+            // sin(nπ) = 0 for n∈Z
+            | ProdWith1 f1 [ PureConstantExpressionInteger _, One ] -> Const Zero
+
+            // sin(-x) = -sin(x)
+            | Negative (factor, rest) -> -liyhSin (factor * rest)
+
+            // sin(π/2 + x) = cos(x)
+            | SumWith1 f2 x -> liyhCos (Sum (manyTermId x))
+
+            // sin(π + x) = -sin(x)
+            | SumWith1 f1 x -> -liyhSin (Sum (manyTermId x))
+
+            // sin(3π/2 + x) = -cos(x)
+            | SumWith1 f3 x -> -liyhCos (Sum (manyTermId x))
+
+            // sin(2π + x) = sin(x)
+            | SumWith1 f4 x -> liyhSin (Sum (manyTermId x))
+
+            // sin(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> x
+                | LiyhArCos x -> liyhSqrt (1 - x ** 2)
+                | LiyhArTan x -> x / liyhSqrt (1 + x ** 2)
+                | LiyhArCsc x -> 1 / x
+                | LiyhArSec x -> liyhSqrt (x ** 2 - 1) / x
+                | LiyhArCot x -> 1 / liyhSqrt (1 + x ** 2)
+                | ifun -> liyhSin (simplifyd ifun)
+
+            | other -> liyhSin other
+
+        /// Algebraically simplifies `Cos[x]` elementary function.
+        let private simplifydCos (x: SumPow) =
+            match Simplification.simplify x with
+            // cos(0) = 1
+            | Zero -> Const One
+
+            // cos(π/6) = √3/2
+            | Frac(Pi, PureConstantExpressionInteger 6) -> liyhSqrt (Const 3) / Const 2
+
+            // cos(π/4) = 1/√2
+            | Frac(Pi, PureConstantExpressionInteger 4) -> Const One / liyhSqrt (Const 2)
+
+            // cos(π/3) = 1/2
+            | Frac(Pi, PureConstantExpressionInteger 3) -> Const One / Const 2
+
+            // cos(π/2) = 0
+            | Frac(Pi, PureConstantExpressionInteger 2) -> Const Zero
+
+            // cos(π) = -1
+            | Pi -> Const -One
+
+            // cos(2nπ) = 1 for n∈Z
+            | ProdWith1 f4 [ PureConstantExpressionInteger _, One ] -> Const One
+
+            // cos(-x) = cos(x)
+            | Negative (factor, rest) -> liyhCos (factor * rest)
+
+            // cos(π/2 + x) = -sin(x)
+            | SumWith1 f2 x -> -liyhSin (Sum (manyTermId x))
+
+            // cos(π + x) = -cos(x)
+            | SumWith1 f1 x -> -liyhCos (Sum (manyTermId x))
+
+            // cos(3π/2 + x) = sin(x)
+            | SumWith1 f3 x -> liyhSin (Sum (manyTermId x))
+
+            // cos(2π + x) = cos(x)
+            | SumWith1 f4 x -> liyhCos (Sum (manyTermId x))
+
+            // cos(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> liyhSqrt (1 - x ** 2)
+                | LiyhArCos x -> x
+                | LiyhArTan x -> 1 / liyhSqrt (1 + x ** 2)
+                | LiyhArCsc x -> liyhSqrt (x ** 2 - 1) / x
+                | LiyhArSec x -> 1 / x
+                | LiyhArCot x -> x / liyhSqrt (1 + x ** 2)
+                | ifun -> liyhCos (simplifyd ifun)
+
+            | other -> liyhCos other
+
+        /// Algebraically simplifies `Tan[x]` elementary function.
+        let private simplifydTan (x: SumPow) =
+            match Simplification.simplify x with
+            // tan(0) = 0
+            | Zero -> Const Zero
+
+            // tan(π/6) = 1/√3
+            | Frac(Pi, PureConstantExpressionInteger 6) -> Const One / liyhSqrt (Const 3)
+
+            // tan(π/4) = 1
+            | Frac(Pi, PureConstantExpressionInteger 4) -> Const One
+
+            // tan(π/3) = √3
+            | Frac(Pi, PureConstantExpressionInteger 3) -> liyhSqrt (Const 3)
+
+            // tan(π) = 0
+            | Pi -> Const Zero
+
+            // tan(nπ) = 0 for n∈Z
+            | ProdWith1 f1 [ PureConstantExpressionInteger _, One ] -> Const Zero
+
+            // tan(-x) = -tan(x)
+            | Negative (factor, rest) -> -liyhTan (factor * rest)
+
+            // tan(π/2 + x) = -cot(x)
+            | SumWith1 f2 x -> -liyhCot (Sum (manyTermId x))
+
+            // tan(π + x) = tan(x)
+            | SumWith1 f1 x -> liyhTan (Sum (manyTermId x))
+
+            // tan(3π/2 + x) = -cot(x)
+            | SumWith1 f3 x -> -liyhCot (Sum (manyTermId x))
+
+            // tan(2π + x) = tan(x)
+            | SumWith1 f4 x -> liyhTan (Sum (manyTermId x))
+
+            // tan(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> x / liyhSqrt (1 - x ** 2)
+                | LiyhArCos x -> liyhSqrt (1 - x ** 2) / x
+                | LiyhArTan x -> x
+                | LiyhArCsc x -> 1 / liyhSqrt (x ** 2 - 1)
+                | LiyhArSec x -> liyhSqrt (x ** 2 - 1)
+                | LiyhArCot x -> 1 / x
+                | ifun -> liyhTan (simplifyd ifun)
+
+            | other -> liyhTan other
+
+        /// Algebraically simplifies `Csc[x]` elementary function.
+        let private simplifydCsc (x: SumPow) =
+            match Simplification.simplify x with
+            // csc(π/6) = 2
+            | Frac(Pi, PureConstantExpressionInteger 6) -> Const 2
+
+            // csc(π/4) = √2
+            | Frac(Pi, PureConstantExpressionInteger 4) -> liyhSqrt (Const 2)
+
+            // csc(π/3) = 2/√3
+            | Frac(Pi, PureConstantExpressionInteger 3) -> 2 / liyhSqrt (Const 3)
+
+            // csc(π/2) = 1
+            | Frac(Pi, PureConstantExpressionInteger 2) -> Const One
+
+            // csc(-x) = -csc(x)
+            | Negative (factor, rest) -> -liyhCsc (factor * rest)
+
+            // csc(π/2 + x) = sec(x)
+            | SumWith1 f2 x -> liyhSec (Sum (manyTermId x))
+
+            // csc(π + x) = -csc(x)
+            | SumWith1 f1 x -> -liyhCsc (Sum (manyTermId x))
+
+            // csc(3π/2 + x) = -sec(x)
+            | SumWith1 f3 x -> -liyhSec (Sum (manyTermId x))
+
+            // csc(2π + x) = csc(x)
+            | SumWith1 f4 x -> liyhCsc (Sum (manyTermId x))
+
+            // csc(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> 1 / x
+                | LiyhArCos x -> 1 / liyhSqrt (1 - x ** 2)
+                | LiyhArTan x -> liyhSqrt (x ** 2 + 1) / x
+                | LiyhArCsc x -> x
+                | LiyhArSec x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
+                | LiyhArCot x -> liyhSqrt (1 / (x ** 2) + 1) * x
+                | ifun -> liyhSin (simplifyd ifun)
+
+            | other -> liyhCsc other
+
+        /// Algebraically simplifies `Sec[x]` elementary function.
+        let private simplifydSec (x: SumPow) =
+            match Simplification.simplify x with
+            // sec(0) = 1
+            | Zero -> Const One
+
+            // sec(π/6) = 2/√3
+            | Frac(Pi, PureConstantExpressionInteger 6) -> Const One / Const 2
+
+            // sec(π/4) = √2
+            | Frac(Pi, PureConstantExpressionInteger 4) -> liyhSqrt (Const 2)
+
+            // sec(π/3) = 2
+            | Frac(Pi, PureConstantExpressionInteger 3) -> Const 2
+
+            // sec(π) = -1
+            | Pi -> Const -One
+
+            // sec(2nπ) = 1 for n∈Z
+            | ProdWith1 f4 [ PureConstantExpressionInteger _, One ] -> Const Zero
+
+            // sec(-x) = sec(x)
+            | Negative (factor, rest) -> liyhSec (factor * rest)
+
+            // sec(π/2 + x) = -csc(x)
+            | SumWith1 f2 x -> -liyhCsc (Sum (manyTermId x))
+
+            // sec(π + x) = -sec(x)
+            | SumWith1 f1 x -> -liyhSec (Sum (manyTermId x))
+
+            // sec(3π/2 + x) = csc(x)
+            | SumWith1 f3 x -> liyhCsc (Sum (manyTermId x))
+
+            // sec(2π + x) = sec(x)
+            | SumWith1 f4 x -> liyhSec (Sum (manyTermId x))
+
+            // sec(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> 1 / liyhSqrt (1 - x ** 2)
+                | LiyhArCos x -> 1 / x
+                | LiyhArTan x -> liyhSqrt (x ** 2 + 1)
+                | LiyhArCsc x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
+                | LiyhArSec x -> x
+                | LiyhArCot x -> liyhSqrt (1 / (x ** 2) + 1)
+                | ifun -> liyhSin (simplifyd ifun)
+
+            | other -> liyhSec other
+
+        /// Algebraically simplifies `Cot[x]` elementary function.
+        let private simplifydCot (x: SumPow) =
+            match Simplification.simplify x with
+            // cot(π/6) = √3
+            | Frac(Pi, PureConstantExpressionInteger 6) -> liyhSqrt (Const 3)
+
+            // cot(π/4) = 1
+            | Frac(Pi, PureConstantExpressionInteger 4) -> Const One
+
+            // cot(π/3) = 1/√3
+            | Frac(Pi, PureConstantExpressionInteger 3) -> 1 / liyhSqrt (Const 3)
+
+            // cot(π/2) = 0
+            | Frac(Pi, PureConstantExpressionInteger 2) -> Const Zero
+
+            // cot(-x) = -cot(x)
+            | Negative (factor, rest) -> -liyhCot (factor * rest)
+
+            // cot(π/2 + x) = -tan(x)
+            | SumWith1 f2 x -> -liyhTan (Sum (manyTermId x))
+
+            // cot(π + x) = cot(x)
+            | SumWith1 f1 x -> liyhCot (Sum (manyTermId x))
+
+            // cot(3π/2 + x) = -tan(x)
+            | SumWith1 f3 x -> -liyhTan (Sum (manyTermId x))
+
+            // cot(2π + x) = cot(x)
+            | SumWith1 f4 x -> liyhCot (Sum (manyTermId x))
+
+            // cot(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSin x -> liyhSqrt (1 - x ** 2) / x
+                | LiyhArCos x -> x / liyhSqrt (1 - x ** 2)
+                | LiyhArTan x -> 1 / x
+                | LiyhArCsc x -> liyhSqrt (1 - 1 / (x ** 2)) * x
+                | LiyhArSec x -> 1 / liyhSqrt (1 - 1 / (x ** 2)) * x
+                | LiyhArCot x -> x
+                | ifun -> liyhCot (simplifyd ifun)
+
+            | other -> liyhCot other
+
+        /// Algebraically simplifies `ArSin[x]` elementary function.
+        let private simplifydArSin (x: SumPow) =
+            match Simplification.simplify x with
+            // arSin(0) = 0
+            | Zero -> Const Zero
+
+            // arSin(-x) = -arSin(x)
+            | Negative (factor, rest) -> -liyhArSin (factor * rest)
+
+            | other -> liyhArSin other
+
+        /// Algebraically simplifies `ArCos[x]` elementary function.
+        let private simplifydArCos (x: SumPow) =
+            match Simplification.simplify x with
+            // arCos(0) = π/2
+            | Zero -> Pi / 2
+
+            | other -> liyhArCos other
+
+        /// Algebraically simplifies `ArTan[x]` elementary function.
+        let private simplifydArTan (x: SumPow) =
+            match Simplification.simplify x with
+            // arTan(0) = 0
+            | Zero -> Const Zero
+
+            // arTan(-x) = -arTan(x)
+            | Negative (factor, rest) -> -liyhTan (factor * rest)
+
+            | other -> liyhArTan other
+
+        /// Algebraically simplifies `ArCsc[x]` elementary function.
+        let private simplifydArCsc (x: SumPow) =
+            match Simplification.simplify x with
+            // arCsc(0) = 0
+            | Zero -> Const Zero
+
+            // arCsc(-x) = -arCsc(x)
+            | Negative (factor, rest) -> -liyhArCsc (factor * rest)
+
+            | other -> liyhArCsc other
+
+        /// Algebraically simplifies `ArSec[x]` elementary function.
+        let private simplifydArSec (x: SumPow) =
+            liyhArSec (Simplification.simplify x)
+
+        /// Algebraically simplifies `ArCot[x]` elementary function.
+        let private simplifydArCot (x: SumPow) =
+            match Simplification.simplify x with
+            // arCot(0) = π/2
+            | Zero -> Pi / 2
+
+            // arCot(-x) = -arCot(x)
+            | Negative (factor, rest) -> -liyhArCot (factor * rest)
+
+            | other -> liyhArCot other
+
+        /// Algebraically simplifies `Sinh[x]` elementary function.
+        let private simplifydSinh (x: SumPow) =
+            match Simplification.simplify x with
+            // sinh(0) = 0
+            | Zero -> Const Zero
+
+            // sinh(nπi) = 0 for n∈Z
+            | ProdWith1 f5 [ PureConstantExpressionInteger _, One ] -> Const Zero
+
+            // sinh(-x) = -sinh(x)
+            | Negative (factor, rest) -> -liyhSinh (factor * rest)
+
+            // sinh(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> x
+                | LiyhArCosh x -> liyhSqrt ((x - 1) / (x + 1)) * (x + 1)
+                | LiyhArTanh x -> x / liyhSqrt (1 - x ** 2)
+                | LiyhArCsch x -> 1 / x
+                | LiyhArSech x -> (liyhSqrt ((1 - x) / (1 + x)) * (x + 1)) / x
+                | LiyhArCoth x -> 1 / (liyhSqrt (1 - (1 / (x ** 2))) * x)
+                | ifun -> liyhSinh (simplifyd ifun)
+
+            | other -> liyhSinh other
+
+        /// Algebraically simplifies `Cosh[x]` elementary function.
+        let private simplifydCosh (x: SumPow) =
+            match Simplification.simplify x with
+            // cosh(0) = 1
+            | Zero -> Const One
+
+            // cosh(2nπi) = 1 for n∈Z
+            | ProdWith1 f6 [ PureConstantExpressionInteger _, One ] -> Const One
+
+            // cosh(-x) = cosh(x)
+            | Negative (factor, rest) -> liyhCosh (factor * rest)
+
+            // cosh(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> liyhSqrt (x ** 2 - 1)
+                | LiyhArCosh x -> x
+                | LiyhArTanh x -> 1 / liyhSqrt (1 - x ** 2)
+                | LiyhArCsch x -> liyhSqrt (1 / (x ** 2) + 1)
+                | LiyhArSech x -> 1 / x
+                | LiyhArCoth x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
+                | ifun -> liyhCosh (simplifyd ifun)
+
+            | other -> liyhCosh other
+
+        /// Algebraically simplifies `Tanh[x]` elementary function.
+        let private simplifydTanh (x: SumPow) =
+            match Simplification.simplify x with
+            // tanh(0) = 0
+            | Zero -> Const Zero
+
+            // tanh(nπi) = 0 for n∈Z
+            | ProdWith1 f5 [ PureConstantExpressionInteger _, One ] -> Const Zero
+
+            // tanh(-x) = -tanh(x)
+            | Negative (factor, rest) -> -liyhTanh (factor * rest)
+
+            // tanh(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> x / liyhSqrt (x ** 2 + 1)
+                | LiyhArCosh x -> (liyhSqrt ((x - 1) / (x + 1)) * (x + 1)) / x
+                | LiyhArTanh x -> x
+                | LiyhArCsch x -> 1 / (liyhSqrt (1 / (x ** 2) + 1) * x)
+                | LiyhArSech x -> liyhSqrt ((1 - x) / (1 + x)) * (x + 1)
+                | LiyhArCoth x -> 1 / x
+                | ifun -> liyhTanh (simplifyd ifun)
+
+            | other -> liyhTanh other
+
+        /// Algebraically simplifies `Csch[x]` elementary function.
+        let private simplifydCsch (x: SumPow) =
+            match Simplification.simplify x with
+            // csch(0) = 0
+            | Zero -> Const Zero
+
+            // csch(-x) = -csch(x)
+            | Negative (factor, rest) -> -liyhCsch (factor * rest)
+
+            // csch(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> 1 / x
+                | LiyhArCosh x -> 1 / (liyhSqrt ((x - 1) / (x + 1)) * (x + 1))
+                | LiyhArTanh x -> liyhSqrt (1 - x ** 2) / x
+                | LiyhArCsch x -> x
+                | LiyhArSech x -> x / (liyhSqrt ((1 - x) / (1 + x)) * (x + 1))
+                | LiyhArCoth x -> liyhSqrt (1 + 1 / (x ** 2)) * x
+                | ifun -> liyhCsch (simplifyd ifun)
+
+            | other -> liyhCsch other
+
+        /// Algebraically simplifies `Sech[x]` elementary function.
+        let private simplifydSech (x: SumPow) =
+            match Simplification.simplify x with
+            // sech(0) = 1
+            | Zero -> Const One
+
+            // sech(nπi) = 1 for n∈Z
+            | ProdWith1 f6 [ PureConstantExpressionInteger _, One ] -> Const One
+
+            // sech(-x) = sech(x)
+            | Negative (factor, rest) -> liyhSech (factor * rest)
+
+            // sech(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> 1 / liyhSqrt (x ** 2 + 1)
+                | LiyhArCosh x -> 1 / x
+                | LiyhArTanh x -> liyhSqrt (1 - x ** 2)
+                | LiyhArCsch x -> 1 / liyhSqrt (1 / (x ** 2) + 1)
+                | LiyhArSech x -> x
+                | LiyhArCoth x -> liyhSqrt (1 - 1 / (x ** 2))
+                | ifun -> liyhSech (simplifyd ifun)
+
+            | other -> liyhSech other
+
+        /// Algebraically simplifies `Coth[x]` elementary function.
+        let private simplifydCoth (x: SumPow) =
+            match Simplification.simplify x with
+            // coth(-x) = -coth(x)
+            | Negative (factor, rest) -> -liyhCoth (factor * rest)
+
+            // coth(f⁻¹(x)) = ...
+            | InternalFunction ifun ->
+                match ifun with
+                | LiyhArSinh x -> liyhSqrt (x ** 2 + 1) / x
+                | LiyhArCosh x -> x / (liyhSqrt ((x - 1) / (x + 1)) * (x + 1))
+                | LiyhArTanh x -> 1 / x
+                | LiyhArCoth x -> x
+                | ifun -> liyhCoth (simplifyd ifun)
+
+            | other -> liyhCoth other
+
+        /// Algebraically simplifies `ArSinh[x]` elementary function.
+        let private simplifydArSinh (x: SumPow) =
+            match Simplification.simplify x with
+            // arsinh(0) = 0
+            | Zero -> Const Zero
+
+            // arsinh(-x) = -arsinh(x)
+            | Negative (factor, rest) -> -liyhArSinh (factor * rest)
+
+            | other -> liyhArSinh other
+
+        /// Algebraically simplifies `ArCosh[x]` elementary function.
+        let private simplifydArCosh (x: SumPow) =
+            match Simplification.simplify x with
+            // arcosh(0) = iπ/2
+            | Zero -> I * Pi / 2
+
+            | other -> liyhArCosh other
+
+        /// Algebraically simplifies `ArTanh[x]` elementary function.
+        let private simplifydArTanh (x: SumPow) =
+            match Simplification.simplify x with
+            // artanh(0) = 0
+            | Zero -> Const Zero
+
+            // artanh(-x) = -artanh(x)
+            | Negative (factor, rest) -> -liyhArTanh (factor * rest)
+
+            | other -> liyhArTanh other
+
+        /// Algebraically simplifies `ArCsch[x]` elementary function.
+        let private simplifydArCsch (x: SumPow) =
+            match Simplification.simplify x with
+            // arcsch(0) = 0
+            | Zero -> Const Zero
+
+            // arcsch(-x) = -arcsch(x)
+            | Negative (factor, rest) -> -liyhArCsch (factor * rest)
+
+            | other -> liyhArCsch other
+
+        /// Algebraically simplifies `ArSech[x]` elementary function.
+        let private simplifydArSech (x: SumPow) =
+            match Simplification.simplify x with
+            // arsech(1) = 0
+            | One -> Const Zero
+
+            | other -> liyhArSech other
+
+        /// Algebraically simplifies `ArCoth[x]` elementary function.
+        let private simplifydArCoth (x: SumPow) =
+            match Simplification.simplify x with
+            // arcoth(0) = iπ/2
+            | Zero -> I * Pi / 2
+
+            // arcoth(-x) = -arcoth(x)
+            | Negative (factor, rest) -> -liyhArCoth (factor * rest)
+
+            | other -> liyhArCoth other
+
+        /// Algebraically simplifies `Pow[b, p]` elementary function.
+        let private simplifydPow (b: SumPow) (p: SumPow) =
+            match Simplification.simplify b, Simplification.simplify p with
+            | a, Fun("Log", [ x; b ]) -> if a = b then x else b ** p
+            | b, p -> Simplification.simplify (b ** p)
+
+        /// Algebraically simplifies `Root[x, nth]` elementary function.
+        let private simplifydRoot (x: SumPow) (nth: SumPow option) =
+            let nth = Option.defaultValue (Const 2) nth
+            Simplification.simplify (x ** (1 / nth))
+
+        /// Algebraically simplifies `Log[x, b]` elementary function.
+        let private simplifydLog (x: SumPow) (b: SumPow option) =
+            let b = Option.defaultValue E b
+
+            match Simplification.simplify x, Simplification.simplify b with
+            | x, b when x = b -> Const One
+            | One, _ -> Const Zero
+            | _, Zero -> Const Zero
+            | PureConstantExpressionInteger n, b when n <> 0 ->
+                if n < 0 then liyhLog (Const (fromBigInt (abs n)), b) + I * Pi
+                else
+                    let targ =
+                        match b with
+                        | E -> Some (log (double n))
+                        | PureConstantExpressionInteger b -> Some (log (double n) / log (double b))
+                        | _ -> None
+
+                    Option.defaultWith
+                        (konst (liyhLog (Const n, b)))
+                        (Option.bind (fun a -> if isFInt a then Some (Const a) else None) targ)
+
+            | Power(x, p), b -> Simplification.simplify (p * liyhLog (x, b))
+            | Prod prod, b ->
+                let sm = List.map (fun (x, p) -> liyhLog (x ** p, b) |> Simplification.simplify) prod
+                Sum (manyTermId sm)
+
+            | x, b -> liyhLog (Simplification.simplify x, Simplification.simplify b)
+
+        /// Algebraically simplifies `Abs[x]` elementary function.
+        let private simplifydAbs (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpressionInteger x -> Const (fromBigInt (abs x))
+            | PureConstantExpressionFloat x -> Const (fromDouble (abs x))
+            | PureConstantExpressionRational (num, den) ->
+                Const (fromBigInt (abs num)) / Const (fromBigInt (abs den))
+            | other -> liyhAbs other
+
+        /// Algebraically simplifies `Sinc[x]` elementary function.
+        let private simplifydSinc (x: SumPow) =
+            match Simplification.simplify x with
+            | Zero -> Const One // by definition (to make the function continious)
+            | other ->
+                let simp = Simplification.simplify other
+                Simplification.simplify ((liyhSin simp) / simp)
+
+        /// Algebraically simplifies `Sgn[x]` elementary function.
+        let private simplifydSgn (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpressionInteger x -> Const (sign x)
+            | PureConstantExpressionFloat x -> Const (sign x)
+            | PureConstantExpressionRational (num, den) -> Const (sign (num * den))
+            | InternalFunction (LiyhSgn x) -> liyhSgn x
+            | InternalFunction (LiyhAbs _) -> Const One
+            | InternalFunction (LiyhRoot (_, Some (PureConstantExpressionNatural nth))) when nth % 2 = 0 -> Const One 
+            | other -> liyhSgn other
+
+        /// Algebraically simplifies `δ[x]` "elementary function".
+        let private simplifydDelta (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpression pc when not (Misc.isZero pc) -> Const Zero
+            | x -> liyhDelta x
+
+        /// Algebraically simplifies `Ceil[x]` elementary function.
+        let private simplifydCeil (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpressionInteger x -> Const (fromBigInt x)
+            | PureConstantExpressionFloat x -> Const (Constant (ceil x))
+            | PureConstantExpressionRational (num, den) -> Const (Constant (ceil (double num / double den)))
+            | Negative (factor, rest) -> liyhFloor (factor * rest)
+            | other -> liyhCeil other
+
+        /// Algebraically simplifies `Floor[x]` elementary function.
+        let private simplifydFloor (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpressionInteger x -> Const (fromBigInt x)
+            | PureConstantExpressionFloat x -> Const (Constant (floor x))
+            | PureConstantExpressionRational (num, den) -> Const (Constant (floor (double num / double den)))
+            | Negative (factor, rest) -> liyhCeil (factor * rest)
+            | other -> liyhFloor other
+
+        /// Algebraically simplifies `Round[x]` elementary function.
+        let private simplifydRound (x: SumPow) =
+            match Simplification.simplify x with
+            | PureConstantExpressionInteger x -> Const (fromBigInt x)
+            | PureConstantExpressionFloat x -> Const (fromDouble (round x))
+            | PureConstantExpressionRational (num, den) -> Const (fromDouble (round (double num / double den)))
+            | Negative (factor, rest) -> -liyhRound (factor * rest)
+            | other -> liyhRound other
+
+        /// Algebraically simplifies elementary functions when particular arguments or identities match.
+        let public simplifyd =
+            function
+
+            // Power and logarithm functions.
+
+            | LiyhPow(b, p) -> simplifydPow b p
+            | LiyhRoot(x, nth) -> simplifydRoot x nth
+            | LiyhLog(x, b) -> simplifydLog x b
+            | LiyhExp x -> simplifyd (LiyhPow (E, x))
+
+            // Trigonometric functions.
+
+            | LiyhSin x -> simplifydSin x
+            | LiyhCos x -> simplifydCos x
+            | LiyhTan x -> simplifydTan x
+            | LiyhCsc x -> simplifydCsc x
+            | LiyhSec x -> simplifydSec x
+            | LiyhCot x -> simplifydCot x
+
+            // Inverse trigonometric functions.
+
+            | LiyhArSin x -> simplifydArSin x
+            | LiyhArCos x -> simplifydArCos x
+            | LiyhArTan x -> simplifydArTan x
+            | LiyhArCsc x -> simplifydArCsc x
+            | LiyhArSec x -> simplifydArSec x
+            | LiyhArCot x -> simplifydArCot x
+
+            // Hyperbolic functions.
+
+            | LiyhSinh x -> simplifydSinh x
+            | LiyhCosh x -> simplifydCosh x
+            | LiyhTanh x -> simplifydTanh x
+            | LiyhCsch x -> simplifydCsch x
+            | LiyhSech x -> simplifydSech x
+            | LiyhCoth x -> simplifydCoth x
+
+            // Inverse hyperbolic functions.
+
+            | LiyhArSinh x -> simplifydArSinh x
+            | LiyhArCosh x -> simplifydArCosh x
+            | LiyhArTanh x -> simplifydArTanh x
+            | LiyhArCsch x -> simplifydArCsch x
+            | LiyhArSech x -> simplifydArSech x
+            | LiyhArCoth x -> simplifydArCoth x
+
+            // Miscellaneous functions.
+
+            | LiyhSinc x -> simplifydSinc x
+            | LiyhAbs x -> simplifydAbs x
+            | LiyhSgn x -> simplifydSgn x
+            | LiyhDelta x -> simplifydDelta x
+            | LiyhCeil x -> simplifydCeil x
+            | LiyhFloor x -> simplifydFloor x
+            | LiyhRound x -> simplifydRound x
 
     /// A module for elementary functions (see https://en.wikipedia.org/wiki/Elementary_function).
     module public ElemFun =
