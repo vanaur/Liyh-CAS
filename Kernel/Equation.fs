@@ -9,7 +9,7 @@ module public rec Equation =
 
     type public Variable = SumPow
 
-    [<Struct>]
+    [<Struct; NoComparison>]
     type public EquationKind =
         | Equality
         | LesserThan
@@ -70,16 +70,19 @@ module public rec Equation =
             Equation(kind, lhs - rhs, SumPow.Const Zero)
 
         /// Given an equation LHS(x₁, x₂, ..., xₙ) = RHS(x₁, x₂, ..., xₙ), return P(x₁, x₂, ..., xₙ) for P(x₁, x₂, ..., xₙ) = 0.
-        let inline public equateToZero (Equation(_, lhs, rhs)) = lhs - rhs
+        let inline public equateToZero (Equation(_, lhs, rhs)) =
+            lhs - rhs
 
         let inline private binOpBySumPow (op: SumPow -> SumPow -> SumPow) (Equation(kind, lhs, rhs)) (sp: SumPow) =
             Equation(kind, op lhs sp, op rhs sp)
 
         /// Adds `sp` to both sides of the equation.
-        let public additionBySumPow = binOpBySumPow ( + )
+        let public additionBySumPow =
+            binOpBySumPow ( + )
 
         /// Adds `sp` to both sides of the equation.
-        let public subtractionBySumPow = binOpBySumPow ( - )
+        let public subtractionBySumPow =
+            binOpBySumPow ( - )
 
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
