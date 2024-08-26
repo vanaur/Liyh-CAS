@@ -82,8 +82,48 @@ module public rec Equation =
         let public subtractionBySumPow = binOpBySumPow ( - )
 
     module public NumericEvaluation =
-        open System.Numerics
+        open SumPow.NumericEvaluation
 
-        let private brent (a: double) (b: double) (f: SumPow) (variable: Variable) = 0
-        // il faut faire un module poue les fonctions...
+        /// Recursive version of the ITP (Interpolate Truncate and Project) method.
+        /// See https://en.wikipedia.org/wiki/ITP_method.
+        /// See https://dl.acm.org/doi/10.1145/3423597.
+        let private ITP (a: double) (b: double) (ε: double) (κ1: double) (κ2: double) (n: int) (f: double -> double) =
+            let n' = ceil (log ((b - a) / (2. * ε)) / log 2.)
+            let nₘₐₓ = n' + double n
+
+            let rec loop (a: double) (b: double) (ya: double) (yb: double) (k: double) =
+                if (b - a <= 2. * ε) then (a + b) / 2. else
+
+                // Calculating Parameters.
+
+                let x' = (a + b) / 2.
+                let r = ε * (2. ** (nₘₐₓ - k)) - (b - a) / 2.
+                let δ = κ1 * ((b - a) ** κ2)
+
+                // Interpolation.
+
+                let xf = (yb * a - ya * b) / (yb - ya)
+
+                // Truncation.
+
+                let σ = (sign >> double) (x' - xf)
+                let xt = if δ <= abs (x' - xf) then xf + σ * δ else x'
+
+                // Projection.
+
+                let xᵢₜₚ = if abs (xt - x') <= r then xt else x' - σ * r
+
+                // Updating interval.
+
+                let yᵢₜₚ = f xᵢₜₚ
+
+                let a, b, ya, yb =
+                    if   yᵢₜₚ > 0 then a, xᵢₜₚ, ya, yᵢₜₚ
+                    elif yᵢₜₚ < 0 then xᵢₜₚ, b, yᵢₜₚ, yb
+                    else               xᵢₜₚ, xᵢₜₚ, ya, yb
+
+                loop a b ya yb (k + 1.)
+
+            loop a b (f a) (f b) 0
+
 
