@@ -1508,8 +1508,8 @@ module rec SumPow =
         /// List of elementary functions handled by Liyh.
         let public ifuns =
             [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"; "Sgn"; "Delta"
-              "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"
-              "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs" |]
+              "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"; "Ceil"; "Round"
+              "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs"; "Floor" |]
 
         type public InternalFunction =
             | LiyhPow of base': SumPow * exp: SumPow
@@ -1543,7 +1543,10 @@ module rec SumPow =
             | LiyhSinc of arg: SumPow
             | LiyhAbs of arg: SumPow
             | LiyhSgn of arg: SumPow
-            | LiyhDelta of arg: SumPow  // dirac-delta
+            | LiyhDelta of arg: SumPow  // dirac-delta (not a true function but useful)
+            | LiyhCeil of arg: SumPow
+            | LiyhFloor of arg: SumPow
+            | LiyhRound of arg: SumPow
 
         let public (|InternalFunction|_|) =
             function
@@ -1583,6 +1586,9 @@ module rec SumPow =
             | Fun("Abs", [ arg ]) -> Some(InternalFunction.LiyhAbs arg)
             | Fun("Sgn", [ arg ]) -> Some(InternalFunction.LiyhSgn arg)
             | Fun("Delta", [ arg ]) -> Some(InternalFunction.LiyhDelta arg)
+            | Fun("Ceil", [ arg ]) -> Some(InternalFunction.LiyhCeil arg)
+            | Fun("Floor", [ arg ]) -> Some(InternalFunction.LiyhFloor arg)
+            | Fun("Round", [ arg ]) -> Some(InternalFunction.LiyhRound arg)
 
             | _ -> None
 
@@ -1620,6 +1626,9 @@ module rec SumPow =
             | InternalFunction.LiyhSgn(arg) -> mapf (double << sign) (spEval arg)
             | InternalFunction.LiyhDelta(Zero) -> Constant Double.PositiveInfinity
             | InternalFunction.LiyhDelta(x) -> mapf (fun a -> if a = 0. then Double.PositiveInfinity else 0) (spEval x)
+            | InternalFunction.LiyhRound(x) -> mapf round (spEval x)
+            | InternalFunction.LiyhCeil(x) -> mapf ceil (spEval x)
+            | InternalFunction.LiyhFloor(x) -> mapf floor (spEval x)
             | other -> failwithf "Not implemented: %A" other
 
         let inline public liyhPow (b, p) = Fun("Pow", [ b; p ])
