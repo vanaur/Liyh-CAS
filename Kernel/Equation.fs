@@ -1,13 +1,8 @@
 namespace Liyh.Kernel
 
 module public rec Equation =
-    open System.Collections.Generic
-    open System
     open Liyh.Kernel
-    open System.Runtime.CompilerServices
     open Liyh.Utils
-
-    type public Variable = SumPow
 
     [<Struct; NoComparison>]
     type public EquationKind =
