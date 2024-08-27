@@ -1,8 +1,12 @@
 namespace Liyh.Kernel
 
+#nowarn "25"
+
 module public rec Equation =
     open Liyh.Kernel
     open Liyh.Utils
+
+    exception public NotSymbolicEquationException of Symbol
 
     [<Struct; NoComparison>]
     type public EquationKind =
@@ -12,7 +16,7 @@ module public rec Equation =
         | GreaterThan
         | GreaterOrEqualThan
 
-    [<Symbolic; Struct>]
+    [<Symbolic; Struct; NoComparison>]
     type public Equation =
         | Equation of kind: EquationKind * lhs: SumPow * rhs: SumPow
 
@@ -48,10 +52,28 @@ module public rec Equation =
               ("lhs", Symbolic.toSymbolic lhs)
               ("rhs", Symbolic.toSymbolic rhs) ] }
 
-    let inline private getLHS (Equation(_, lhs, _)) = lhs
-    let inline private getRHS (Equation(_, _, rhs)) = rhs
-    let inline private getSides (Equation(_, lhs, rhs)) = lhs, rhs
-    let inline private getKind (Equation(kind, _, _)) = kind
+    /// Convert from a symbolic representation to the representation of equation in SumPow.
+    let public fromSymbolic (symbolic: Symbol) =
+
+        let getKind =
+            function
+            | "Eq" -> Equality
+            | "Ls" -> LesserThan
+            | "Lseq" -> LesserOrEqualThan
+            | "Gr" -> GreaterThan
+            | "Greq" -> GreaterOrEqualThan
+            | _ -> raise (NotSymbolicEquationException symbolic)
+
+        match symbolic.atom with
+        | Identifier "Equation" ->
+            if List.length symbolic.attributes <> 3 then raise (NotSymbolicEquationException symbolic)
+            let [ kind; lhs; rhs ] = getArgumentsByName [ "kind"; "lhs"; "rhs" ] symbolic
+
+            match kind with
+            | { atom = Identifier kind } -> Equation (getKind kind, toSumPow lhs, toSumPow rhs)
+            | _ -> raise (NotSymbolicEquationException symbolic)
+
+        | _ -> raise (NotSymbolicEquationException symbolic)
 
     [<RequireQualifiedAccess>]
     module public BasicOperations =
