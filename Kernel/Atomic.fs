@@ -3,9 +3,11 @@ namespace Liyh.Kernel
 [<AutoOpen>]
 module rec Atomic =
     open System
+    open System.Linq
     open ByteDev.Encoding
 
     exception public UnknownSymbolicMatchException of Symbol
+    exception public UnboundArgumentNameException of string list * Symbol
 
     let rec private showIndented (lvl: int) { atom = atom; attributes = attributes } =
         let ind lvl = String(' ', lvl)
@@ -88,6 +90,25 @@ module rec Atomic =
 
     /// Decodes the given text in the universal symbolic representation.
     let public deserialize : string -> Symbol = serializer.Deserialize
+
+    /// Gets the attributes of the given symbol in the given argument order. This requires that the attributes
+    /// are named correctly and not null, and that the list of names matches the list of attribute names.
+    /// This function can throw the `UnboundArgumentNameException` exception otherwise.
+    let public getArgumentsByName (names: string list) (symbol: Symbol) =
+        let arguments = symbol.attributes
+
+        if List.length arguments <> List.length names then
+            raise (UnboundArgumentNameException (names, symbol))
+
+        let inline selector x =
+            Option.defaultWith
+                (fun _ -> raise (UnboundArgumentNameException (names, symbol)))
+                (List.tryFindIndex (( = ) (fst x)) names)
+
+        arguments.OrderBy selector
+        |> Seq.toList
+        |> List.map snd
+
 
 [<RequireQualifiedAccess>]
 module AtomicParser =
