@@ -613,7 +613,7 @@ module rec SumPow =
                 if List.length xs = 1 then
                     powToSymb xs.Head
                 else
-                    { atom = Atomic.Identifier "Mul"
+                    { atom = Atomic.Identifier "Prod"
                       attributes = List.map (fun pow -> null, powToSymb pow) xs }
 
             match sp with
