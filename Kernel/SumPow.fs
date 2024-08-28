@@ -138,8 +138,8 @@ module rec SumPow =
         /// An active pattern that matches a product and returns the list of powers (a list of tuples).
         let public (|TermProd|_|) (Term term) =
             match term with
-            | []
-            | [ _ ] -> None
+            | [] -> None
+            // | [ _ ] -> None
             | lst -> Some(List.map (function Pow(a, b) -> (a, b)) lst)
 
         /// An active pattern that matches a product and returns the list of powers (a list of tuples).
