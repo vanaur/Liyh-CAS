@@ -64,6 +64,7 @@ module rec SumPow =
     [<AutoOpen>]
     module public Pattern =
         open ElementaryOperations
+        open PureConstantExpression
 
         /// An active pattern that represents either a variable (`Name _`), a pure constant (`PureConstantExpression.PureConstantExpression _`) or a
         /// function (`Fun _`). In other words, it's not a sum, a product or a power.
