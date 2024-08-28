@@ -19,6 +19,7 @@
     <Compile Include="Kernel/Set.fs" />
     <Compile Include="Kernel/Prime.fs" />
     <Compile Include="Kernel/SumPow.fs" />
+    <Compile Include="Kernel/TrueVariable.fs" />
     <Compile Include="Kernel/Equation.fs" />
     <Compile Include="Kernel/Polynomial.fs" />
     <Compile Include="Kernel/MultiLinearAlgebra.fs" />
