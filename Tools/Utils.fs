@@ -159,6 +159,10 @@ module rec Utils =
         exception public NegativeFactorialException of int
         exception public BadStirlingKindException of int
 
+        /// Returns the quotient and the remainder of the division.
+        let inline public divRem (a: int) (b: int) =
+            (a / b), (a % b)
+
         /// Calculates the GCD of `a` and `b`, big integers.
         let inline public bigintGCD a b =
             Numerics.BigInteger.GreatestCommonDivisor(a, b)
