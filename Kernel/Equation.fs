@@ -78,6 +78,22 @@ module public rec Equation =
     [<RequireQualifiedAccess>]
     module public BasicOperations =
 
+        /// Updates the meaning of inequality given a multiplicative factor.
+        /// For example, `-3x < 1` <=> `x > -1/3`.
+        let inline public updateKind (kind: EquationKind) (factor: SumPow) =
+            if kind = Equality then
+                Equality
+            else
+                match factor with
+                | Negative _ ->
+                    match kind with
+                    | LesserThan -> GreaterThan
+                    | LesserOrEqualThan -> GreaterOrEqualThan
+                    | GreaterThan -> LesserThan
+                    | GreaterOrEqualThan -> LesserOrEqualThan
+                    | Equality -> failwith "??" // may not happen
+                | _ -> kind
+
         /// Transform the equation (lhs = rhs) in the equivalent form (0 = rhs - lhs).
         let inline public leftZero (Equation(kind, lhs, rhs)) =
             Equation(kind, SumPow.Const Zero, rhs - lhs)
