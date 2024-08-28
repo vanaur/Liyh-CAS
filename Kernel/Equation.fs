@@ -4,9 +4,11 @@ namespace Liyh.Kernel
 
 module public rec Equation =
     open Liyh.Kernel
+    open Liyh.Kernel.TrueVariable
     open Liyh.Utils
 
     exception public NotSymbolicEquationException of Symbol
+    exception public UnboundVariableException of string
 
     [<Struct; NoComparison>]
     type public EquationKind =
@@ -116,6 +118,75 @@ module public rec Equation =
         /// Adds `sp` to both sides of the equation.
         let public subtractionBySumPow =
             binOpBySumPow ( - )
+
+    /// The simpliest equations to handle. An equation of the form a₁x₁ + ... + aₙxₙ + b = 0 where {xᵢ} are variables
+    /// and {b; aᵢ} are coefficients is said to be a linear equation. See https://en.wikipedia.org/wiki/Linear_equation.
+    [<RequireQualifiedAccess>]
+    module public LinearEquation =
+
+        /// A linear equation is represented as a variable/coefficient dictionary and a constant term.
+        [<NoEquality; NoComparison>]
+        type public LinEq =
+            | LinEq of EquationKind * (Map<string, SumPow> * SumPow)
+
+        /// Try to match a linear equation from the given equation.
+        let public lineq (Equation(kind, lhs, rhs)) (variables: string list) =
+
+            /// The predicate matches only variables of the form `Name(string)`
+            /// for `string` contained in the list of variables.
+            let isvar = function | Name name when List.contains name variables -> true | _ -> false
+
+            let inline update result constant =
+                function
+
+                // Term of a sum of the form 1x₁¹ or equally just x₁.
+
+                | Name name as x ->
+                    match List.tryFind (( = ) name) variables with
+                    | None -> Some (result, (x + constant))
+                    | Some var -> Some ((Map.addOrUpdate var (Const One) result (( + ) 1)), constant)
+
+                // Term of a sum of the form ax₁¹ or equally just ax₁ where a is a constant factor.
+
+                | ProdWithKeep isvar (var, coeff, n) ->
+                    if n <> 1 then None else
+
+                    let coeff = Misc.prodToSumPow coeff
+                    let (Name var) = List.exactlyOne var
+
+                    Some ((Map.addOrUpdate var coeff result (( + ) coeff)), constant)
+
+                // Term of a sum of the form b, where b is a constant.
+
+                | x when not (containsVariables x variables) -> Some (result, (x + constant))
+                | _ -> None
+
+            match Simplification.expandAndSimplify (lhs - rhs) with
+            | SimplifiedSum.SumList sl -> // This pattern also accepts sums of 1 element.
+
+                let rec loop result constant =
+                    function
+                    | [] -> if Map.isEmpty result then None else Some (result, constant)
+                    | x :: xs -> Option.bind (fun (r, c) -> loop r c xs) (update result constant x)
+
+                Option.map (fun res -> LinEq(kind, res)) (loop Map.empty (Const Zero) sl)
+
+            | _ -> None
+
+        /// Isolates the specified variable from the given linear equation. The function also returns the resulting
+        /// equality or inequality if there is a change in the isolation process.
+        let public isolate (variable: string) (LinEq (kind, (lin, constant))) =
+            match Map.tryFind variable lin with
+            | None -> raise (UnboundVariableException variable)
+            | Some cv ->
+                let result =
+                    if Map.count lin = 1 then Const Zero
+                    else Map.toArray lin
+                      |> Array.filter (fst >> ( <> ) variable)
+                      |> Array.map (fun a -> (snd a / cv) * Name (fst a))
+                      |> Array.reduce ( + )
+
+                -Simplification.simplify (result + constant / cv), BasicOperations.updateKind kind cv
 
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
