@@ -474,3 +474,10 @@ module rec Utils =
         /// Define a one-element Map.
         let inline public singleton key value =
             Map.ofList [ key, value ]
+
+    module public Option =
+
+        /// If the predicate is true for the given value, then return `Some(value)` otherwise return `None`.
+        let inline public ofBool (value: 'a) ([<InlineIfLambda>] pred: 'a -> bool) =
+            if pred value then Some value else None
+
