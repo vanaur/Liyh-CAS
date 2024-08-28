@@ -196,7 +196,8 @@ module rec SumPow =
         /// containing the absolute value of the negative constant and the rest of the product.
         let public (|Negative|_|) (sp: SumPow) =
             match sp with //match Simplification.simplify sp with
-            | NegOne -> Some (Const One, Const One)
+            | PureConstantExpressionInteger n when n < 0 -> Some (Const (fromBigInt (abs n)), Const One)
+            | PureConstantExpressionFloat n when n < 0. -> Some (Const (fromDouble (abs n)), Const One)
             | Prod xs ->
                 match List.partition Misc.isPureConstInteger (List.map power xs) with
                 | [], _ -> None
