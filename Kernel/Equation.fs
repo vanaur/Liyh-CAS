@@ -6,6 +6,7 @@ module public rec Equation =
     open Liyh.Kernel
     open Liyh.Kernel.TrueVariable
     open Liyh.Utils
+    open PureConstantExpression
 
     exception public NotSymbolicEquationException of Symbol
     exception public UnboundVariableException of string
@@ -188,6 +189,9 @@ module public rec Equation =
 
                 -Simplification.simplify (result + constant / cv), BasicOperations.updateKind kind cv
 
+        /// Returns all the "solutions" of the linear equation, isolating each variable.
+        let public isolateAll (LinEq (_, (lin, _)) as lineq) =
+            List.map (fun (v, _) -> v, isolate v lineq) (Map.toList lin)
 
         /// Check whether the given linear equation has integer solutions.
         let public hasIntegerSolutions (LinEq (kind, (map, constant))) =
