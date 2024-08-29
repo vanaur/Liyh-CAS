@@ -188,6 +188,22 @@ module public rec Equation =
 
                 -Simplification.simplify (result + constant / cv), BasicOperations.updateKind kind cv
 
+
+        /// Check whether the given linear equation has integer solutions.
+        let public hasIntegerSolutions (LinEq (kind, (map, constant))) =
+            if kind <> Equality then false else // don't apply for inequalities
+
+            let equation = Map.toList map
+
+            if not (Misc.isPureConstInteger constant) &&
+               not (List.forall (snd >> Misc.isPureConstInteger) equation) then false else
+
+            let equation = List.map (function (var, PureConstantExpressionInteger factor) -> var, factor) equation
+            let (PureConstantExpressionInteger b) = -constant
+            let d = List.fold (fun acc a -> intGCD acc (snd a)) 0 equation
+
+            b % d = 0
+
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
 
