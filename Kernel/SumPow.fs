@@ -2604,7 +2604,6 @@ module rec SumPow =
                 evaluate1 expr variable (Constant value) |>
                     function Constant result -> result
 
-
     /// Extends the field of reals (modeled by SumPow) to the field of complexes.
     module public Complex =
         open SimplifiedSum
