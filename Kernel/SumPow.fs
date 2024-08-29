@@ -186,6 +186,26 @@ module rec SumPow =
             | ProdWith pred (prod, 1) -> Some prod
             | _ -> None
 
+        /// An active pattern that matches a product that contains the given expression at least once. In case of Some,
+        /// returns a tuple `Prod (p, prod, n)` where `prod` is the product expression list without the the expression to
+        /// be found, where `n` is the number of time it appears and `p` being the matched predicate.
+        let public (|ProdWithKeep|_|) (pred: SumPow -> bool) =
+            function
+            | Prod [ p ] when pred (power p) -> Some ([ power p ], [ (Const One, Const One) ], 1)
+            | Prod xs ->
+                match List.partition (fun p -> pred (power p)) xs with
+                | [], _ -> None
+                | ts, [] -> Some(List.map power ts, [ (Const One, Const One) ], List.length ts)
+                | ts, xs' -> Some(List.map power ts, xs', List.length ts)
+            | _ -> None
+
+        /// An active pattern that matches a product that contains exactly once the given expression. In case of Some,
+        /// returns product expression list including the the expression to be found.
+        let public (|ProdWith1Keep|_|) (pred: SumPow -> bool) =
+            function
+            | ProdWithKeep pred (p, prod, 1) -> Some (List.exactlyOne p, prod)
+            | _ -> None
+
         /// An active pattern that matches a sum that contains exactly once the given expression. In case of Some,
         /// returns sum expression list without the the expression to be found.
         let public (|SumWith1|_|) (pred: SumPow -> bool) =
