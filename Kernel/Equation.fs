@@ -120,6 +120,10 @@ module public rec Equation =
         let public subtractionBySumPow =
             binOpBySumPow ( - )
 
+    [<Struct; NoEquality; NoComparison>]
+    type public EquationSystem =
+        | EquationSystem of Equation list
+
     /// The simpliest equations to handle. An equation of the form a₁x₁ + ... + aₙxₙ + b = 0 where {xᵢ} are variables
     /// and {b; aᵢ} are coefficients is said to be a linear equation. See https://en.wikipedia.org/wiki/Linear_equation.
     [<RequireQualifiedAccess>]
