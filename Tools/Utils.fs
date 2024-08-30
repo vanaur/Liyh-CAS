@@ -338,6 +338,14 @@ module rec Utils =
             | [] -> [[x]]
             | (y :: ys) as xs -> (x :: xs) :: (List.map (fun x -> y :: x) (insertions x ys))
 
+        /// Implement the extended euclidean algorithm (extended GCD) for integers.
+        /// The return value is the tuple `(d, u, v)` such that `au + bv = d`.
+        let rec egcd (a: bigint) (b: bigint) =
+            if b = 0I then (a, 1I, 0I)
+            else
+                let (d', u', v') = egcd b (a % b)
+                (d', v', u' - (a / b) * v')
+
     // Some extensions to the standard module.
     module public List =
 
