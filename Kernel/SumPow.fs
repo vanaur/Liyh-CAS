@@ -750,6 +750,7 @@ module rec SumPow =
 
     /// This module contains some utilities that make it easier to manipulate SumPow's sums.
     module public SimplifiedSum =
+        open ElementaryOperations
 
         exception public NotASimplifiedSum of SumPow
 
@@ -812,6 +813,12 @@ module rec SumPow =
             function
             | Sum xs -> List.map sumId xs
             | other -> [ other ]
+
+        /// Converts the sum into a product list (the inner list is a product and the outer list a the sum).
+        let public sumAsProdList =
+            function
+            | Sum sum -> List.map (function Term t -> List.map (function Pow(b, p) -> power (b, p)) t) sum
+            | other -> [ [ other ] ]
 
         /// An active pattern that converts the sum into a SumPow list.
         let public (|SumList|_|) (sp: SumPow) =
@@ -1484,6 +1491,7 @@ module rec SumPow =
 
     /// A module for making substitutions in SumPow.
     module public Subst =
+        open ElementaryOperations
         open SimplifiedSum
         open System.Collections.Generic
 
@@ -1526,6 +1534,118 @@ module rec SumPow =
                 | remains -> remains
 
             inner expr
+
+        (* Helpers for the `hsubst` substitution function. *)
+
+        /// Checks whether every item in `sublist` is contained in `mainlist`, regardless of the positions of the items.
+        /// If yes, then returns the list of positions.
+        let inline private findPositions sublist mainlist =
+
+            let rec loop sub main acc =
+                match sub with
+                | [] -> Some acc
+                | s :: ss ->
+                    match List.tryFindIndex (( == ) s) main with
+                    | None -> None
+                    | Some idx -> loop ss main (idx :: acc)
+
+            loop sublist mainlist []
+
+        /// Removes all elements from `lst` which are at positions given by `positions`.
+        let inline private removeAtPositions positions lst =
+            let positionsSet = Set.ofList positions
+
+            List.mapi tuple2 lst
+            |> List.filter (fun (i, _) -> not (Set.contains i positionsSet))
+            |> List.map snd
+
+        /// Combines functions `findPositions` and `removeAtPositions`.
+        let inline private findAndRemoveSublist sublist mainlist =
+            Option.map (flip removeAtPositions mainlist) (findPositions sublist mainlist)
+
+        /// Substitutes (mainly syntactically) the expression `toSub` with `sub` in the given expression.
+        ///
+        /// This function is limited by the fact that it cannot guess that an equivalent but too different
+        /// sub-expression is considered valid for replacement, but it works if the sub-expression is entirely
+        /// present (taking commutativity into account) and/or with the comparison according to `EqualityTest`.
+        /// 
+        /// The more complex the expression to be substituted, the slower it will take to execute.
+        [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
+        let public hsubst (toSub: SumPow) (sub: SumPow) (expr: SumPow) =
+
+            // If it is a matter of substituting a simple variable, then execution is redirected
+            // to the way more efficient `substVar` function.
+
+            match toSub with
+            | Name name -> substVar name sub expr
+            | toSub ->
+
+                // We consider two main patterns which are both subject to commutativity: the sum and the product.
+                // In addition, we consider the type of sub-expression to be searched for. If the sub-expression to
+                // be searched for is also a sum or a product, then more complex mechanisms enter the process.
+
+                let rec hsubst =
+                    function
+                    | sp when (sp = toSub || sp == toSub) -> sub // `=` is faster but less general than `==`.
+                    | Fun(fname, args) -> Fun(fname, List.map hsubst args)
+
+                    | Prod xs ->
+                        let xs' = List.map power xs
+
+                        /// When no or `None` match occurs.
+                        let inline default' () =
+                            Misc.prodToSumPow (List.map (fun (b, p) -> hsubst b, hsubst p) xs)
+
+                        match toSub with
+
+                        // The expression is a product and the sub-expression to be searched for is a product.
+                        | Prod ys ->
+                            let ys' = List.map power ys
+
+                            match findAndRemoveSublist ys' xs' with
+                            | None -> default' ()
+                            | Some unsub -> sub * hsubst (List.reduce ( * ) unsub)
+
+                        // The expression is a product and the sub-expression to be searched for is a sum.
+                        | Sum ys ->
+                            let ys' = sumAsSumPowList (Sum ys)
+
+                            match findAndRemoveSublist ys' xs' with
+                            | None -> default' ()
+                            | Some unsub -> sub + hsubst (Sum(manyTermId unsub))
+
+                        | _ -> default' ()
+
+                    | Sum xs ->
+                        match toSub with
+
+                        // The expression is a sum and the sub-expression to be searched for is a product.
+                        | Prod ys ->
+                            let sapl = sumAsProdList (Sum xs)
+                            let ys' = List.map power ys
+
+                            let inline mapper xs' =
+                                match findAndRemoveSublist ys' xs' with
+                                | None -> hsubst (List.reduce ( * ) xs')
+                                | Some unsub -> sub * hsubst (List.reduce ( * ) unsub)
+
+                            Sum (manyTermId (List.map mapper sapl))
+
+                        // The expression is a sum and the sub-expression to be searched for is a sum.
+                        | Sum ys ->
+
+                            let xs' = sumAsSumPowList (Sum xs)
+                            let ys' = sumAsSumPowList (Sum ys)
+
+                            match findAndRemoveSublist ys' xs' with
+                            | None -> Sum(mapPow' (fun b p -> Pow(hsubst b, hsubst p)) xs)
+                            | Some unsub -> sub + hsubst (Sum(manyTermId unsub))
+
+                        | _ -> Sum(mapPow' (fun b p -> Pow(hsubst b, hsubst p)) xs)
+
+                    | other -> other
+
+                hsubst expr
 
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
