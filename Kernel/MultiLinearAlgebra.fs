@@ -783,6 +783,7 @@ module public rec MultiLinearAlgebra =
         open System.Linq
         open Vector
         open Matrix
+        open Liyh.Kernel.SumPow.PureConstantExpression
 
         exception public VectorsDoNotHaveSameDimensionException of Vector seq
         exception public DefectiveMatrixException of Vector seq
@@ -791,12 +792,14 @@ module public rec MultiLinearAlgebra =
         exception public BadStepInGaussianEliminationException of int * int
         exception public NotRowEchelonFormMatrixException of Matrix
         exception public ViolationOfRankNullityTheoremException of Matrix
+        exception public NonIntegerComponentsException of Matrix
+        exception public BrokenHermiteNormalFormException of matrix: bigint[,] * q: bigint * r: bigint
 
         module private RowOperations =
 
             /// Swap the indicated rows of the given matrix.
             /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
-            let inline public rowSwitching (matrix: SumPow[,]) (r1: int) (r2: int) =
+            let inline public rowSwitching (matrix: _[,]) (r1: int) (r2: int) =
                 for col in 0 .. Array2D.length2 matrix - 1 do
                     let tmp = matrix.[r1, col]
                     matrix.[r1, col] <- matrix.[r2, col]
@@ -815,18 +818,18 @@ module public rec MultiLinearAlgebra =
 
             /// Multiply the indicated row of the given matrix by the given scalar.
             /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
-            let inline public rowScaling (matrix: SumPow[,]) (r: int) (factor: SumPow) =
+            let inline public rowScaling (matrix: 'a[,]) (r: int) (factor: 'a) =
                 for c in 0 .. Array2D.length2 matrix - 1 do
                     matrix.[r, c] <- factor * matrix.[r, c]
-                
+
                 matrix
 
             /// Sum the indicated row of the given matrix by itself plus the given scalar.
             /// Note: the function MODIFIES the given matrix (as a reference) but also returns it.
-            let inline public rowAddition (matrix: SumPow[,]) (r: int) (factor: SumPow) =
+            let inline public rowAddition (matrix: 'a[,]) (r: int) (factor: 'a) =
                 for c in 0 .. Array2D.length2 matrix - 1 do
                     matrix.[r, c] <- matrix.[r, c] + factor * matrix.[r, c]
-                
+
                 matrix
 
         /// This function performs a single step of Gaussian elimination. The initial `step` is `(0, 0)` and should not
@@ -1216,6 +1219,95 @@ module public rec MultiLinearAlgebra =
             #else
             result
             #endif
+
+        /// Returns the Hermite normal form of the given integer non-singular m×n matrix, as well as the unimodular
+        /// square matrix of the elementary operations. The algorithm used is based on the Gaussian elimination algorithm,
+        /// it follow the same principle, but restricted to Z rather than Q.
+        /// 
+        /// Implementation follows the steps from Lattice "Basis Reduction An Introduction to the LLL Algorithm and Its
+        /// Applications" By Murray R. Bremner (2012) p. 228.
+        let internal hermiteNormalForm' (matrix: bigint[,]) =
+            let m = Array2D.length1 matrix
+            let n = Array2D.length2 matrix
+
+            let mutable H = Array2D.copy matrix
+            let mutable U = Array2D.init m m (fun i j -> if i = j then 1I else 0I)
+
+            let inline reduce i j k =
+                let q, r = H.[k, j] / H.[i, j], H.[k, j] % H.[i, j]
+
+                // The integers q and r are such that Hₖⱼ = qHᵢⱼ + r.
+                if (H.[k, j] <> q * H.[i, j] + r) then
+                    raise (BrokenHermiteNormalFormException (matrix, q, r))
+
+                if q <> 0 then
+                    H.[k, *] <- Array.map2 (fun a b -> a - q * b) H.[k, *] H.[i, *]
+                    U.[k, *] <- Array.map2 (fun a b -> a - q * b) U.[k, *] U.[i, *]
+
+            let mutable i, j = 0, 0
+
+            while i <= m - 1 && j <= n - 1 do
+                if Array.forall (( = ) 0I) [| for k = i to m - 1 do H.[k, j] |] then
+                    j <- j + 1
+                else
+                    while not (H.[i, j] > 0I && Array.forall (fun k -> H.[k, j] = 0) [| i + 1 .. m - 1 |]) do
+
+                        // let k = 
+                        //     [| i .. m - 1 |]
+                        //     |> Array.filter (fun k -> H.[k, j] <> 0I)
+                        //     |> Array.minBy (fun k -> abs H.[k, j])
+
+                        let k = 
+                            [| i .. m - 1 |]
+                            |> Array.fold (fun acc k -> 
+                                if H.[k, j] <> 0I then 
+                                    match acc with
+                                    | -1 -> k
+                                    | minK when abs H.[k, j] < abs H.[minK, j] -> k
+                                    | _ -> acc
+                                else acc) -1
+
+                        if i <> k then
+                            H <- RowOperations.rowSwitching H i k
+                            U <- RowOperations.rowSwitching U i k
+
+                        if H.[i, j] < 0 then
+                            H.[i, *] <- Array.map (( * ) -1I) H.[i, *]
+                            U.[i, *] <- Array.map (( * ) -1I) U.[i, *]
+
+                        for k in i + 1 .. m - 1 do
+                            reduce i j k
+
+                    for k in 0 .. i - 1 do
+                        reduce i j k
+
+                    i <- i + 1
+                    j <- j + 1
+
+            (H, U)
+
+        /// Returns the Hermite normal form of the given integer non-singular m×n matrix, as well as the unimodular
+        /// square matrix of the elementary operations. The algorithm used is based on the Gaussian elimination algorithm,
+        /// it follow the same principle, but restricted to Z rather than Q.
+        /// 
+        /// Implementation follows the steps from Lattice "Basis Reduction An Introduction to the LLL Algorithm and Its
+        /// Applications" By Murray R. Bremner (2012) p. 228.
+        let public hermiteNormalForm (matrix: Matrix) =
+            if not (isInvertible matrix) then
+                raise (SingularMatrixException matrix)
+            
+            let components = copyFreeComponents matrix
+
+            if not (Array2D.forall Misc.isPureConstInteger components) then
+                raise (NonIntegerComponentsException matrix)
+
+            let intMatrix = Array2D.map (function PureConstantExpressionInteger n -> bigint n) components
+            let H, U = hermiteNormalForm' intMatrix
+
+            let H = Array2D.map (fromBigInt >> Const) H
+            let U = Array2D.map (fromBigInt >> Const) U
+
+            (H, U)
 
     /// This module deals with classical tensor algebra over SumPow and index notation.
     module public Tensor =
