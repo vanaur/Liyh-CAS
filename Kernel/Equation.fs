@@ -142,6 +142,11 @@ module public rec Equation =
         type public LinEq =
             | LinEq of EquationKind * (Map<string, SumPow> * SumPow)
 
+        /// A system of linear equations is represented as a list of linear equations and the list of variables.
+        [<NoEquality; NoComparison>]
+        type public LinEqSystem =
+            | LinEqSystem of LinEq list * string list
+
         /// Try to match a linear equation from the given equation.
         let public lineq (Equation(kind, lhs, rhs)) (variables: string list) =
 
@@ -204,6 +209,19 @@ module public rec Equation =
         /// Returns all the "solutions" of the linear equation, isolating each variable.
         let public isolateAll (LinEq (_, (lin, _)) as lineq) =
             List.map (fun (v, _) -> v, isolate v lineq) (Map.toList lin)
+
+        /// Try to match a system of linear equations from the given system of equations.
+        let public lineqSystem (EquationSystem system) (variables: string list) =
+
+            let rec loop result =
+                function
+                | [] -> result
+                | x :: xs ->
+                    Option.bind
+                        (fun r -> loop (Option.map (fun res -> r :: res) result) xs)
+                        (lineq x variables)
+
+            Option.map (flip tuple2 variables >> LinEqSystem) (loop (Some List.empty) system)
 
 //        /// Check whether the given linear equation has integer solutions.
 //        let public hasIntegerSolutions (LinEq (kind, (map, constant))) =
