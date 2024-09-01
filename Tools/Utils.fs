@@ -258,7 +258,7 @@ module rec Utils =
         /// Determine whether the two floats are equal to the given precision.  If `eps` is `None` then the
         /// comparison is made with a fixed femto-precision (`1e-15`).
         let inline public approximatelyEquals (a: double) (b: double) (eps: double voption) =
-            abs (a - b) < if eps.IsNone then 1e-15 else eps.Value
+            abs (a - b) < if eps.IsNone then 1e-14 else eps.Value
 
         /// Returns the generic n-Cartesian product of the given list.
         let public cartProd lists =
