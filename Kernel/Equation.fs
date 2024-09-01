@@ -6,10 +6,11 @@ module public rec Equation =
     open Liyh.Kernel
     open Liyh.Kernel.TrueVariable
     open Liyh.Utils
-    open PureConstantExpression
+    open System.Collections.Generic
 
     exception public NotSymbolicEquationException of Symbol
     exception public UnboundVariableException of string
+    exception public NotEqualityException of Equation
 
     [<Struct; NoComparison>]
     type public EquationKind =
@@ -77,6 +78,13 @@ module public rec Equation =
             | _ -> raise (NotSymbolicEquationException symbolic)
 
         | _ -> raise (NotSymbolicEquationException symbolic)
+
+    /// Check whether the given point is a solution to the equation (does not apply for inequalities). 
+    let public isSolution (point: Dictionary<string, SumPow>) (Equation (kind, lhs, rhs) as eq) =
+        if kind <> Equality then
+            raise (NotEqualityException eq)
+
+        Subst.manySubstVar point (lhs - rhs) == Const Zero
 
     [<RequireQualifiedAccess>]
     module public BasicOperations =
