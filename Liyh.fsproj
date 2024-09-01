@@ -24,6 +24,7 @@
     <Compile Include="Kernel/Polynomial.fs" />
     <Compile Include="Kernel/MultiLinearAlgebra.fs" />
     <Compile Include="Kernel/Calculus.fs" />
+    <Compile Include="Kernel/Solve.fs" />
 
     <Compile Include="Language/Operator/LiyhUnits.fs" />
     <Compile Include="Language/Operator/LiyhOperators.fs" />
