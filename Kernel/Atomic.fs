@@ -9,16 +9,6 @@ module rec Atomic =
     exception public UnknownSymbolicMatchException of Symbol
     exception public UnboundArgumentNameException of string list * Symbol
 
-    let rec private showIndented (lvl: int) { atom = atom; attributes = attributes } =
-        let ind lvl = String(' ', lvl)
-
-        sprintf "%s%s" (string atom)
-        <| match attributes with
-           | [] -> ""
-           | xs ->
-               sprintf "\n%s" (ind lvl)
-               + String.Join(sprintf "\n%s" (ind (lvl)), List.map (showIndented (lvl + 1)) (List.map snd xs))
-
     let private symbolToString { atom = atom; attributes = attributes } =
         sprintf "%s%s" (string atom)
         <| match attributes with
@@ -26,32 +16,35 @@ module rec Atomic =
            | xs -> sprintf "[%s]" (String.Join(", ", List.map snd xs))
 
     /// Attribute type with no effect, only allowing to see directly that a type is symbolic.
-    type public Symbolic() = inherit Attribute()
+    type public Symbolic() =
+        inherit Attribute()
 
-    [<Struct; Symbolic>]
+    /// An atom is a basic building block for symbolic entities, making it possible to construct an identifier,
+    /// a numerical constant or simple text.
+    [<Struct; Symbolic; NoEquality; NoComparison>]
     type public Atom =
         | Identifier of name: string
         | Const of cst: Constant
         | Text of text: string
-        | ReAny of any: string
 
         override this.ToString() =
             match this with
             | Identifier name -> name
             | Const cst -> string cst
             | Text text -> sprintf "%A" text
-            | ReAny any -> sprintf "?%s" any
 
     let inline private hashSymbol { atom = atom; attributes = attributes } =
         HashCode.Combine(atom, attributes)
 
-    [<NoComparison; NoEquality; Symbolic>]
+    /// A symbol essentially consists of an atom to which attributes are assigned. This is what all Liyh symbolic
+    /// elements are represented with, although specialised representations are used in practice. A symbol is therefore
+    /// the abstract representation used to communicate between the various symbolic representations and with the user.
+    [<Symbolic; NoComparison; NoEquality>]
     type public Symbol =
         { atom: Atom
           attributes: (string * Symbol) list }
 
         override this.ToString() = symbolToString this
-        member public this.ShowIndented() = showIndented 0 this
 
         interface ISymbolic with
             member this.ToSymbolic() = this
@@ -59,23 +52,31 @@ module rec Atomic =
             member this.ToLatexOrString() = string this
             member this.Hash = hashSymbol this
 
-    let inline public getArgsOnly (attributes: (string * Symbol) list) = (List.unzip >> snd) attributes
+    /// Retrieves the arguments of the attributes of the given symbol, i.e. without parameter name.
+    let inline public getArgsOnly (attributes: (string * Symbol) list) =
+        (List.unzip >> snd) attributes
 
-    let inline public atom (atom: Atom) = { atom = atom; attributes = [] }
+    /// Represents a single atom as a symbol.
+    let inline public atom (atom: Atom) =
+        { atom = atom; attributes = [] }
 
-    let inline public (|Symbol|) { atom = atom; attributes = attributes } =
-        Symbol(atom, (List.unzip >> snd) attributes)
-
-    let inline public (|Atom|_|) { atom = atom; attributes = attributes } =
-        if List.isEmpty attributes then Some(Atom atom) else None
-
-    /// The "universal symbolic representation" linking all Liyh's different symbolic representations.
+    /// Represents the symbolic interface. A type is ‘Symbolic’ if it implements this interface,
+    /// in other words it has the members
+    /// 
+    ///  - `ToSymbolic: unit -> Symbol` which converts the type into a general symbolic representation.
+    ///  - `ToLatex: unit -> string option` which allows latex rendering when available and possible.
+    ///  - `ToLatexOrString: unit -> string` which renders latex when available and possible, otherwise return a string.
+    ///  - `Hash: int` which yields the hash-code of the symbol.
+    /// 
+    /// The most important member being the `ToSymbolic` one, the others being of a practical nature..
     [<Serializable>]
     type public ISymbolic =
         abstract member ToSymbolic: unit -> Symbol
         abstract member ToLatex: unit -> string option
         abstract member ToLatexOrString: unit -> string
         abstract member Hash: int
+
+    (* Helpers for ISymbolic interface. *)
 
     let inline public toSymbolic (x: ISymbolic) = x.ToSymbolic()
     let inline public toLatex (x: ISymbolic) = x.ToLatex()
@@ -109,7 +110,8 @@ module rec Atomic =
         |> Seq.toList
         |> List.map snd
 
-
+/// Implements an elementary parser for symbols. It is not currently used in Liyh in practice, but may
+/// be useful for an external source wishing to use Liyh's capabilities.
 [<RequireQualifiedAccess>]
 module AtomicParser =
     open FParsec
@@ -165,10 +167,8 @@ module AtomicParser =
 
         choice [ pString1; pString2 ] <?> "character string" |>> Atom.Text
 
-    let private pReAny = pipe2 (pstring "?") pIdentifier (fun _ any -> Atom.ReAny any)
-
     let private pAtom =
-        choice [ pIdentifier |>> Atom.Identifier; pConst; pText; pReAny ]
+        choice [ pIdentifier |>> Atom.Identifier; pConst; pText ]
 
     let private pSymbol, pSymbolImpl = createParserForwardedToRef ()
 
@@ -194,95 +194,4 @@ module AtomicParser =
 
     /// Parse a symbolic expression.
     let public parseSymb = runParserOnString pSymbol () ""
-
-module Transform =
-    open FParsec
-
-    type public Rule =
-        { left: Symbol
-          right: Symbol
-          name: string option
-          condition: Symbol option }
-
-        override this.ToString() =
-            sprintf
-                "%s%s%s -> %s"
-                (Option.fold (fun _ a -> sprintf "%A  " a) null this.name)
-                (if this.condition.IsSome then
-                     sprintf "(ASSUME %s):  " (toLatexOrString this.condition.Value)
-                 else
-                     "")
-                (toLatexOrString this.left)
-                (toLatexOrString this.right)
-
-    type public RuleClass =
-        { name: string
-          rules: Rule list }
-
-        override this.ToString() =
-            sprintf
-                "%s%s"
-                (if isNull this.name then "" else sprintf "class %s:\n" this.name)
-                ("  " + System.String.Join("\n  ", List.map string this.rules))
-
-    let inline public (!<) (sym: string) =
-        match AtomicParser.parseSymb sym with
-        | Success(sym, _, _) -> sym
-        | Failure(msg, _, _) -> failwithf "%s" msg
-
-    let inline public (|->) (left: string) (right: string) (name: string) =
-        match AtomicParser.parseSymb left, AtomicParser.parseSymb right with
-        | Success(left, _, _), Success(right, _, _) ->
-            { left = left
-              right = right
-              name = Option.ofObj name
-              condition = None }
-        | Failure(msg1, _, _), _ -> failwithf "left error: %s" msg1
-        | _, Failure(msg2, _, _) -> failwithf "right error: %s" msg2
-
-    let inline public (?->) (left: string) (right: string) (cond: string) (name: string) =
-        match AtomicParser.parseSymb cond with
-        | Success(cond, _, _) ->
-            { (left |-> right) name with
-                condition = Some cond }
-        | Failure(msg, _, _) -> failwithf "cond error: %s" msg
-
-    let private sortByGenerality (rules: Rule list) =
-
-        let rec countAny =
-            function
-            | Atom(ReAny _) -> 1
-            | Symbol(_, xs) -> manyCountAny xs
-
-        and folder acc a = acc + countAny a
-        and manyCountAny = List.fold folder 0
-
-        let inner { left = left1 } { left = left2 } =
-            match left1, left2 with
-            | Atom a, Atom b -> compare a b
-            | Symbol(ReAny _, _), Symbol(ReAny _, _) -> 0
-            | Symbol(ReAny _, _), _ -> 0
-            | _, Symbol(ReAny _, _) -> 0
-            | Symbol(_, xs), Symbol(_, ys) -> compare (manyCountAny ys) (manyCountAny xs)
-
-        List.sortWith inner rules |> List.rev
-
-    let private doesApply (symbol: Symbol) (rule: Rule) = 0
-
-    let public transform (rules: Rule list) (symbol: Symbol) = 0
-
-    let public reduce (ruleClass: RuleClass) (symbol: Symbol) = 0
-
-    // Add[?a, 0]  -> ?a
-    // Add[?a, ?b] -> Add[?b, ?a]
-    //
-    //      Add[Add[3, 0], Add[0, 4]]
-    //  <=> Add[Add[3, 0], Add[4, 0]]
-    //  <=> Add[3, 4]
-    //
-    // Dictionary
-    //      Key: Add[?a, 0]     Value: ?a
-    //      Key: Add[?a, ?b]    Value: Add[?b, ?a]
-    //
-    //  (=> Infer    Add[Int, Int] -> Int)
 
