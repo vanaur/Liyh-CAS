@@ -514,13 +514,14 @@ module rec SumPow =
                 let sa = toLatexPow term
 
                 if sa = "" then if acc = "" && Option.isNone next then "1" else acc
+                elif sa = "-{1}" then sprintf "-%s" acc
                 elif sa.StartsWith "-" then sprintf @"%s{%s}" acc sa
                 else sprintf @"%s{%s}" acc sa
 
                 +
 
                 match next with
-                | Some(Pow(Const _, _) | Pow(Prod _, _) | Pow(Sum _, _)) -> @"\cdot "
+                | Some(Pow(Const _, _) | Pow(Prod _, _) | Pow(Sum _, _)) when not (sa.StartsWith "-") -> @"\cdot "
                 | _ -> " "
 
             let result = List.peekFold peekFoldInner String.Empty term
