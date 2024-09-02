@@ -239,8 +239,12 @@ module rec Utils =
             loop n 1
 
         /// Returns the number of digits that make up the given integer.
-        let rec public digitCount number =
-            if number < 10 then 1 else 1 + digitCount (number / 10)
+        let public digitCount number =
+            if number < 10 then 1 else int (floor (BigInteger.Log10 number + 1.))
+
+        /// Returns the number of digits that make up the given integer.
+        let public digitCountBigInt number =
+            if number < 10I then 1 else int (floor (BigInteger.Log10 number + 1.))
 
         /// Count the number of decimal places the value has.
         let public decimalCount (value: double) =
