@@ -1124,8 +1124,8 @@ module public rec MultiLinearAlgebra =
         /// Append the given column to the given matrix on the right.
         let public augmentedMatrix (matrix: Matrix) (column: Vector) =
             let rows, cols = size matrix
-            
-            if Vector.size column <> cols then
+
+            if Vector.size column <> rows then
                 raise (IncompatibleMatrixException [ matrix; fromVector column Matrix1D.ColumnVector ])
 
             let inline initializer i j =
