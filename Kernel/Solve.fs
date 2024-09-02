@@ -1,6 +1,7 @@
 namespace Liyh.Kernel
 
 #nowarn "25"
+#nowarn "26"
 
 module public Solve =
     open System
@@ -53,4 +54,92 @@ module public Solve =
 
         Some result
 
+    /// A linear system may behave in three possible ways.
+    [<Struct; NoEquality; NoComparison; RequireQualifiedAccess>]
+    type public LinearSystemSolutionKind =
+        | UniqueSolution        // The system has a unique solution.
+        | NoSolution            // The system has no solution.
+        | InfiniteSolutions     // The system has infinitely many solutions.
 
+        override this.ToString() =
+            match this with
+            | InfiniteSolutions -> "the linear system has infinitely many solutions"
+            | UniqueSolution -> "the linear system has a unique solution"
+            | NoSolution -> "the linear system has no solution"
+
+    /// Analyse the general behaviour of the solution system and conclude what kind of solution has been found.
+    /// See https://en.wikipedia.org/wiki/System_of_linear_equations#General_behavior.
+    let private identifieLinearSystemSolutionKind (variables: string array) (solution: array<SumPow * SumPow>) =
+        let nEquations = Array.length solution
+        let nVariables = Array.length variables
+
+        if nEquations = nVariables then LinearSystemSolutionKind.UniqueSolution
+        elif nEquations < nVariables then LinearSystemSolutionKind.InfiniteSolutions
+        else LinearSystemSolutionKind.NoSolution
+
+    /// Solve the system of linear equation and indicates the kind of solution found. If the function returns ‘None’
+    /// this indicates that the system contains inequalities, which is not currently managed. The function is based
+    /// on Gauss elimination to determine the system's unique solution.
+    /// See https://en.wikipedia.org/wiki/System_of_linear_equations#Row_reduction.
+    let public trySolveLinearEquationSystem (LinearEquation.LinEqSystem(system, variables)) =
+
+        /// The system of equations may not contain all the variables given, so we list those that are not present.
+        let unusedVariables =
+            system
+            |> List.collect (function LinearEquation.LinEq(_, (map, _)) -> (Map.keys >> List.ofSeq) map)
+            |> Set.ofList
+            |> Set.difference (Set.ofList variables)
+            |> Set.toList
+        
+        /// Lists the variables in the system of equations.
+        let usedVariables = List.except unusedVariables variables
+
+        /// "Handle Missing Variables" when the linear equation miss some variables.
+        let inline hmv (map: Map<string, SumPow>) =
+            let rec loop result =
+                function
+                | [] -> result
+                | v :: vs -> loop (Map.addOrUpdate v (Const Zero) result id) vs
+            loop map usedVariables
+
+        /// Builds the matrix (in list form) and the vector of constants from the system.
+        let rec loop result aug =
+            function
+            | [] -> Option.map (flip tuple2 aug) result
+            | LinearEquation.LinEq(Equality, (map, constant)) :: xs ->
+                let t = Array.map snd (Map.toArray (hmv map))
+                loop (Option.map (fun r -> t :: r) result) (-constant :: aug) xs
+            | _ -> None
+
+        // The ‘Map’ type is such that the variables will be given in the correct order for each equation,
+        // whatever the initial encoding order. All we need to do is order the list of variables given
+        // to match them to the calculated solutions.
+        let variables = Array.sort (Array.ofList usedVariables)
+
+        /// We put the system into staggered form using Gaussian elimination, and this gives us the result: each
+        /// line corresponds to a simplified equation which potentially gives the solution, depending on the system.
+        let inline binder (lst, aug) =
+            let matrixForm = Matrix.fromArray (Array.ofList lst)
+            let augVector = Vector.fromSeq aug
+            let augM = VectorSpaceUtility.augmentedMatrix matrixForm augVector
+            let rowEchelonForm = VectorSpaceUtility.gaussianElimination augM
+
+            let rows = Matrix.getRows rowEchelonForm
+            let solc = Array.map Array.last rows
+            let rows = Array.map (fun (row: _[]) -> row.[.. Array.length row - 2]) rows
+
+            let result = 
+                Array.map2 (fun lhs rhs -> 
+
+                    let lhs =
+                        Array.mapi (fun j c -> c * Name variables.[j]) lhs
+                        |> Array.reduce ( + )
+                        |> Simplification.simplify
+
+                    in lhs, rhs) rows solc
+
+            // We filter out trivial solutions (like 0 = 0 for example).
+            let filteredResult = Array.filter (uncurry ( <> )) result
+            Some (identifieLinearSystemSolutionKind variables filteredResult, filteredResult)
+
+        Option.bind binder (loop (Some List.empty) List.empty system)
