@@ -1046,6 +1046,7 @@ module rec Polynomial =
     let private toLatex = toSumPow >> Atomic.toLatexValue
     let private toSymbolic = toSumPow >> Atomic.toSymbolic
 
+(*
     /// Returns all zero and non-zero coefficients of the polynomial.
     let public completeCoefficients (p: Polynomial) =
         if isZeroPolynomial p then List.empty else
@@ -1056,6 +1057,21 @@ module rec Polynomial =
         [ for deg in allDegrees do
               Map.tryFind (MonomialDegree deg) p.polynomial
               |> Option.defaultValue (SumPow.Const 0) ]
+
+        |> List.rev
+*)
+
+    let public completeCoefficients (p: Polynomial) =
+        if isZeroPolynomial p then List.empty else
+
+        let temp = Map.toArray p.polynomial |> Array.map (fun (MonomialDegree deg, _) -> Array.ofList deg) |> array2D
+        let hdeg = [ for c in 0 .. Array2D.length2 temp - 1 -> Array.max temp.[*, c] ]
+
+        let allDegrees = cartProd (List.map (fun d -> [ 0 .. d ]) hdeg)
+
+        [ for deg in allDegrees do
+              Map.tryFind (MonomialDegree deg) p.polynomial
+              |> Option.defaultValue (Const 0) ]
 
         |> List.rev
 
