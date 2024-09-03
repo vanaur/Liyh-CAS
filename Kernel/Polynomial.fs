@@ -428,6 +428,9 @@ module rec Polynomial =
             if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
             if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
 
+            if not (List.length p1.variables = 1) then failwith "The polynomial is univariate but of multivariate structure"
+            if not (List.length p2.variables = 1) then failwith "The polynomial is univariate but of multivariate structure"
+
             compatible p1 p2 ||> Karatsuba.multiply
 
         /// Polynomial multiplication.
@@ -439,7 +442,12 @@ module rec Polynomial =
                 // A fast multiplication algorithm is used in the univariate case.
                 // Otherwise, a slower but general multiplication is used.
 
-                if isUnivariate p1 && isUnivariate p2
+                //if isUnivariate p1 && isUnivariate p2
+
+                (* Because of the difficulties of generalising to multivariate polynomials,
+                   only restricted univariate polynomials are accepted... *)
+
+                if List.length p1.variables = 1 && List.length p2.variables = 1
                 then karatsubaMultiply p1 p2
                 else naiveMultiply p1 p2
 
