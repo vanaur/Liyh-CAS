@@ -1655,7 +1655,7 @@ module rec SumPow =
 
         /// List of elementary functions handled by Liyh.
         let public ifuns =
-            [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"; "Sgn"; "Delta"
+            [|"Pow"; "Root"; "Sqrt"; "Log"; "Exp"; "Sin"; "Cos"; "Tan"; "Csc"; "Sec"; "Cot"; "Sgn"; "Delta"; "Id"
               "ArSin"; "ArCos"; "ArTan"; "ArCsc"; "ArSec"; "ArCot"; "Sinh"; "Cosh"; "Tanh"; "Csch"; "Ceil"; "Round"
               "Sech"; "Coth"; "ArSinh"; "ArCosh"; "ArTanh"; "ArCsch"; "ArSech"; "ArCoth"; "Sinc"; "Abs"; "Floor" |]
 
@@ -1696,6 +1696,7 @@ module rec SumPow =
             | LiyhCeil of arg: SumPow
             | LiyhFloor of arg: SumPow
             | LiyhRound of arg: SumPow
+            | LiyhId of arg: SumPow
 
         /// Pattern-match an elementary built-in function.
         let public (|InternalFunction|_|) =
@@ -1740,6 +1741,7 @@ module rec SumPow =
             | Fun("Ceil", [ arg ]) -> Some(InternalFunction.LiyhCeil arg)
             | Fun("Floor", [ arg ]) -> Some(InternalFunction.LiyhFloor arg)
             | Fun("Round", [ arg ]) -> Some(InternalFunction.LiyhRound arg)
+            | Fun("Id", [ arg ]) -> Some(InternalFunction.LiyhId arg)
 
             | _ -> None
 
@@ -1782,6 +1784,7 @@ module rec SumPow =
             let public liyhCeil x = Fun("Ceil", [ x ])
             let public liyhFloor x = Fun("Floor", [ x ])
             let public liyhRound x = Fun("Round", [ x ])
+            let public liyhId x = Fun("Id", [ x ])
 
         /// Convert the InternalFunction representation to the SumPow representation.
         let public toSumPow =
@@ -1823,6 +1826,7 @@ module rec SumPow =
             | LiyhCeil x -> liyhCeil x
             | LiyhFloor x -> liyhFloor x
             | LiyhRound x -> liyhRound x
+            | LiyhId x -> liyhId x
 
         /// Evaluates the given elementary function numerically.
         let inline public evaluate (spEval: SumPow -> Constant) =
@@ -1862,6 +1866,7 @@ module rec SumPow =
             | InternalFunction.LiyhRound(x) -> mapf round (spEval x)
             | InternalFunction.LiyhCeil(x) -> mapf ceil (spEval x)
             | InternalFunction.LiyhFloor(x) -> mapf floor (spEval x)
+            | InternalFunction.LiyhId(x) -> spEval x
             | other -> failwithf "Not implemented: %A" other
 
         /// Checks numerically whether the given floating-point number is an integer.
@@ -2580,6 +2585,7 @@ module rec SumPow =
             | LiyhCeil x -> simplifydCeil x
             | LiyhFloor x -> simplifydFloor x
             | LiyhRound x -> simplifydRound x
+            | LiyhId x -> Simplification.simplify x
 
     /// A module for elementary functions (see https://en.wikipedia.org/wiki/Elementary_function).
     module public ElemFun =
