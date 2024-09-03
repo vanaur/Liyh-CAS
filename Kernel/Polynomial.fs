@@ -104,6 +104,11 @@ module rec Polynomial =
             match this with
             | MonomialDegree deg -> deg.[index]
 
+        /// Returns the list of integers corresponding to the individual degrees.
+        member this.GetList =
+            match this with
+            | MonomialDegree lst -> lst
+
         // Implement the graded reverse lexicographic order.
         interface IComparable with
             member ord1.CompareTo obj =
