@@ -313,10 +313,12 @@ module rec Polynomial =
             { p with
                 polynomial = Map.map (fun _ v -> v * sp) p.polynomial }
 
-        /// The "naive" polynomial multiplication algorithm, in 𝒪(n²) in the theoretical worst case. This algorithm is too slow for
-        /// polynomials with several hundred terms, but this might not happen very often in practice.
+        /// The "naive" polynomial multiplication algorithm, in 𝒪(n²) in the theoretical worst case. This algorithm is
+        /// too slow for polynomials with several hundred terms, but this might not happen very often in practice. This
+        /// function handles both the univariate and multivariate cases generally (which also has an impact on performance).
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
         let private naiveMultiply (p1: Polynomial) (p2: Polynomial) =
+            let p1, p2 = compatible p1 p2
 
             let inline eachTerm (MonomialDegree deg1) coeff1 acc (MonomialDegree deg2) coeff2 =
                 let deg' = MonomialDegree(List.map2 (+) deg1 deg2)
@@ -331,21 +333,115 @@ module rec Polynomial =
             { p1 with
                 polynomial = Map.fold eachMonomial Map.empty p1.polynomial }
 
-        /// Implements the Karatsuba algorithm for faster polynomial multiplication.
+        /// Implements Karatsuba's algorithm for fast multiplying univariate polynomials.
         /// See https://en.wikipedia.org/wiki/Karatsuba_algorithm.
-        let private karatsubaMultiply (p1: Polynomial) (p2: Polynomial) =
-            let p1, p2 = compatible p1 p2
+        [<RequireQualifiedAccess>]
+        module private Karatsuba =
 
-            failwith "todo."
+            // The Karatsuba algorithm is a so-called ‘fast’ multiplication algorithm (of time complexity 𝒪(n^1.58)
+            // instead of 𝒪(n²) for the naive algorithm) implemented here for univariate polynomials.
+            // The generalisation to multivariate polynomials is more difficult and might be added in a future update.
+            //
+            // The methods in this module are specialised to the univariate case, making even a small multiplication
+            // much more efficient than the default version of `PolynomialOperations.naiveMultiply`.
+
+            let inline private add (p1: SumPow array) (p2: SumPow array) =
+                let len1 = Array.length p1
+                let len2 = Array.length p2
+                let maxLen = max len1 len2
+                let result = Array.create maxLen (Const Zero)
+
+                for i = 0 to maxLen - 1 do
+                    let v1 = if i < len1 then p1.[i] else Const Zero
+                    let v2 = if i < len2 then p2.[i] else Const Zero
+                    result.[i] <- v1 + v2
+                result
+
+            let inline private sub (p1: SumPow array) (p2: SumPow array) =
+                add p1 (Array.map (( * ) -1) p2)
+
+            let inline private split (p: SumPow array) (n: int) =
+                let mid = n / 2
+                (p.[..mid - 1], p.[mid..])
+
+            let inline private shiftExponent (p: SumPow array) (n: int) =
+                let len = Array.length p
+                let result = Array.create (len + n) (Const Zero)
+
+                Array.blit p 0 result n len
+                result
+
+            /// Faster version of naive polynomial multiplication for univariate polynomials.
+            let private basicMultiply (p1: SumPow array) (p2: SumPow array) =
+                let len1 = Array.length p1
+                let len2 = Array.length p2
+                let result = Array.create (len1 + len2 - 1) (Const Zero)
+
+                Array.iteri (fun i x1 ->
+                    for j = 0 to len2 - 1 do
+                        result.[i + j] <- result.[i + j] + x1 * p2.[j]) p1
+
+                result
+
+            /// Implements Karatsuba's algorithm for fast multiplying univariate polynomials.
+            /// The univariate polynomial is represented as an array of its coefficients.
+            /// See https://en.wikipedia.org/wiki/Karatsuba_algorithm.
+            let rec private karatsubaMultiply (p1: SumPow array) (p2: SumPow array) =
+                if Array.length p1 <= 30 && Array.length p2 <= 30 then basicMultiply p1 p2
+                else
+                    let n = max (Array.length p1) (Array.length p2)
+                    let n = if n % 2 = 0 then n else n - 1
+
+                    let (a0, a1) = split p1 n
+                    let (b0, b1) = split p2 n
+
+                    let U = karatsubaMultiply a0 b0
+                    let Z = karatsubaMultiply a1 b1
+                    let Y = karatsubaMultiply (add a0 a1) (add b0 b1)
+
+                    let Y = sub Y (add U Z)
+                    let Y = shiftExponent Y (n / 2)
+                    let Z = shiftExponent Z n
+
+                    add (add U Z) Y
+
+            /// Implements Karatsuba's algorithm for fast multiplying univariate polynomials.
+            /// See https://en.wikipedia.org/wiki/Karatsuba_algorithm.
+            let public multiply (p1: Polynomial) (p2: Polynomial) =
+                let P = completeCoefficients p1
+                let Q = completeCoefficients p2
+
+                let P, Q =
+                    let nP, nQ = List.length P, List.length Q
+                    let P, Q = Array.ofList P, Array.ofList Q
+
+                    if   nP < nQ then Array.append    [| for _ in 0 .. (nQ - nP) - 1 do Const Zero |] P, Q
+                    elif nP > nQ then P, Array.append [| for _ in 0 .. (nP - nQ) - 1 do Const Zero |] Q
+                    else P, Q
+
+                let result = karatsubaMultiply P Q
+                fromCoefficients p1.variables [ Array.length result ] (List.ofArray result)
+
+        /// Implements Karatsuba's algorithm for fast multiplying univariate polynomials.
+        /// See https://en.wikipedia.org/wiki/Karatsuba_algorithm.
+        let inline private karatsubaMultiply (p1: Polynomial) (p2: Polynomial) =
+            if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
+            if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
+
+            compatible p1 p2 ||> Karatsuba.multiply
 
         /// Polynomial multiplication.
         let public multiply (p1: Polynomial) (p2: Polynomial) =
-            let p1, p2 = compatible p1 p2
-
-            if isZeroPolynomial p1 || isZeroPolynomial p2 then
-                zeroPolynomial p1.variables
+            if isZeroPolynomial p1 || isZeroPolynomial p2
+            then zeroPolynomial p1.variables
             else
-                naiveMultiply p1 p2
+
+                // A fast multiplication algorithm is used in the univariate case.
+                // Otherwise, a slower but general multiplication is used.
+
+                if isUnivariate p1 && isUnivariate p2
+                then karatsubaMultiply p1 p2
+                else naiveMultiply p1 p2
 
         /// Multiply each coefficient of the given polynomial by the given monomial.
         let public multiplyByMonomial (p: Polynomial) (m: Monomial) =
