@@ -531,7 +531,8 @@ module rec SumPow =
             let terms =
                 List.map
                     (fun (ssign, sterm) ->
-                        if ssign = "-" then sterm
+                        if sterm = "- " then "-1"
+                        elif ssign = "-" then sterm
                         else sprintf @"+ %s" sterm)
                     (List.map toLatexTerm sum)
 
