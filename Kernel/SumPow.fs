@@ -55,6 +55,7 @@ module rec SumPow =
         /// Create a one-element sum (i.e. a sum of one term).
         and public sumId =
             function
+            | Term [ Pow(b, One) ] -> b
             | Term [ Pow(Sum [ term ], One) ] -> sumId term
             | Term [ Pow((PureConstantExpression.PureConstantExpressionInteger _ as b) 
                         ,(PureConstantExpression.PureConstantExpressionInteger _ as p)) ] -> b ** p
