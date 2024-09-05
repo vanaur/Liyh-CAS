@@ -453,130 +453,152 @@ module rec SumPow =
 
     /// The module that transforms a SumPow expression into a LaTeX string.
     module private Latex =
-        open PureConstantExpression
+        open ElementaryOperations
+        open InternalFunction
+        open SimplifiedSum
 
-        let private reorderTerm (term: Pow list) =
-            let term =
-                List.sortWith
-                    (fun (Pow(b, _)) (Pow(b', _)) ->
-                        if Misc.isPureConst b && Misc.isPureConst b' then 0
-                        elif Misc.isPureConst b then -1
-                        elif Misc.isPureConst b' then 1
-                        else 0)
-                    term
+        type private Sign =
+            | Plus
+            | Minus
 
-            match List.tryFindIndex (function | Pow(Const cst, One) -> isNegative cst | _ -> false) term with
-            | Some i -> "-", List.permute (fun j -> if i = j then 0 elif j = 0 then i else j) term
-            | None -> "+", term
+            override this.ToString() =
+                match this with
+                | Plus -> "+"
+                | Minus -> "-"
 
         let rec public toLatex =
             function
-            | Pi -> @"\pi"
-            | Name name -> name
-            | Negative (factor, rest) ->
-                match factor with
-                | One -> sprintf @"-{%s}" (toLatex rest)
-                | cst -> sprintf @"-%s\cdot{%s}" (toLatex cst) (toLatex rest)
-            | Const cst -> string cst
-            | Fun("Complex", [ Re; Im ]) -> sprintf @"\left(%s + i%s\right)" (toLatex Re) (toLatex Im)
-            | Power(b, One) -> toLatex b
-            | ElemFun.Root(x, nth) -> toLatexRoot x (Const One) nth
-            | Frac(num, den) -> sprintf @"\frac{%s}{%s}" (toLatex num) (toLatex den)
-            | Power(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
-            | InternalFunction.InternalFunction ifun -> toLatexInternalFun ifun
+            | Const c -> string c
+            | Name name -> sprintf (if String.length name > 1 then @"\text{%s}" else @"%s") name
+            | InternalFunction ifun -> toLatexInternalFun ifun
             | Fun(fname, arguments) -> toLatexFun fname arguments
-            | Sum ss -> toLatexSum ss
-            | _ -> failwith "??"
+            | Frac(num, den) -> toLatexFrac num den
+            | Power(b, p) -> toLatexPower b p
+            | Prod prod -> toLatexProd prod
+            | SumList sl -> toLatexSum sl
+            | other -> raise (UnknownSumPowExpressionException other)
 
-        and private toLatexRoot x n d =
-            match (n, d) with
-            | PureConstantExpressionInteger 1, PureConstantExpressionInteger nth ->
-                if nth = 2 then sprintf @"\sqrt{%s}" (toLatex x)
-                else sprintf @"\sqrt[%d]{%s}" nth (toLatex x)
-            | n, PureConstantExpressionInteger nth -> sprintf @"\sqrt[%d]{%s}" nth (toLatex (x ** n))
-            | PureConstantExpressionInteger 1, nth -> sprintf @"\sqrt[%s]{%s}" (toLatex nth) (toLatex x)
-            | n, d -> sprintf @"\sqrt[%s]{%s}" (toLatex d) (toLatex (x ** n))
-
-        and private toLatexPow =
+        and private mayParens =
             function
-            | Pow(b, PureConstantExpressionInteger p) when p < 0 -> sprintf @"\frac{%d}{%s}" -p (toLatexValue b)
-            | Pow(b, Frac(num, den)) -> toLatexRoot b num den
-            | Pow(Sum _ as b, One) -> sprintf @"\left(%s\right)" (toLatex b)
-            | Pow(Sum _ as b, p) -> sprintf @"\left(%s\right)^{%s}" (toLatex b) (toLatex p)
-            | Pow(One, One) -> ""
-            | Pow(b, One) -> toLatex b
-            | Pow(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
+            | Frac(num, Const (Constant 1.)) -> toLatex num
+            | Frac(num, den) -> sprintf @"\left(%s\right)" (toLatexFrac num den)
+            | Power(b', Const (Constant 1.)) -> toLatex b'
+            | Power (b', p') -> sprintf @"\left(%s\right)" (toLatexPower b' p')
+            | SumList sl when List.length sl > 1 -> sprintf @"\left(%s\right)" (toLatexSum sl)
+            | other -> toLatex other
 
-        and private toLatexTerm (Term term) =
-            let ssign, term = reorderTerm term
+        and private toLatexPower (b: SumPow) (p: SumPow) =
+            match b, p with
+            | b, Const (Constant 1.) -> toLatex b
+            | b, Const (Constant -1.) -> sprintf @"\frac{1}{%s}" (toLatex b)
+            | b, Frac (num, den) -> toLatexInternalFun (LiyhRoot (power (b, num), Some den))
+            | b, p -> sprintf @"{%s}^{%s}" (mayParens b) (mayParens p)
 
-            /// Manages `+` or `-` signs as well as `\cdot` when needed.
-            let inline peekFoldInner acc term next =
-                let sa = toLatexPow term
+        and private toLatexFrac (num: SumPow) (den: SumPow) =
+            match num, den with
+            | num, Const (Constant 1.) -> toLatex num
+            | num, den -> sprintf @"\frac{%s}{%s}" (toLatex num) (toLatex den)
 
-                if sa = "" then if acc = "" && Option.isNone next then "1" else acc
-                elif sa = "-{1}" then sprintf "-%s" acc
-                elif sa.StartsWith "-" then sprintf @"%s{%s}" acc sa
-                else sprintf @"%s{%s}" acc sa
+        and private toLatexProd (prod: (SumPow * SumPow) list) =
 
-                +
+            let rec loop result lst =
+                let catResult cd addon =
+                    if String.IsNullOrWhiteSpace result then addon
+                    else sprintf @"%s%s%s" result (if cd then @"\cdot " else "") addon
 
-                match next with
-                | Some(Pow(Const _, _) | Pow(Prod _, _) | Pow(Sum _, _)) when not (sa.StartsWith "-") -> @"\cdot "
-                | _ -> " "
+                match lst with
+                | [] -> result
+                | (b, p) :: lst ->
+                    let cat =
+                        match b with
+                        | Const _ | Name _ | Fun _ | Frac _ | Power _ -> false
+                        | _ -> true
 
-            let result = List.peekFold peekFoldInner String.Empty term
-            ssign, result
+                    let expr =
+                        match p with
+                        | Const (Constant 1.) -> mayParens b
+                        | _ -> toLatexPower b p
 
-        and private toLatexSum (sum: Term list) =
-            let terms =
-                List.map
-                    (fun (ssign, sterm) ->
-                        if sterm = "- " then "-1"
-                        elif ssign = "-" then sterm
-                        else sprintf @"+ %s" sterm)
-                    (List.map toLatexTerm sum)
+                    loop (catResult cat expr) lst
 
-            let r = String.concat "" terms
-            if r.StartsWith "+" then r.[1..] else r
+            match Misc.prodToSumPow prod with
+            | ProdWithKeep Misc.isPureConstInteger (cst, rest, _) -> 
+                let cst = List.filter (function Const (Constant 1.) -> false | _ -> true) cst
+                let rest = List.filter (function (Const (Constant 1.), Const (Constant 1.)) -> false | _ -> true) rest
+
+                let latexConstant = String.Join(@"\cdot", List.map toLatex cst)
+                let latexRest = loop "" rest
+
+                if List.isEmpty cst then loop "" rest
+                elif List.length cst > 1 then
+                    if List.length rest > 1 then sprintf @"\left(%s\right)\left(%s\right)" latexConstant latexRest
+                    elif List.length rest = 1 then sprintf @"\left(%s\right)\cdot %s" latexConstant latexRest
+                    else latexConstant
+                else sprintf @"%s %s" latexConstant latexRest
+
+            | Prod prod -> loop "" prod
+            | other -> raise (UnknownSumPowExpressionException other)
+
+        and private toLatexSum (sl: SumPow list) =
+
+            let rec loop result (lst: SumPow list) =
+                let catResult sign addon =
+                    if String.IsNullOrWhiteSpace result then if sign = Plus then addon else sprintf @"-%s" addon
+                    else sprintf @"%s %s %s" result (string sign) addon
+
+                match lst with
+                | [] -> result
+                | Const (Constant 0.) :: lst -> loop result lst
+                | Negative (Const (Constant 1.), y) :: lst -> loop (catResult Minus (toLatex y)) lst
+                | Negative (x, y) :: lst -> loop (catResult Minus (sprintf @"%s\cdot{%s}" (toLatex x) (toLatex y))) lst
+                | x :: lst -> loop (catResult Plus (toLatex x)) lst
+
+            loop "" sl
 
         and private toLatexInternalFun =
             function
-            | InternalFunction.LiyhPow(b, p) -> sprintf @"{%s}^{%s}" (toLatex b) (toLatex p)
-            | InternalFunction.LiyhRoot(x, None) -> sprintf @"\sqrt{%s}" (toLatex x)
-            | InternalFunction.LiyhRoot(x, Some b) -> sprintf @"\sqrt[%s]{%s}" (toLatex b) (toLatex x)
-            | InternalFunction.LiyhLog(x, None) -> sprintf @"\log\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhLog(x, Some b) -> sprintf @"\log_{%s}\left(%s\right)" (toLatex b) (toLatex x)
-            | InternalFunction.LiyhExp x -> sprintf @"e^{%s}" (toLatex x)
-            | InternalFunction.LiyhSin x -> sprintf @"\sin\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCos x -> sprintf @"\cos\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhTan x -> sprintf @"\tan\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCsc x -> sprintf @"\csc\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhSec x -> sprintf @"\sec\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCot x -> sprintf @"\cot\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArSin x -> sprintf @"\arcsin\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCos x -> sprintf @"\arccos\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArTan x -> sprintf @"\arctan\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCsc x -> sprintf @"\text{arcsc}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArSec x -> sprintf @"\text{arsec}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCot x -> sprintf @"\text{arcot}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhSinh x -> sprintf @"\sinh\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCosh x -> sprintf @"\cosh\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhTanh x -> sprintf @"\tanh\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCsch x -> sprintf @"\text{csch}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhSech x -> sprintf @"\text{sech}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhCoth x -> sprintf @"\text{coth}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArSinh x -> sprintf @"\text{arsinh}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCosh x -> sprintf @"\text{arcosh}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArTanh x -> sprintf @"\text{artanh}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCsch x -> sprintf @"\text{arcsch}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArSech x -> sprintf @"\text{arsech}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhArCoth x -> sprintf @"\text{arcoth}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhSinc x -> sprintf @"\text{sinc}\left(%s\right)" (toLatex x)
-            | InternalFunction.LiyhAbs x -> sprintf @"\left|{%s}\right|" (toLatex x)
+            | LiyhPow(b, p) -> toLatexPower b p
+            | LiyhRoot(x, Some (Const (Constant 2.)))
+            | LiyhRoot(x, None) -> sprintf @"\sqrt{%s}" (toLatex x)
+            | LiyhRoot(x, Some b) -> sprintf @"\sqrt[%s]{%s}" (toLatex b) (toLatex x)
+            | LiyhLog(x, None) -> sprintf @"\log\left(%s\right)" (toLatex x)
+            | LiyhLog(x, Some b) -> sprintf @"\log_{%s}\left(%s\right)" (toLatex b) (toLatex x)
+            | LiyhExp x -> sprintf @"e^{%s}" (toLatex x)
+            | LiyhSin x -> sprintf @"\sin\left(%s\right)" (toLatex x)
+            | LiyhCos x -> sprintf @"\cos\left(%s\right)" (toLatex x)
+            | LiyhTan x -> sprintf @"\tan\left(%s\right)" (toLatex x)
+            | LiyhCsc x -> sprintf @"\csc\left(%s\right)" (toLatex x)
+            | LiyhSec x -> sprintf @"\sec\left(%s\right)" (toLatex x)
+            | LiyhCot x -> sprintf @"\cot\left(%s\right)" (toLatex x)
+            | LiyhArSin x -> sprintf @"\arcsin\left(%s\right)" (toLatex x)
+            | LiyhArCos x -> sprintf @"\arccos\left(%s\right)" (toLatex x)
+            | LiyhArTan x -> sprintf @"\arctan\left(%s\right)" (toLatex x)
+            | LiyhArCsc x -> sprintf @"\text{arcsc}\left(%s\right)" (toLatex x)
+            | LiyhArSec x -> sprintf @"\text{arsec}\left(%s\right)" (toLatex x)
+            | LiyhArCot x -> sprintf @"\text{arcot}\left(%s\right)" (toLatex x)
+            | LiyhSinh x -> sprintf @"\sinh\left(%s\right)" (toLatex x)
+            | LiyhCosh x -> sprintf @"\cosh\left(%s\right)" (toLatex x)
+            | LiyhTanh x -> sprintf @"\tanh\left(%s\right)" (toLatex x)
+            | LiyhCsch x -> sprintf @"\text{csch}\left(%s\right)" (toLatex x)
+            | LiyhSech x -> sprintf @"\text{sech}\left(%s\right)" (toLatex x)
+            | LiyhCoth x -> sprintf @"\text{coth}\left(%s\right)" (toLatex x)
+            | LiyhArSinh x -> sprintf @"\text{arsinh}\left(%s\right)" (toLatex x)
+            | LiyhArCosh x -> sprintf @"\text{arcosh}\left(%s\right)" (toLatex x)
+            | LiyhArTanh x -> sprintf @"\text{artanh}\left(%s\right)" (toLatex x)
+            | LiyhArCsch x -> sprintf @"\text{arcsch}\left(%s\right)" (toLatex x)
+            | LiyhArSech x -> sprintf @"\text{arsech}\left(%s\right)" (toLatex x)
+            | LiyhArCoth x -> sprintf @"\text{arcoth}\left(%s\right)" (toLatex x)
+            | LiyhSinc x -> sprintf @"\text{sinc}\left(%s\right)" (toLatex x)
+            | LiyhAbs x -> sprintf @"\left|{%s}\right|" (toLatex x)
+            | LiyhSgn x -> sprintf @"\text{sgn}\left(%s\right)" (toLatex x)
+            | LiyhDelta x -> sprintf @"\delta_\text{Dirac}\left(%s\right)" (toLatex x)
+            | LiyhCeil x -> sprintf @"\text{ceil}\left(%s\right)" (toLatex x)
+            | LiyhFloor x -> sprintf @"\text{floor}\left(%s\right)" (toLatex x)
+            | LiyhRound x -> sprintf @"\text{round}\left(%s\right)" (toLatex x)
+            | LiyhId x -> toLatex x
 
         and private toLatexFun (fname: string) (arguments: SumPow list) =
-            let latexArguments = System.String.Join(',', List.map toLatex arguments)
+            let latexArguments = String.Join(',', List.map toLatex arguments)
             sprintf @"%s\left(%s\right)" fname latexArguments
 
     /// The module that interfaces with Symbolic.
