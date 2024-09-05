@@ -2460,8 +2460,9 @@ module rec SumPow =
 
         /// Algebraically simplifies `Root[x, nth]` elementary function.
         let private simplifydRoot (x: SumPow) (nth: SumPow option) =
-            let nth = Option.defaultValue (Const 2) nth
-            Simplification.simplify (x ** (1 / nth))
+            let x = Simplification.simplify x
+            let nth = Option.defaultValue (Const 2) (Option.map Simplification.simplify nth)
+            liyhRoot (x, nth)
 
         /// Algebraically simplifies `Log[x, b]` elementary function.
         let private simplifydLog (x: SumPow) (b: SumPow option) =
