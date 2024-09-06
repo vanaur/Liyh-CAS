@@ -522,7 +522,7 @@ module rec SumPow =
                     loop (catResult cat expr) lst
 
             match Misc.prodToSumPow prod with
-            | ProdWithKeep Misc.isPureConstInteger (cst, rest, _) -> 
+            | ProdWithKeep Misc.isPureConstInteger (cst, rest, _) ->
                 let cst = List.filter (function Const (Constant 1.) -> false | _ -> true) cst
                 let rest = List.filter (function (Const (Constant 1.), Const (Constant 1.)) -> false | _ -> true) rest
 
@@ -1015,7 +1015,7 @@ module rec SumPow =
             <| function
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
-                | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->                    
+                | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->
                     csimplify x
 
                 | Power(Prod prod, p) ->
@@ -1593,7 +1593,7 @@ module rec SumPow =
         /// This function is limited by the fact that it cannot guess that an equivalent but too different
         /// sub-expression is considered valid for replacement, but it works if the sub-expression is entirely
         /// present (taking commutativity into account) and/or with the comparison according to `EqualityTest`.
-        /// 
+        ///
         /// The more complex the expression to be substituted, the slower it will take to execute.
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
         let public hsubst (toSub: SumPow) (sub: SumPow) (expr: SumPow) =
@@ -2517,7 +2517,7 @@ module rec SumPow =
             | PureConstantExpressionRational (num, den) -> Const (sign (num * den))
             | InternalFunction (LiyhSgn x) -> liyhSgn x
             | InternalFunction (LiyhAbs _) -> Const One
-            | InternalFunction (LiyhRoot (_, Some (PureConstantExpressionNatural nth))) when nth % 2 = 0 -> Const One 
+            | InternalFunction (LiyhRoot (_, Some (PureConstantExpressionNatural nth))) when nth % 2 = 0 -> Const One
             | other -> liyhSgn other
 
         /// Algebraically simplifies `δ[x]` "elementary function".
@@ -2838,7 +2838,7 @@ module rec SumPow =
 
             | ComplexSumPow.PolarForm (radius1, angle1), ComplexSumPow.PolarForm (radius2, angle2) when angle1 = angle2 ->
                 ComplexSumPow.PolarForm (radius1 + radius2, angle1)
-            
+
             | z1, z2 -> convertToVectorForm z1 + convertToVectorForm z2
 
         let private complexSubtraction =
@@ -2848,7 +2848,7 @@ module rec SumPow =
 
             | ComplexSumPow.PolarForm (radius1, angle1), ComplexSumPow.PolarForm (radius2, angle2) when angle1 = angle2 ->
                 ComplexSumPow.PolarForm (radius1 - radius2, angle1)
-            
+
             | z1, z2 -> convertToVectorForm z1 - convertToVectorForm z2
 
         let private complexMultiplication =
@@ -2920,7 +2920,7 @@ module rec SumPow =
         type public ModularNumber =
             { number: SumPow
               modulus: int }
-            
+
             static member op_Addition(a: ModularNumber, b: ModularNumber) = addition a b
             static member op_Subtraction(a: ModularNumber, b: ModularNumber) = subtraction a b
             static member op_Multiply(a: ModularNumber, b: ModularNumber) = multiplication a b
