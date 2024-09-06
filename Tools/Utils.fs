@@ -493,3 +493,19 @@ module rec Utils =
         let inline public ofBool (value: 'a) ([<InlineIfLambda>] pred: 'a -> bool) =
             if pred value then Some value else None
 
+    module Dictionary =
+
+        /// Adds a key/value pair to the Dictionary and, if the key already exists, updates the associated value
+        /// via the given updating function.
+        let inline public addOrUpdate (key: 'Key) (value: 'Value) (table: Dictionary<'Key, 'Value>) (updating: 'Value -> 'Value) =
+            if not (table.TryAdd(key, value)) then table.[key] <- updating table.[key]
+
+        /// Folds over the bindings in the dictionary.
+        let inline public fold (folder: ('State -> 'Key -> 'T -> 'State)) (state: 'State) (table: Dictionary<'Key, 'T>) =
+            let mutable result = state
+
+            for KeyValue(key, value) in table do
+                result <- folder result key value
+
+            result
+
