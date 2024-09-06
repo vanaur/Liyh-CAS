@@ -1197,7 +1197,7 @@ module public rec MultiLinearAlgebra =
 
             Array.map (mapper >> Vector) freeVariables
 
-        /// Compute a basis of the kernel of the given matrix.
+        /// Compute a basis of the image of the given matrix.
         /// See https://en.wikipedia.org/wiki/Row_and_column_spaces.
         let public imageBasis (matrix: Matrix) =
             let mref = gaussianElimination (transpose matrix)
