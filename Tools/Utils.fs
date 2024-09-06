@@ -127,6 +127,7 @@ module rec Utils =
             result
 
         /// Same as `fixedPoint` but require a maximum looping point to prevent infinite or too deep looping.
+        /// No exception is thrown if the maximum recursion point is reached.
         let inline public fixedPointMax max f x =
             let rec fp f x =
                 function
@@ -135,9 +136,12 @@ module rec Utils =
 
             fp f x 0
 
-        /// Apply the `f` function to the given argument as many times as necessary so that the result
-        /// found no longer changes after applying `f` once more. This function is particularly useful
-        /// for algebraic simplification functions.
+        /// Same as `fixedPointMax` but don't return the number of iterations.
+        let inline public fixedPointMax' max f x =
+            snd (fixedPointMax max f x)
+
+        /// Apply the function `f` to the given argument as many times as necessary so that the result found no longer
+        /// changes after applying `f` once more. This function can loop infinitely.
         let rec public fixedPoint f x =
             let r = f x in if x = r then x else fixedPoint f r
 
