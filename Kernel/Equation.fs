@@ -237,3 +237,49 @@ module public rec Equation =
 //            let d = List.fold (fun acc a -> intGCD acc (snd a)) 0 equation
 //
 //            b % d = 0
+
+    [<RequireQualifiedAccess>]
+    module public PolynomialEquation =
+
+        /// A polynomial equation is represented using the associated representation.
+        [<NoEquality; NoComparison>]
+        type public PolyEq =
+            | PolyEq of EquationKind * Polynomial.Polynomial
+
+        /// A system of polynomial equations is represented as a list of polynomial equations.
+        [<NoEquality; NoComparison>]
+        type public PolyEqSystem =
+            | PolyEqSystem of PolyEq list 
+
+        /// Try to match a polynomial equation from the given equation.
+        let public polyeq (Equation(kind, lhs, rhs)) (variables: string list option) (excludedVariables: string list) =
+            let result =
+                match Option.map (List.map Name) variables with
+                | Some variables -> Polynomial.Pattern.tryAsMultivariatePolynomial variables excludedVariables (lhs - rhs)
+                | None -> Polynomial.Pattern.tryAsGeneralPolynomial excludedVariables (lhs - rhs)
+
+            Option.bind (fun (p, rest) -> if Option.isNone rest then Some (PolyEq (kind, p)) else None) result
+
+        /// Try to match a system of polynomial equations from the given system of equations.
+        let public polyeqSystem (EquationSystem system) (variables: string list option) (excludedVariables: string list) =
+
+            let rec loop result =
+                function
+                | [] -> result
+                | x :: xs ->
+                    Option.bind
+                        (fun r -> loop (Option.map (fun res -> r :: res) result) xs)
+                        (polyeq x variables excludedVariables)
+
+            Option.map PolyEqSystem (loop (Some List.empty) system)
+
+        /// Check whether the polynomial equation reduces to a linear equation.
+        let public isLinearEquation (PolyEq (_, { polynomial = polynomial })) =
+            Seq.forall
+                (function Polynomial.MonomialDegree deg -> List.forall (fun d -> d = 0 || d = 1) deg)
+                (Map.keys polynomial)
+
+        /// Check whether the system of polynomial equations reduces to a system of linear equations.
+        let public isLinearEquationSystem (PolyEqSystem sys) =
+            List.forall isLinearEquation sys
+
