@@ -20,6 +20,14 @@ module public rec Equation =
         | GreaterThan
         | GreaterOrEqualThan
 
+    let private equationKindToLatex =
+        function
+        | Equality -> "="
+        | LesserThan -> "<"
+        | LesserOrEqualThan -> @"\leqslant"
+        | GreaterThan -> ">"
+        | GreaterOrEqualThan -> @"\geqslant"
+
     [<Symbolic; Struct; NoComparison>]
     type public Equation =
         | Equation of kind: EquationKind * lhs: SumPow * rhs: SumPow
@@ -31,15 +39,7 @@ module public rec Equation =
             member this.Hash = hash this
 
     let private toLatex (Equation(kind, lhs, rhs)) =
-        let kind =
-            match kind with
-            | Equality -> "="
-            | LesserThan -> "<"
-            | LesserOrEqualThan -> @"\leqslant"
-            | GreaterThan -> ">"
-            | GreaterOrEqualThan -> @"\geqslant"
-
-        sprintf "%s %s %s" (toLatexValue lhs) kind (toLatexValue rhs)
+        sprintf "%s %s %s" (toLatexValue lhs) (equationKindToLatex kind) (toLatexValue rhs)
 
     let private toSymbolic (Equation(kind, lhs, rhs)) =
         let kind =
@@ -128,9 +128,24 @@ module public rec Equation =
         let public subtractionBySumPow =
             binOpBySumPow ( - )
 
-    [<Struct; NoEquality; NoComparison>]
+    [<Symbolic; Struct; NoComparison>]
     type public EquationSystem =
         | EquationSystem of Equation list
+
+        interface ISymbolic with
+            member this.ToSymbolic() = toSymbolic' this
+            member this.ToLatex() = Some(toLatex' this)
+            member this.ToLatexOrString() = toLatex' this
+            member this.Hash = hash this
+
+    let private toSymbolic' (EquationSystem sys) =
+        { atom = Identifier "EquationSystem"
+          attributes = List.map (fun x -> null, toSymbolic x) sys }
+
+    let private toLatex' (EquationSystem sys) =
+        let inline innerLatex (Equation(kind, lhs, rhs)) =
+            sprintf "%s &%s %s" (toLatexValue lhs) (equationKindToLatex kind) (toLatexValue rhs)
+        sprintf @"\begin{cases}%s\end{cases}" (System.String.Join(@"\\", (List.map innerLatex sys)))
 
     /// The simpliest equations to handle. An equation of the form a₁x₁ + ... + aₙxₙ + b = 0 where {xᵢ} are variables
     /// and {b; aᵢ} are coefficients is said to be a linear equation. See https://en.wikipedia.org/wiki/Linear_equation.
