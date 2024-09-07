@@ -476,6 +476,7 @@ module rec Utils =
                     result.[i] <- x
                     loop (i + 1) t
 
+            loop 0 lst
             result
 
     // Some extensions to the standard module.
