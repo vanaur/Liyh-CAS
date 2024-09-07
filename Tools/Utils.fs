@@ -31,6 +31,13 @@ module rec Utils =
         | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
 
     // Some extensions to the standard module.
+    module public Array =
+
+        /// Builds an array from the given list (faster than in the standard library).
+        let public ofList' (lst: 'T list) =
+            List.toArray lst
+
+    // Some extensions to the standard module.
     module public Array2D =
         /// Obtains the row `i` of the given 2D array.
         let inline public row i (table: 'T[,]) = table.[i, *] |> Seq.cast<'T>
@@ -452,6 +459,24 @@ module rec Utils =
         /// Flatten a list of tuples.
         let inline public flattenTupleList (list: ('a * 'a) list) =
             List.fold (fun acc (x, y) -> x :: y :: acc) [] list
+
+        /// Builds an array from the given list (faster than in the standard library).
+        let public toArray (lst: 'T list) =
+            let result = Array.zeroCreate (List.length lst)
+
+            let rec loop i =
+                function
+                | [] -> ()
+                | x :: y :: t ->
+                    result.[i] <- x
+                    result.[i + 1] <- y
+                    loop (i + 2) t
+
+                | x :: t ->
+                    result.[i] <- x
+                    loop (i + 1) t
+
+            result
 
     // Some extensions to the standard module.
     module public Map =
