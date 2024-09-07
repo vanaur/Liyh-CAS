@@ -361,6 +361,16 @@ module rec Utils =
                 let (d', u', v') = egcd b (a % b)
                 (d', v', u' - (a / b) * v')
 
+        /// Find the smallest divisor of `n`.
+        let public smallestDivisor (n: bigint) =
+            if n % 2I = 0I then 2I
+            else
+                let rec findDivisor i =
+                    if i * i > n then n
+                    elif n % i = 0I then i
+                    else findDivisor (i + 2I)
+                findDivisor 3I
+
     // Some extensions to the standard module.
     module public List =
 
