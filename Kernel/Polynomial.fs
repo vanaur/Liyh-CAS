@@ -1716,23 +1716,21 @@ module rec Polynomial =
                   remainder = remainder }
 
     module public GroebnerBasis =
+        open System.Threading.Tasks
         open Division.Multivariate
 
         /// Returns the list of pairs `(i, j)` with `i ≠ j` from `0 to k-1`.
         let inline private pairs k =
-            let range = [ 0 .. (k - 1) ]
-
-            [ for i in range do
-                  for j in range do
-                      if i <> j then
-                          yield (i, j) ]
+            [| for i in 0 .. (k - 1) do
+                  for j in 0 .. (k - 1) do
+                      if i <> j then (i, j) |]
 
         /// Returns the S-polynomial (*substraction*-polynomial) of the two given polynomials.
         /// See https://en.wikipedia.org/wiki/Gr%C3%B6bner_basis#S-polynomial.
         let private spolynomial (p1: Polynomial) (p2: Polynomial) =
             let α = multiDegree p1
             let β = multiDegree p2
-            let γ = SumPow.Const One, List.map2 max α β
+            let γ = Const One, List.map2 max α β
 
             let lt1 = leadingTerm p1
             let lt2 = leadingTerm p2
@@ -1752,27 +1750,33 @@ module rec Polynomial =
             if List.length polynomials <= 1 then
                 polynomials
             else
+                let action () =
 
-                let mutable G = polynomials
-                let mutable run = true
+                    let mutable G = polynomials
+                    let mutable run = true
 
-                while run do
-                    let mutable G' = G
+                    while run do
+                        let mutable G' = G
 
-                    let pairs = pairs (List.length G')
+                        let pairs = pairs (List.length G')
 
-                    for (i, j) in pairs do
-                        let s = spolynomial G'.[i] G'.[j]
+                        for (i, j) in pairs do
+                            let s = spolynomial G'.[i] G'.[j]
 
-                        let { remainder = rem } = reduce s G'
+                            let { remainder = rem } = reduce s G'
 
-                        if not (isZeroPolynomial rem) then
-                            G <- List.distinct (rem :: G)
+                            if not (isZeroPolynomial rem) then
+                                G <- List.distinct (rem :: G)
 
-                    if List.sort G = List.sort G' then
-                        run <- false
+                        if List.areEquivalent G G' then
+                            run <- false
 
-                G
+                    G
+
+                let task = Task.Run action
+
+                if task.Wait(TimeSpan.FromSeconds(20)) then task.Result
+                else failwith "Timed out Buchberger's Algorithm!"
 
         /// Given a Gröbner basis, return its equivalent minimal and reduced basis.
         let private reducedGroebnerBasis (polynomials: Polynomial list) =
