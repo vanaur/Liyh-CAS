@@ -1859,7 +1859,7 @@ module rec Polynomial =
                         inner (fst resultingGcd, snd (monomialGCD monomial resultingGcd)) rest
 
             let gcd = inner (List.min monomials) monomials
-            monomialToSumPow gcd, fromMonomials (List.map (fun m -> Option.get (m /? gcd)) monomials) |> simplifyCoefficients
+            fromMonomials [ gcd ], fromMonomials (List.map (fun m -> Option.get (m /? gcd)) monomials) |> simplifyCoefficients
 
         /// Returns the polynomial whose each term have been factored by the largest monomial & coeff' common to all terms
         /// with respect to the given variable. This is the most complete term-factoring function.
@@ -2148,7 +2148,7 @@ module rec Polynomial =
         type public FactoringResult =
 
             /// In the case of a multivariate polynomial without specification of the variables to be forced.
-            | Alternatives of (SumPow * Polynomial) seq
+            | Alternatives of (Polynomial * Polynomial) seq
 
             /// The polynomial is factored as the product of several powers of polynomials.
             | Univariate of (Polynomial * int) list
@@ -2167,8 +2167,8 @@ module rec Polynomial =
             else None
 
         let inline private initialFactoring (p: Polynomial) =
-            let c, p = termFactoringWithRespectTo p p.variables.Head
-            (fromCoefficients [ p.variables.Head ] [ 0 ] [ c ], 1) :: SquareFree.squareFreeFactoring p
+            let p1, p2 = termFactoringWithRespectTo p p.variables.Head
+            (p1, 1) :: SquareFree.squareFreeFactoring p2
 
         let rec private factor1 (p: Polynomial) =
             if totalDegree p = 1 then [ p, 1 ] else
@@ -2179,6 +2179,9 @@ module rec Polynomial =
             let inline distributePower d = List.map (fun (p', d') -> (p', d * d'))
 
             for (p, d) in initialFactoring p do
+                // If the polynomial consists of a single term, then it might not be factored.
+                if Map.count p.polynomial = 1 then result <- (p, d) :: result else
+
                 match tryIntCoeff p with
                 | None ->
                     match trySpecific p with
