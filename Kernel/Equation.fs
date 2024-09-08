@@ -162,6 +162,10 @@ module public rec Equation =
         type public LinEqSystem =
             | LinEqSystem of LinEq list * string list
 
+        /// Return the list of variables of the given linear equation.
+        let public getVariables (LinEq (_, (lin, _))) =
+            Map.keys lin
+
         /// Try to match a linear equation from the given equation.
         let public lineq (Equation(kind, lhs, rhs)) (variables: string list) =
 
@@ -256,6 +260,8 @@ module public rec Equation =
     [<RequireQualifiedAccess>]
     module public PolynomialEquation =
 
+        exception public NotALinearEquationException of PolyEq
+
         /// A polynomial equation is represented using the associated representation.
         [<NoEquality; NoComparison>]
         type public PolyEq =
@@ -297,4 +303,49 @@ module public rec Equation =
         /// Check whether the system of polynomial equations reduces to a system of linear equations.
         let public isLinearEquationSystem (PolyEqSystem sys) =
             List.forall isLinearEquation sys
+
+        [<Struct; RequireQualifiedAccess>]
+        type public PolyEqAsLinEqResult =
+            | NotLineq
+            | NotNamedVariables
+            | Lineq of LinearEquation.LinEq
+
+        /// If the given polynomial equation is a linear equation, then convert it to a linear equation representation.
+        let public tryAsLinearEquation (PolyEq (kind, polynomial) as polyeq) =
+            if not (isLinearEquation polyeq) then
+                PolyEqAsLinEqResult.NotLineq
+            else
+                let isName = function Name _ -> true | _ -> false
+                if not (List.forall isName polynomial.variables) then
+                    // Variables must be `Name _` for the conversion to be valid, for the moment.
+                    PolyEqAsLinEqResult.NotNamedVariables
+                else
+                    let equation = Equation(kind, Polynomial.Convertion.toSumPow polynomial, Const Zero)            
+                    let variables = List.map (function Name var -> var) polynomial.variables
+
+                    match LinearEquation.lineq equation variables with
+                    | None -> PolyEqAsLinEqResult.NotLineq
+                    | Some lineq -> PolyEqAsLinEqResult.Lineq lineq
+
+        /// If the given polynomial equation system is a linear equation system, then convert it to a system of linear
+        /// equation representation. This function does not indicate the cause of the failure (None).
+        let public tryAsLinearEquationSystem (PolyEqSystem system) =
+            let isLineq = function PolyEqAsLinEqResult.Lineq _ -> true | _ -> false
+
+            let lst = List.map tryAsLinearEquation system
+
+            if List.forall isLineq lst then
+                let mapper = function
+                    PolyEqAsLinEqResult.Lineq lineq ->
+                        List.ofSeq (LinearEquation.getVariables lineq), lineq
+
+                let result = List.map mapper lst
+                let variables, equations = List.unzip result
+
+                if List.forall (( = ) variables.[0]) variables then
+                    Some (LinearEquation.LinEqSystem (equations, variables.[0]))
+                else
+                    None
+            else
+                None
 
