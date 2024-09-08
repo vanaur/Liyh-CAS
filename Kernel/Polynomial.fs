@@ -638,7 +638,7 @@ module rec Polynomial =
                     let vs = List.choose id (makeVariables degrees)
                     Term(powId coeff :: vs) :: result
 
-            Map.toList polynomial |> List.fold inner [] |> Sum
+            Map.toList polynomial |> List.fold inner [ termId (Const Zero) ] |> Sum
 
         /// Generates the univariate polynomial whose roots are specified.
         let public fromRoots (variable: SumPow) (roots: double list) =
