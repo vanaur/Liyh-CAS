@@ -144,7 +144,21 @@ module public Solve =
 
         Option.bind binder (loop (Some List.empty) List.empty system)
 
+    /// 
+    let public trySolvePolynomialEquationSystem (PolynomialEquation.PolyEqSystem system as sys) =
+        match PolynomialEquation.tryAsLinearEquationSystem sys with
+        | Some lineqSys -> Some (trySolveLinearEquationSystem lineqSys)
+        | None ->
+            if not (List.forall (function PolynomialEquation.PolyEq (kind, _) -> kind = Equality) system) then None
+            else
+                let equations = List.map (function PolynomialEquation.PolyEq (_, polyeq) -> polyeq) system
+                let gb = Polynomial.GroebnerBasis.computeGroebnerBasis equations // May timeout!
 
+                // TODO: For some as yet unknown reason, the algorithm we have implemented does not work for all
+                // inputs and loops ad infinitum... Pending a solution to the problem, we cannot decently continue
+                // the implementation of this function for now. See commit 8fb6049.
+
+                None
 
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
