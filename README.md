@@ -94,10 +94,10 @@ Persons:
 
  - [BenchShark](https://github.com/JamesMenetrey/BenchShark?tab=License-1-ov-file) (MIT License -- Copyright (c) Jämes Ménétrey): *A lightweight library for benchmarking performance of your .NET applications* ;
  - [FParsec](https://github.com/stephan-tolksdorf/fparsec) (Simplified BSD License -- Copyright (c) Stephan Tolksdorf): *A parser combinator library for F#* ;
- - [FSharp.Collections.ParallelSeq](https://github.com/fsprojects/FSharp.Collections.ParallelSeq?tab=License-1-ov-file) (Apache License): *Parallel (multi-core) sequence operations* ;
  - [PrettyPrompt](https://github.com/waf/PrettyPrompt) (Mozilla Public License Version 2.0 -- Copyright (c) Will Fuqua): *A cross-platform command line input library that provides syntax highlighting, autocompletion, history and multi-line input* ;
  - [Spectre.Console](https://github.com/spectreconsole/spectre.console) (MIT License -- Copyright (c) Patrik Svensson, Phil Scott, Nils Andresen): *A .NET library that makes it easier to create beautiful console applications* ;
  - [ScottPlot](https://github.com/ScottPlot/ScottPlot) (MIT License -- Copyright (c) Scott Harden / Harden Technologies, LLC): *Interactive plotting library for .NET*.
+ - [Plotly.NET](https://github.com/plotly/Plotly.NET/) (MIT License -- Copyright (c) Kevin Schneider, Timo Mühlhaus): *Interactive graphing library for .NET programming languages*.
  - [BenchmarkDotNet](https://github.com/dotnet/BenchmarkDotNet) (MIT License -- Copyright (c) .NET Foundation and contributors): *Powerful .NET library for benchmarking*.
 
 **Liyh's standard library** will be licensed under [Apache 2.0](https://opensource.org/license/apache-2-0) (copyright 2024 vanaur).

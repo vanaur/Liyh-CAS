@@ -51,17 +51,11 @@
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
     <PackageReference Include="ByteDev.Encoding" Version="2.0.0" />
-    <PackageReference Include="Eto.Forms" Version="2.7.3" />
-    <PackageReference Include="Eto.Platform.Gtk" Version="2.7.3" />
     <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="FSharp.Collections.ParallelSeq" Version="1.2.0" />
     <PackageReference Include="Plotly.NET" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="Plotly.NET.ImageExport" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="PrettyPrompt" Version="4.0.4" />
-    <PackageReference Include="Process.NET" Version="1.0.8">
-      <NoWarn>NU1701</NoWarn>
-    </PackageReference>
-    <PackageReference Include="ScottPlot.Eto" Version="4.1.60" />
+    <PackageReference Include="ScottPlot" Version="5.0.39" />
     <PackageReference Include="Spectre.Console" Version="0.44.0" />
   </ItemGroup>
 </Project>
