@@ -11,7 +11,6 @@ open Liyh.Utils
 open Liyh.Language.Syntax.Parser
 open FParsec
 open Liyh.Kernel
-open FSharp.Collections.ParallelSeq
 open Liyh.Language.Evaluation.IL
 open Liyh.Language.Evaluation.ILParser
 open Liyh.Language.Evaluation.VirtualMachine
