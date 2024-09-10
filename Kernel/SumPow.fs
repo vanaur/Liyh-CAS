@@ -470,6 +470,9 @@ module rec SumPow =
             function
             | Const c -> string c
             | Name name -> sprintf (if String.length name > 1 then @"\text{%s}" else @"%s") name
+            | Fun("Complex", [ re; Const (Constant 0.) ]) -> toLatex re
+            | Fun("Complex", [ Const (Constant 0.); im ]) -> sprintf @"i%s" (mayParens im)
+            | Fun("Complex", [ re; im ]) -> sprintf @"%s + i%s" (mayParens re) (mayParens im)
             | InternalFunction ifun -> toLatexInternalFun ifun
             | Fun(fname, arguments) -> toLatexFun fname arguments
             | Frac(num, den) -> toLatexFrac num den
