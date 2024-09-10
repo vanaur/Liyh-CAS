@@ -457,6 +457,7 @@ module rec SumPow =
         open InternalFunction
         open SimplifiedSum
 
+        [<Struct>]
         type private Sign =
             | Plus
             | Minus
@@ -470,9 +471,7 @@ module rec SumPow =
             function
             | Const c -> string c
             | Name name -> sprintf (if String.length name > 1 then @"\text{%s}" else @"%s") name
-            | Fun("Complex", [ re; Const (Constant 0.) ]) -> toLatex re
-            | Fun("Complex", [ Const (Constant 0.); im ]) -> sprintf @"i%s" (mayParens im)
-            | Fun("Complex", [ re; im ]) -> sprintf @"%s + i%s" (mayParens re) (mayParens im)
+            | Fun("Complex", [ re; im ]) -> toLatexComplex re im
             | InternalFunction ifun -> toLatexInternalFun ifun
             | Fun(fname, arguments) -> toLatexFun fname arguments
             | Frac(num, den) -> toLatexFrac num den
@@ -489,6 +488,12 @@ module rec SumPow =
             | Power (b', p') -> sprintf @"\left(%s\right)" (toLatexPower b' p')
             | SumList sl when List.length sl > 1 -> sprintf @"\left(%s\right)" (toLatexSum sl)
             | other -> toLatex other
+
+        and private toLatexComplex (re: SumPow) (im: SumPow) =
+            match re, im with
+            | re, Const (Constant 0.) -> toLatex re
+            | Const (Constant 0.), im -> sprintf @"%si" (mayParens im)
+            | re, im -> sprintf @"%s + %si" (mayParens re) (mayParens im)
 
         and private toLatexPower (b: SumPow) (p: SumPow) =
             match b, p with
@@ -537,7 +542,10 @@ module rec SumPow =
                     if List.length rest > 1 then sprintf @"\left(%s\right)\left(%s\right)" latexConstant latexRest
                     elif List.length rest = 1 then sprintf @"\left(%s\right)\cdot %s" latexConstant latexRest
                     else latexConstant
-                else sprintf @"%s %s" latexConstant latexRest
+                else
+                    match cst with
+                    | [ Const (Constant -1.) ] -> sprintf @"-%s" latexRest
+                    | _ -> sprintf @"%s %s" latexConstant latexRest
 
             | Prod prod -> loop "" prod
             | other -> raise (UnknownSumPowExpressionException other)
@@ -552,6 +560,7 @@ module rec SumPow =
                 match lst with
                 | [] -> result
                 | Const (Constant 0.) :: lst -> loop result lst
+                | Const (Constant n) :: lst when n < 0 -> loop (catResult Minus (string (Constant (abs n)))) lst
                 | Negative (Const (Constant 1.), y) :: lst -> loop (catResult Minus (toLatex y)) lst
                 | Negative (x, y) :: lst -> loop (catResult Minus (sprintf @"%s\cdot{%s}" (toLatex x) (toLatex y))) lst
                 | x :: lst -> loop (catResult Plus (toLatex x)) lst
