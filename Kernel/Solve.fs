@@ -1,15 +1,18 @@
 namespace Liyh.Kernel
 
+#nowarn "3391"
 #nowarn "25"
 #nowarn "26"
 
 module public Solve =
     open System
+    open System.Numerics
     open Liyh.Utils
     open Liyh.Kernel
     open Liyh.Kernel.SumPow.PureConstantExpression
     open Liyh.Kernel.Equation
     open Liyh.Kernel.MultiLinearAlgebra
+    open Liyh.Kernel.Polynomial.Factorization
 
     /// If the linear equation is of the diophantine type (only integer solutions are of interest and/or possible) and
     /// its coefficients are integers, then return the general solution of the equation.
@@ -143,6 +146,73 @@ module public Solve =
             Some (identifieLinearSystemSolutionKind variables filteredResult, filteredResult)
 
         Option.bind binder (loop (Some List.empty) List.empty system)
+
+    [<NoComparison; RequireQualifiedAccess>]
+    type public SolutionKind =
+        | Exact of SumPow                   // Liyh found a root algebraically.
+        | Approximate of SumPow             // Liyh not found a root algebraically and returns a numerical root.
+        | Unfound of Polynomial.Polynomial  // No roots were found for the polynomial indicated.
+
+    /// The multiplicity of the solutions are not returned.
+    let public trySolvePolynomialEquation (PolynomialEquation.PolyEq (kind, poly)) =
+        // Equality
+
+        let rec solve poly =
+            match tryFactoring poly None with
+            | FactoringResult.Univariate [ (poly', 1) ] when poly' = poly ->
+                if Map.count poly.polynomial = 1 && not (Polynomial.Tools.isConstantPolynomial poly) then
+                    // It is an equation of the form P(x) ≡ αxⁿ = 0, so x = 0.
+                    Some [ SolutionKind.Exact (Const Zero) ]
+                else
+                    match Polynomial.Tools.totalDegree poly with
+                    | 0 -> None // Not a solution, but a multiplicative factor.
+                    | 1 ->
+                        let ct = Polynomial.getConstantTerm poly
+                        let lc = Polynomial.Tools.leadingCoeff poly
+
+                        // It is an equation of the form P(x) ≡ αx + β = 0, so x = -β/α.
+                        Some [ SolutionKind.Exact (Simplification.simplify -(ct / lc)) ]
+
+                    | _ ->
+                        // The polynomial has roots which cannot be isolated algebraically by Liyh,
+                        // so we try numerical methods to find all the roots.
+                        match Polynomial.NumericEvaluation.tryNumericUnivariatePolynomial poly with
+                        | None -> Some [ SolutionKind.Unfound poly ]
+                        | Some nup ->
+                            // An accuracy of 0.00001 and a maximum number of iterations of 15 are "imposed".
+                            // The user can specify this when calling a specifically numerical function.
+                            match Polynomial.NumericEvaluation.findRoots nup 0.00001 15 with
+                            | None ->
+                                // This means that the underlying algorithm for finding roots has not converged, in
+                                // other words the parameters provided here (precision and number of iterations) are
+                                // not adapted to the polynomial being processed.
+                                Some [ SolutionKind.Unfound poly ]
+
+                            | Some nsols ->
+                                let inline mapper (a: Complex) = Fun("Complex", [ Const a.Real; Const a.Imaginary ])
+                                let nsols = Array.map mapper nsols
+
+                                Some (List.map SolutionKind.Approximate (List.ofArray nsols))
+
+            | FactoringResult.Univariate univc ->
+                let sols = List.map (fst >> solve) univc |> List.choose id |> List.flatten
+                if not (List.isEmpty sols) then Some sols else None
+
+        match solve poly with
+        | Some sols -> sols
+        | None -> failwith "??" // this might not happen, the option is used to indicate whether a multiplicative factor
+                                // exists in the equation and that it can be removed, which does not affect the result.
+
+    /// Solve the given polynomial equation. The result is a list of tuples, each tuple indicating a root and its
+    /// multiplicity. The roots can be either `Exact`, `Approximate` or `Unfound`.
+    let inline public solvePolynomialEquationWithmultiplicity (peq: PolynomialEquation.PolyEq) =
+           List.groupBy id (trySolvePolynomialEquation peq)
+        |> List.map (fun (x, occ) -> x, List.length occ)
+
+    /// Solve the given polynomial equation. The result is a list of root.
+    /// The roots can be either `Exact`, `Approximate` or `Unfound`.
+    let inline public solvePolynomialEquation (peq: PolynomialEquation.PolyEq) =
+        List.distinct (trySolvePolynomialEquation peq)
 
     /// 
     let public trySolvePolynomialEquationSystem (PolynomialEquation.PolyEqSystem system as sys) =
