@@ -2158,7 +2158,7 @@ module rec Polynomial =
 
         let inline private trySpecific (p: Polynomial) =
             None |> Option.orElseWith (konst (Specific.tryQuadraticFormula p))
-                 |> Option.orElseWith (konst (Specific.tryCompleteTheSquare p))
+              // |> Option.orElseWith (konst (Specific.tryCompleteTheSquare p)) // Not a factorized form!
                  |> Option.orElseWith (konst (Specific.trySophieGermain p))
 
         let inline private tryIntCoeff (p: Polynomial) =
