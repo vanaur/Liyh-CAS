@@ -2195,7 +2195,7 @@ module rec Polynomial =
 
             result |> List.filter (fun (p, _) -> p <> onep)
 
-        let public tryFactoring' (p: Polynomial) (variable: Variable option) =
+        let public tryFactoring (p: Polynomial) (variable: Variable option) =
             if Option.isSome variable && not (List.contains variable.Value p.variables) then
                 raise (PolynomialNotContainsVariablesException (p, [ variable.Value ]))
 
