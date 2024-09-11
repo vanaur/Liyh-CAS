@@ -5,7 +5,6 @@ module rec Constant =
     open System
     open Liyh.Utils
 
-    [<Struct>]
     type public Constant =
         | Constant of constant: double
 

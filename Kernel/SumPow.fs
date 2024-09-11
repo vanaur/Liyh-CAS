@@ -757,7 +757,7 @@ module rec SumPow =
         EqualityTest.equalityTest sp1 sp2
 
     /// A "Term" is a product of powers.
-    [<Struct; CustomEquality; CustomComparison>]
+    [<CustomEquality; CustomComparison>]
     type public Term =
         /// A `Term` is a product of powers.
         | Term of Pow list
@@ -772,7 +772,7 @@ module rec SumPow =
                 | _ -> invalidArg "obj" "cannot compare value of different types"
 
     /// A "Pow" is a SumPow tuple.
-    [<Struct; CustomEquality; CustomComparison>]
+    [<CustomEquality; CustomComparison>]
     type public Pow =
         /// A `Pow` is a SumPow tuple.
         | Pow of SumPow * SumPow
