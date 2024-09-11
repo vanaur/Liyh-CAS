@@ -2756,11 +2756,36 @@ module rec SumPow =
             let ys = Array.Parallel.map (evaluate1 sp variable) xs
             Array.zip xs ys |> Array.filter (function Constant x, Constant y -> Double.IsFinite y)
 
-        /// If the given expression contains variables, then evaluate only the constant numeric terms.
+        /// Partially evaluates the given expression, only calculating the constant expressions numerically.
         /// For example `3x/4 - 1` will give `0.75x - 1`.
-        let rec public partialEval (sp: SumPow) =
+        let public partialEval (sp: SumPow) =
 
-            ()
+            let inline partialEvalPow (Pow (b, p)) =
+                match partialEval b, partialEval p with
+                | Const b, Const p -> Const (b ** p)
+                | b, p -> b ** p
+
+            let inline partialEvalTerm (Term term) =
+                let z = List.map partialEvalPow term
+                let cs, ncs = List.partition (function Const _ -> true | _ -> false) z
+                List.fold ( * ) (Const One) ncs * List.fold ( * ) (Const One) cs
+
+            let inline partialEvalSum (sum: Term list) =
+                let z = List.map partialEvalTerm sum
+                let cs, ncs = List.partition (function Const _ -> true | _ -> false) z
+                List.fold ( + ) (Const Zero) ncs + List.fold ( + ) (Const Zero) cs
+
+            let rec peval = function
+                | PureConstantExpression.PureConstantExpression pc -> Const (evaluate0 pc)
+                | Sum sum -> partialEvalSum sum
+                | Fun(fname, args) -> Fun(fname, List.map partialEval args)
+                | other -> other
+
+            Simplification.simplify (peval sp)
+
+        /// Partially evaluates the given expression, only calculating the constant expressions numerically after expand.
+        /// For example, `4x*(Sqrt[2]/5 + x/3)` will give `2.26274169979695x`.
+        let public partialEvalExpand = Expand.fullExpand >> partialEval
 
         /// Given an expression and a variable, returns a lambda `double -> double`. This makes univariate numerical
         /// evaluations more convenient to work with since we will no longer be dependent on `evaluate1`.
