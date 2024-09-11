@@ -1407,7 +1407,8 @@ module rec SumPow =
             // certainly indicates that there is a problem somewhere in the implementation (hence the need to throw an
             // exception, as this is not expected behavior).
 
-            FixedPoint.tryFixedPoint 5 //>> memoize
+            //FixedPoint.tryFixedPoint 5 //>> memoize
+            FixedPoint.fixedPointMax' 5
             <| function
                 | PureConstantExpression.PureConstantExpression cst -> simpPureConst cst
                 | Name _ as name -> name
