@@ -233,6 +233,8 @@ module public Solve =
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
 
+        exception public InvalidEpsException of double
+
         // Numerical root finding algorithms implemented:
         //
         //  1. Newton's method:
@@ -255,19 +257,38 @@ module public Solve =
         //      - guarantee of convergence
         //
 
+        [<Struct; NoEquality; NoComparison>]
+        type public RealInterval =
+            { a: double
+              b: double }
+
+        /// Checks if the interval is empty.
+        let inline private isEmptyInterval { a = a; b = b } = b < a
+
         [<NoComparison; NoEquality>]
         type public RootFinder =
-            | ITP           of {| a: double; b: double; eps: double; κ1: double; κ2: double; n: int; f: double -> double |}
-            | ITP'          of {| a: double; b: double; eps: double; f: double -> double |}
-            | Bisection     of {| a: double; b: double; eps: double; maxIter: int option; f: double -> double |}
-            | Illinois      of {| a: double; b: double; eps: double; maxIter: int option; f: double -> double |}
+            | ITP           of {| interval: RealInterval; eps: double; κ1: double; κ2: double; n: int; f: double -> double |}
+            | ITP'          of {| interval: RealInterval; eps: double; f: double -> double |}
+            | Bisection     of {| interval: RealInterval; eps: double; f: double -> double |}
+            | Illinois      of {| interval: RealInterval; eps: double; f: double -> double |}
             | Steffensen    of {| initialGuess: double; eps: double; maxIter: int option; f: double -> double |}
             | NewtonRaphson of {| initialGuess: double; eps: double; maxIter: int option; f: double -> double; f': double -> double |}
+
+        [<NoComparison; NoEquality; Struct; RequireQualifiedAccess>]
+        type public RootFinderResult =
+            | Root of double    // The root found
+            | NoRoot            // The interval contains no root
+            | Failed            // The algorithm didn't converged
+
+        /// Assuming the function is continuous, check whether the function has at least one root in the interval `[a, b]`.
+        let inline private containsRoot { a = a; b = b } (eps: double) (f: double -> double) =
+            if isEmptyInterval { a = a; b = b } then false else
+            let t = (f a) * (f b) in t < 0 || Math.approximatelyEquals t 0 (ValueSome eps)
 
         /// Recursive version of the ITP (Interpolate Truncate and Project) method.
         /// See https://en.wikipedia.org/wiki/ITP_method.
         /// See https://dl.acm.org/doi/10.1145/3423597.
-        let private ITP (a: double) (b: double) (ε: double) (κ1: double) (κ2: double) (n: int) (f: double -> double) =
+        let private ITP { a = a; b = b } (ε: double) (κ1: double) (κ2: double) (n: int) (f: double -> double) =
             let n' = ceil (log ((b - a) / (2. * ε)) / log 2.)
             let nₘₐₓ = n' + double n
 
@@ -313,51 +334,42 @@ module public Solve =
             let rec loop x k =
                 let fx = f x
 
-                if abs fx <= eps
-                    || Math.approximatelyEquals fx 0 (ValueSome eps)
-                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
-                then x
+                if abs fx <= eps then x
                 else loop (x - (pown fx 2) / (fx - f (x - fx))) (k + 1)
 
             loop initialGuess 0
 
         /// Recursive version of the secant method.
         /// See https://en.wikipedia.org/wiki/Secant_method.
-        let private bisection (a: double) (b: double) (eps: double) (maxIter: int option) (f: double -> double) =
+        let private bisection { a = a; b = b } (eps: double) (f: double -> double) =
 
             let rec loop a b x k =
                 let fx = f x
 
-                if abs fx <= eps
-                    || Math.approximatelyEquals fx 0 (ValueSome eps)
-                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
-                then x
-                else
-                    let a, b = if f a * fx > 0 then x, b else a, x
-                    loop a b ((a + b) / 2.) (k + 1)
+                if abs fx <= eps then x else
+
+                let a, b = if f a * fx > 0 then x, b else a, x
+                loop a b ((a + b) / 2.) (k + 1)
 
             loop a b ((a + b) / 2.) 0
 
         /// Recursive version of the Illinois method.
         /// See https://en.wikipedia.org/wiki/Regula_falsi#The_Illinois_algorithm.
-        let private illinois (a: double) (b: double) (eps: double) (maxIter: int option) (f: double -> double) =
+        let private illinois { a = a; b = b } (eps: double) (f: double -> double) =
 
             let rec loop a b fa fb k =
                 let x = (a + b) / 2.
                 let fx = f x
 
-                if abs fx <= eps
-                    || Math.approximatelyEquals fx 0 (ValueSome eps)
-                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
-                then x
-                else
-                    let c = b - fb * (b - a) / (fb - fa)
-                    let fc = f c
-                    
-                    let a, fa = if fb * fc < 0. then b, fb else a, (fa / 2.)
-                    let b, fb = c, fc
+                if abs fx <= eps then x else
 
-                    loop a b fa fb (k + 1)
+                let c = b - fb * (b - a) / (fb - fa)
+                let fc = f c
+                
+                let a, fa = if fb * fc < 0. then b, fb else a, (fa / 2.)
+                let b, fb = c, fc
+
+                loop a b fa fb (k + 1)
 
             loop a b (f a) (f b) 0
 
@@ -368,34 +380,38 @@ module public Solve =
             let rec loop x0 k =
                 let fx = f x0
 
-                if abs fx <= eps
-                    || Math.approximatelyEquals fx 0 (ValueSome eps)
-                    || Option.defaultValue false (Option.map (( >= ) k) maxIter)
-                then x0
-                else
-                    let x1 = x0 - fx / f' x0
-                    loop x1 (k + 1)
+                if abs fx <= eps then x0 else
+
+                let x1 = x0 - fx / f' x0
+                loop x1 (k + 1)
 
             loop initialGuess 0
 
         /// Use a given method and its parameters to find an approximated real root.
         let public findRoot (method: RootFinder) =
             match method with
-            | ITP rf -> ITP rf.a rf.b rf.eps rf.κ1 rf.κ2 rf.n rf.f
-            | ITP' rf -> ITP rf.a rf.b rf.eps 0.1 (0.98 * (1. + (1. + sqrt 5.) / 2.)) 2 rf.f
-            | Bisection rf -> bisection rf.a rf.b rf.eps rf.maxIter rf.f
-            | Illinois rf -> illinois rf.a rf.b rf.eps rf.maxIter rf.f
+            | ITP rf -> ITP rf.interval rf.eps rf.κ1 rf.κ2 rf.n rf.f
+            | ITP' rf -> ITP rf.interval rf.eps 0.1 (0.98 * (1. + (1. + sqrt 5.) / 2.)) 2 rf.f
+            | Bisection rf -> bisection rf.interval rf.eps rf.f
+            | Illinois rf -> illinois rf.interval rf.eps rf.f
             | Steffensen rf -> steffensen rf.initialGuess rf.eps rf.maxIter rf.f
             | NewtonRaphson rf -> newtonRaphson rf.initialGuess rf.eps rf.maxIter rf.f rf.f'
 
         /// The default root finder for Liyh. The function takes the bounds between which to try to deduce
-        /// a root, as well as the function to be tested.
-        let public defaultRootFinder' (a: double) (b: double) (f: double -> double) =
-            let a, b = min a b, max a b
-            findRoot (Illinois {| a = a; b = b; eps = 0.001; maxIter = Some 25; f = f |})
+        /// a root, as well as the univariate SumPow expression function of the given variable to be tested.
+        /// The numerical method used is the ITP method.
+        let public defaultRootFinder (interval: RealInterval) (eps: double) (expr: SumPow) (variable: string) =
+            if eps <= 0 then
+                raise (InvalidEpsException eps)
 
-        /// The default root finder for Liyh. The function takes the bounds between which to try to deduce
-        /// a root, as well as the SumPow expression function of the given variable to be tested.
-        let public defaultRootFinder (a: double) (b: double) (expr: SumPow) (variable: string) =
-            defaultRootFinder' a b (makef1 expr variable)
+            let fn = (makef1 expr variable)
+            if not (containsRoot interval eps fn) then RootFinderResult.NoRoot else
 
+            let rnd = digitCountBigInt (bigint (1. / (eps - truncate eps))) - 1
+            let rnd = if rnd < 15 then rnd else 15
+
+            let root = findRoot (ITP' {| interval = interval; eps = eps; f = fn |})
+            RootFinderResult.Root (Math.Round(root, rnd))
+
+
+// Inéqualitées https://tutorial.math.lamar.edu/classes/alg/solvepolyinequalities.aspx
