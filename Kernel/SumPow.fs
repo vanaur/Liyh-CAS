@@ -1447,9 +1447,12 @@ module rec SumPow =
                 let spk = Const k
                 let bin = Const(binomial n k)
 
+                let inline mapping (Pow(b, p)) =
+                    [ power' (expand b, expand p * (spn - spk))
+                      power' (expand b, expand p * spk) ]
+
                 powId bin
-                :: List.map (function Pow(b, p) -> power' (expand b, expand p * (spn - spk))) x
-                 @ List.map (function Pow(b, p) -> power' (expand b, expand p * spk)) y
+                :: List.collect mapping x
                 |> Simplification.basicTermSimp
                 |> Flatten.flattenTerm
                 |> Term
