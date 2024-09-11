@@ -370,6 +370,95 @@ module public rec MultiLinearAlgebra =
             | Matrix1D.RowVector -> fromArray [| cs |]
             | Matrix1D.ColumnVector -> fromArray [| for i = 0 to Array.length cs - 1 do [| cs.[i] |] |]
 
+        /// This module implements the parallel Strassen matrix multiplication algorithm.
+        /// See https://en.wikipedia.org/wiki/Strassen_algorithm.
+        module private Strassen =
+
+            /// Splits the given matrix in four smaller matrices.
+            let private splitMatrix (matrix: SumPow[,]) =
+                let n = Array2D.length1 matrix / 2
+                let m = Array2D.length2 matrix / 2
+
+                let A11 = Array2D.init n m (fun i j -> matrix.[i, j])
+                let A12 = Array2D.init n m (fun i j -> matrix.[i, j + m])
+                let A21 = Array2D.init n m (fun i j -> matrix.[i + n, j])
+                let A22 = Array2D.init n m (fun i j -> matrix.[i + n, j + m])
+
+                A11, A12, A21, A22
+
+            /// Builds a matrix from the four given matrices.
+            let private mergeMatrix (c11: SumPow[,]) (c12: SumPow[,]) (c21: SumPow[,]) (c22: SumPow[,]) =
+                let n = Array2D.length1 c11
+                let m = Array2D.length2 c11
+                let result = Array2D.init (2 * n) (2 * m) (konst2 (Const Zero))
+
+                for i = 0 to n - 1 do
+                    for j = 0 to m - 1 do
+                        result.[i, j] <- c11.[i, j]
+                        result.[i, j + m] <- c12.[i, j]
+                        result.[i + n, j] <- c21.[i, j]
+                        result.[i + n, j + m] <- c22.[i, j]
+
+                result
+
+            /// Classic matrix addition.
+            let inline private addMatrix (matrix1: SumPow[,]) (matrix2: SumPow[,]) =
+                let inline initializer i j = matrix1.[i, j] + matrix2.[i, j]
+                Array2D.init (Array2D.length1 matrix1) (Array2D.length2 matrix1) initializer
+
+            /// Classic matrix substraction.
+            let inline private subtractMatrix (A: SumPow[,]) (B: SumPow[,]) =
+                Array2D.init (Array2D.length1 A) (Array2D.length2 A) (fun i j -> A.[i, j] - B.[i, j])
+
+            /// Classic matrix multiplication for square matrix.
+            let inline private multiplyMatrix (A: SumPow[,]) (B: SumPow[,]) (n: int) =
+                let result = Array2D.init n n (konst2 (Const Zero))
+
+                for i = 0 to n - 1 do
+                    for j = 0 to n - 1 do
+                        for k = 0 to n - 1 do
+                            result.[i, j] <- result.[i, j] + A.[i, k] * B.[k, j]
+
+                result
+
+            /// The Strassen's multiplication algorithm for square matrix.
+            let rec public strassen (A: SumPow[,]) (B: SumPow[,]) =
+
+                // The efficiency of Strassen's algorithm may depend on the processor, but above all on the
+                // size of the matrices. It will be less efficient than the naive multiplication algorithm
+                // for matrices of modest size.
+
+                if Array2D.length1 A <= 350 then multiplyMatrix A B (Array2D.length1 A) else
+
+                let A11, A12, A21, A22 = splitMatrix A
+                let B11, B12, B21, B22 = splitMatrix B
+
+                let taskM1 = Task.Run(fun _ -> strassen (addMatrix A11 A22) (addMatrix B11 B22))
+                let taskM2 = Task.Run(fun _ -> strassen (addMatrix A21 A22) B11)
+                let taskM3 = Task.Run(fun _ -> strassen A11 (subtractMatrix B12 B22))
+                let taskM4 = Task.Run(fun _ -> strassen A22 (subtractMatrix B21 B11))
+                let taskM5 = Task.Run(fun _ -> strassen (addMatrix A11 A12) B22)
+                let taskM6 = Task.Run(fun _ -> strassen (subtractMatrix A21 A11) (addMatrix B11 B12))
+                let taskM7 = Task.Run(fun _ -> strassen (subtractMatrix A12 A22) (addMatrix B21 B22))
+
+                let tasks: Task[] = [| taskM1; taskM2; taskM3; taskM4; taskM5; taskM6; taskM7 |]
+                Task.WaitAll tasks
+
+                let M1 = taskM1.Result
+                let M2 = taskM2.Result
+                let M3 = taskM3.Result
+                let M4 = taskM4.Result
+                let M5 = taskM5.Result
+                let M6 = taskM6.Result
+                let M7 = taskM7.Result
+
+                let C11 = addMatrix (subtractMatrix (addMatrix M1 M4) M5) M7
+                let C12 = addMatrix M3 M5
+                let C21 = addMatrix M2 M4
+                let C22 = addMatrix (subtractMatrix (addMatrix M1 M3) M2) M6
+
+                mergeMatrix C11 C12 C21 C22
+
         module private Operations =
 
             let public addition (m1: Matrix) (m2: Matrix) =
@@ -437,7 +526,21 @@ module public rec MultiLinearAlgebra =
 
                 Matrix result
 
-            /// Implements naive matrix multiplication. The calculation is parallelized for large matrices.
+            /// Classic matrix multiplication.
+            let public naiveMultiplication (m1: Matrix) (m2: Matrix) =
+                let r1, c1 = size m1
+                let _, c2 = size m2
+
+                let mutable result = Array2D.create r1 c2 (Const Zero)
+
+                for i in 0 .. r1 - 1 do
+                    for j in 0 .. c2 - 1 do
+                        for k in 0 .. c1 - 1 do
+                            result.[i, j] <- result.[i, j] + m1.[i, k] * m2.[k, j]
+
+                Matrix result
+
+            /// Implement three matrix multiplication algorithms depending of the matrices size.
             let public multiplication (m1: Matrix) (m2: Matrix) =
                 let cs1 = copyFreeComponents m1
                 let cs2 = copyFreeComponents m2
@@ -448,17 +551,16 @@ module public rec MultiLinearAlgebra =
                 if cols1 <> rows2 then
                     raise (IncompatibleMatrixException [ m1; m2 ])
 
-                if rows1 >= 100 then
-                    pmultiplication cs1 cs2 rows1 cols1 cols2
-                else
-                    let mutable result = Array2D.create rows1 cols2 (Const Zero)
+                // For large square matrices, we use the parallelized Strassen algorithm.
+                if rows1 >= 500 && isSquareMatrix m1 && isSquareMatrix m2 then
+                    let (Matrix m1), (Matrix m2) = m1, m2
+                    Matrix (Strassen.strassen m1 m2)
 
-                    for i in 0 .. rows1 - 1 do
-                        for j in 0 .. cols2 - 1 do
-                            for k in 0 .. cols1 - 1 do
-                                result.[i, j] <- result.[i, j] + cs1.[i, k] * cs2.[k, j]
+                // For medium matrices that are not square, we use the parallelized version of naive multiplication.
+                elif rows1 >= 100 then pmultiplication cs1 cs2 rows1 cols1 cols2
 
-                    Matrix result
+                // In the case of small matrices, we use classical multiplication.
+                else naiveMultiplication m1 m2
 
             /// Exponentiate the given square matrix to the given integer.
             let rec public pown (matrix: Matrix) (n: int) =
