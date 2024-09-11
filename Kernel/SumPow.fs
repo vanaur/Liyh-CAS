@@ -415,6 +415,7 @@ module rec SumPow =
             | Sum xs, Sum ys -> compare xs ys
             | Fun(fname1, xs), Fun(fname2, ys) when fname1 = fname2 -> compare xs ys
         //  | _ -> -1
+            | DivByZero _, DivByZero _ -> -1
             | a, b -> compare (hash a) (hash b)
 
         let public compareTerm (Term xs, Term ys) = compare xs ys
