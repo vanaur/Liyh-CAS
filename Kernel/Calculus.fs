@@ -11,6 +11,101 @@ namespace Liyh.Kernel
 
 module rec Calculus =
     open Liyh.Utils
+    open Liyh.Kernel
+    open Liyh.Kernel.TrueVariable
+    open SumPow.InternalFunction
+
+    exception public UnknownFunctionException of string
+    exception public UnknownExpressionException of SumPow
+
+    /// Checks whether the given expression contains `Name variable`.
+    let inline private containsVariable (variable: string) (expr: SumPow) =
+        containsVariables expr [ variable ]
+
+
+    module public Derive =
+
+        /// Returns the univariate derivative of the expression given in the indicated variable.
+        let rec public sderive (variable: string) =
+            function
+            | Const _ -> Const Zero
+            | sp when not (containsVariable variable sp) -> Const Zero
+            | Name name when name = variable -> Const One
+            | Sum xs -> sderiveSum variable xs
+            | InternalFunction ifun -> sderiveInternalFunction variable ifun
+            | Fun(fn, _) -> raise (UnknownFunctionException fn)
+            | other -> raise (UnknownExpressionException other)
+
+            >> Simplification.expandAndSimplify // faudra mieux faire
+
+        and private sderiveSum (variable: string) (sum: Term list) =
+            Sum (List.collect (function Term term -> sderiveTerm variable term) sum)
+
+        and private sderiveTerm (variable: string) (term: Pow list) =
+            List.fold (fun acc a -> Term (sderivePow variable a :: List.remove (( = ) a) term) :: acc) [] term
+
+        and private sderivePow (variable: string) =
+            function
+            | Pow(Name name, sp) when name = variable && not (containsVariable variable sp) ->
+                powId (sp * (Name name ** (sp - 1)))
+
+            | Pow(sp, Name name) when name = variable && not (containsVariable variable sp) ->
+                powId (liyhLn sp * (sp ** Name name))
+
+            | Pow(f, g) ->
+                powId ((f ** (g - 1)) * (g * sderive variable f + f * liyhLn f * sderive variable g))
+
+        and private sderiveInternalFunction (variable: string) =
+            function
+            | LiyhAbs x -> sderive variable x * liyhSgn x
+            | LiyhArCos x -> sderive variable x * (-1 / liyhSqrt (1 - x ** 2))
+            | LiyhArCosh x -> sderive variable x * (1 / (liyhSqrt (x - 1) * liyhSqrt (x + 1)))
+            | LiyhArCot x -> sderive variable x * (-1 / (x ** 2 + 1))
+            | LiyhArCoth x -> sderive variable x * (1 / (1 - x ** 2))
+            | LiyhArCsc x -> sderive variable x * (-1 / (liyhSqrt (1 - 1 / (x ** 2)) * (x ** 2)))
+            | LiyhArCsch x -> sderive variable x * (-1 / (liyhSqrt (1 / (x ** 2) + 1) * (x ** 2)))
+            | LiyhArSec x -> sderive variable x * (1 / (liyhSqrt (1 - 1 / (x ** 2)) * (x ** 2)))
+            | LiyhArSech x -> sderive variable x * (-1 / (liyhSqrt (1 / x - 1) * liyhSqrt (1 / x + 1) * (x ** 2)))
+            | LiyhArSin x -> sderive variable x * (1 / liyhSqrt (1 - x ** 2))
+            | LiyhArSinh x -> sderive variable x * (1 / liyhSqrt (x ** 2 + 1))
+            | LiyhArTan x -> sderive variable x * (1 / (x ** 2 + 1))
+            | LiyhArTanh x -> sderive variable x * (1 / (1 - x ** 2))
+            | LiyhCos x -> sderive variable x * -liyhSin x
+            | LiyhCosh x -> sderive variable x * liyhSinh x
+            | LiyhCot x -> sderive variable x * -(liyhCsc x ** 2)
+            | LiyhCoth x -> -(liyhCsch x) ** 2
+            | LiyhCsc x -> sderive variable x * -liyhCot x * liyhCsc x
+            | LiyhCsch x -> sderive variable x * -liyhCoth x * liyhCsch x
+            | LiyhExp x -> sderive variable x * liyhExp x
+            | LiyhLog(x, None) -> sderive variable x * (1 / x)
+            | LiyhLog(x, Some b) -> sderive variable x * (1 / (x * liyhLn b))
+            | LiyhPow(b, p) -> sderive variable (b ** p)
+            | LiyhRoot(x, None) -> sderive variable x * (1 / (2 * liyhSqrt x))
+            | LiyhRoot(x, Some nth) -> sderive variable x * sderive variable (x ** 1 / nth)
+            | LiyhSec x -> sderive variable x * liyhTan x * liyhSec x
+            | LiyhSech x -> sderive variable x * -liyhTanh x * liyhSech x
+            | LiyhSin x -> sderive variable x * liyhCos x
+            | LiyhSinh x -> sderive variable x * liyhCosh x
+            | LiyhTan x -> sderive variable x * (liyhSec x) ** 2
+            | LiyhTanh x -> sderive variable x * (liyhSech x) ** 2
+            | LiyhSgn x -> sderive variable x * 2 * liyhDelta x
+            | LiyhCeil x -> failwith "TODO: need Context.fs"
+            | LiyhDelta x -> failwith "TODO: need Context.fs"
+            | LiyhFloor x -> failwith "TODO: need Context.fs"
+            | LiyhRound x -> failwith "TODO: need Context.fs"
+            | LiyhSinc x -> failwith "TODO: need Context.fs"
+            | LiyhId x -> sderive variable x
+
+        /// Returns the univariate nth-derivative of the expression given in the indicated variable.
+        let public sNthDerive (variable: string) (nth: int) (expr: SumPow) =
+
+            let rec loop result =
+                function
+                | n when n < 0 -> invalidArg "nth" "negative nth-derivative."
+                | 0 -> result
+                | n -> loop (sderive variable result) (n - 1)
+
+            (memoize loop) expr nth
 
     module public NumericEvaluation =
         open SumPow.NumericEvaluation
