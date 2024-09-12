@@ -15,16 +15,19 @@ The aim of the kernel is to provide the essential and general elements of comput
    - [`Polynomial.fs`](Polynomial.fs) – represents univariate and multivariate general polynomials whose coefficients are in SumPow.
  - Represent and manipulate **matrices**, **vectors** and **tensor** expressions via
    - [`MultiLinearAlgebra.fs`](MultiLinearAlgebra.fs) – represent and manipulate matrices, vectors and tensor expressions.
+ - Represent and solve **equations** symbolically and numerically via
+   - [`Equation.fs`](Equation.fs) – represents the different kinds of equation as well as numerical solvers.
+   - [`Solve.fs`](Solve.fs) – contains methods for solving equations.
+ - Implement algebraic and numerical methods for **calculus** problems via
+   - [`Calculus.fs`](Calculus.fs) – implements algorithms for evaluating limits, derivatives, integrals and series.
+ - Miscellaneous mathematical elements via
+   - [`Tools.Utils.Math`](../Tools/Utils.fs) – implements some useful and general maths methods.
  - Perform **numerical operations** via
    - [`Constant.fs`](Constant.fs) by nature.
    - [`SumPow.fs`](SumPow.fs) using `NumericEvaluation`.
    - [`Polynomial.fs`](Polynomial.fs) using `NumericEvaluation`.
    - [`MultiLinearAlgebra.fs`](MultiLinearAlgebra.fs) using `NumericEvaluation`.
- - Represent and solve **equations** symbolically and numerically via
-   - [`Equation.fs`](Equation.fs) – represents the different kinds of equation as well as numerical solvers.
-   - [`Solve.fs`](Solve.fs) – contains methods for solving equations.
- - Miscellaneous mathematical elements via
-   - [`Tools.Utils.Math`](../Tools/Utils.fs) – implements some useful and general maths methods.
+   - [`Calculus.fs`](Calculus.fs) using `NumericEvaluation`.
 
 ## Current considerations
 
