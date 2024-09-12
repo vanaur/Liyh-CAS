@@ -1494,6 +1494,7 @@ module rec Polynomial =
 
     // This module contains useful algorithms for dividing and factoring polynomials.
     module public Division =
+        open Factorization
 
         exception public InfiniteLoopDuringPolynomialReductionException
 
@@ -1573,6 +1574,34 @@ module rec Polynomial =
             | Some num, None -> toSumPow num
             | None, Some den -> 1 / toSumPow den
             | None, None -> raise EmptyPolynomialException
+
+        /// Attempt to factor the numerator and denominator of the given univariate rational polynomial.
+        let public tryFactoring { numerator = num; denominator = den } =
+            if Option.forall (not << isUnivariate) num && Option.forall (not << isUnivariate) den then None else
+
+            match num, den with
+            | Some num, Some den ->
+                let num, den = compatible num den
+                if num.variables <> den.variables then None else
+
+                let var, _ = getUnivariateVariableAndIndex num
+                match Factorization.tryFactoring num (Some var), Factorization.tryFactoring den (Some var) with
+                | FactoringResult.Univariate univ1, FactoringResult.Univariate univ2 -> Some (Some univ1, Some univ2)
+                | _ -> None
+
+            | Some num, None ->
+                let var, _ = getUnivariateVariableAndIndex num
+                match Factorization.tryFactoring num (Some var) with
+                | FactoringResult.Univariate univ1 -> Some (Some univ1, None)
+                | _ -> None
+
+            | None, Some den ->
+                let var, _ = getUnivariateVariableAndIndex den
+                match Factorization.tryFactoring den (Some var) with
+                | FactoringResult.Univariate univ1 -> Some (Some univ1, None)
+                | _ -> None
+
+            | _ -> None
 
         // The division of univariate polynomials is "simple" and is performed via Euclidean division extended to polynomials.
         // The proposed implementation uses synthetic division (which is algorithmically better than long division).
