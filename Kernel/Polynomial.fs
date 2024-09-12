@@ -1498,9 +1498,30 @@ module rec Polynomial =
         exception public InfiniteLoopDuringPolynomialReductionException
 
         /// In polynomial division, the result is often not a polynomial but a fraction of polynomials.
+        [<Symbolic; NoComparison>]
         type public RationalPolynomial =
             { numerator: Polynomial option
               denominator: Polynomial option }
+
+            interface ISymbolic with
+                member this.ToLatex () = Some (toLatex this)
+                member this.ToLatexOrString () = toLatex this
+                member this.ToSymbolic () = toSymbolic this
+                member this.Hash = hash this
+
+        let private toLatex { numerator = num; denominator = den } =
+            match num, den with
+            | Some num, Some den -> sprintf @"\frac{%s}{%s}" (toLatexValue num) (toLatexValue den)
+            | Some num, None -> toLatexValue num
+            | None, Some den -> sprintf @"\frac{1}{%s}" (toLatexValue den)
+            | None, None -> failwith "??" // May not happen
+
+        let private toSymbolic { numerator = num; denominator = den } =
+            match num, den with
+            | Some num, Some den -> Atomic.toSymbolic (toSumPow num / toSumPow den)
+            | Some num, None -> Atomic.toSymbolic num
+            | None, Some den -> Atomic.toSymbolic (1 / toSumPow den)
+            | None, None -> failwith "??" // May not happen
 
         let inline public isSimplePolynomial { numerator = numerator; denominator = denominator } =
             Option.isNone denominator && Option.isSome numerator
