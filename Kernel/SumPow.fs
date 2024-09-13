@@ -563,6 +563,7 @@ module rec SumPow =
                 | Const (Constant 0.) :: lst -> loop result lst
                 | Const (Constant n) :: lst when n < 0 -> loop (catResult Minus (string (Constant (abs n)))) lst
                 | Negative (Const (Constant 1.), y) :: lst -> loop (catResult Minus (toLatex y)) lst
+                | Negative (Const n, y) :: lst -> loop (catResult Minus (sprintf @"%s{%s}" (string n) (toLatex y))) lst
                 | Negative (x, y) :: lst -> loop (catResult Minus (sprintf @"%s\cdot{%s}" (toLatex x) (toLatex y))) lst
                 | x :: lst -> loop (catResult Plus (toLatex x)) lst
 
