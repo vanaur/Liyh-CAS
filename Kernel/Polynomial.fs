@@ -1159,34 +1159,56 @@ module rec Polynomial =
     let private toLatex = toSumPow >> Atomic.toLatexValue
     let private toSymbolic = toSumPow >> Atomic.toSymbolic
 
-(*
-    /// Returns all zero and non-zero coefficients of the polynomial.
-    let public completeCoefficients (p: Polynomial) =
-        if isZeroPolynomial p then List.empty else
+    [<AutoOpen>]
+    module public Coefficients =
+        open PureConstantExpression
 
-        let hdeg = List.map snd (snd (leadingTerm p))
-        let allDegrees = cartProd (List.map (fun d -> [ 0 .. d ]) hdeg)
+        (*
+            /// Returns all zero and non-zero coefficients of the polynomial.
+            let public completeCoefficients (p: Polynomial) =
+                if isZeroPolynomial p then List.empty else
 
-        [ for deg in allDegrees do
-              Map.tryFind (MonomialDegree deg) p.polynomial
-              |> Option.defaultValue (SumPow.Const 0) ]
+                let hdeg = List.map snd (snd (leadingTerm p))
+                let allDegrees = cartProd (List.map (fun d -> [ 0 .. d ]) hdeg)
 
-        |> List.rev
-*)
+                [ for deg in allDegrees do
+                    Map.tryFind (MonomialDegree deg) p.polynomial
+                    |> Option.defaultValue (SumPow.Const 0) ]
 
-    let public completeCoefficients (p: Polynomial) =
-        if isZeroPolynomial p then List.empty else
+                |> List.rev
+        *)
 
-        let temp = Map.toArray p.polynomial |> Array.map (fun (MonomialDegree deg, _) -> Array.ofList deg) |> array2D
-        let hdeg = [ for c in 0 .. Array2D.length2 temp - 1 -> Array.max temp.[*, c] ]
+        /// Returns all zero and non-zero coefficients of the polynomial.
+        let public completeCoefficients (p: Polynomial) =
+            if isZeroPolynomial p then List.empty else
 
-        let allDegrees = cartProd (List.map (fun d -> [ 0 .. d ]) hdeg)
+            let temp = Map.toArray p.polynomial |> Array.map (fun (MonomialDegree deg, _) -> Array.ofList deg) |> array2D
+            let hdeg = [ for c in 0 .. Array2D.length2 temp - 1 -> Array.max temp.[*, c] ]
 
-        [ for deg in allDegrees do
-              Map.tryFind (MonomialDegree deg) p.polynomial
-              |> Option.defaultValue (Const 0) ]
+            let allDegrees = cartProd (List.map (fun d -> [ 0 .. d ]) hdeg)
 
-        |> List.rev
+            [ for deg in allDegrees do
+                Map.tryFind (MonomialDegree deg) p.polynomial
+                |> Option.defaultValue (Const 0) ]
+
+            |> List.rev
+
+        /// Simplify each coefficient of the given polynomial and remove the zero coefficients from the polynomial.
+        let public simplifyCoefficients (p: Polynomial) =
+            { p with
+                polynomial =
+                    p.polynomial
+                    |> Map.map (fun _ coeff -> Simplification.expandAndSimplify coeff)
+                    |> Map.filter (konst (not << Misc.isZero)) }
+
+        /// Check whether the given univariate polynomial has integer coefficients only.
+        let public hasIntegerCoefficients (p: Polynomial) =
+            List.forall Misc.isPureConstInteger (completeCoefficients p)
+
+        /// Returns the complete list of coefficients of the given univariate polynomial with integer coefficients.
+        let public integerCoefficients (p: Polynomial) =
+            if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
+            List.map (function PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
 
     module public Calculus =
 
@@ -1294,14 +1316,6 @@ module rec Polynomial =
 
         |> SumPow.Sum
 
-    /// Simplify each coefficient of the given polynomial and remove the zero coefficients from the polynomial.
-    let public simplifyCoefficients (p: Polynomial) =
-        { p with
-            polynomial =
-                p.polynomial
-                |> Map.map (fun _ coeff -> Simplification.expandAndSimplify coeff)
-                |> Map.filter (konst (not << Misc.isZero)) }
-
     /// Returns the reciprocal polynomial of the given polynomial using the default monomial ordering.
     let public reciprocalPolynomial (p: Polynomial) =
         let degrees, coefficients = Array.unzip (Map.toArray p.polynomial)
@@ -1309,6 +1323,7 @@ module rec Polynomial =
         let poly = Map.ofArray (Array.zip degrees coefficients')
 
         { p with polynomial = poly }
+
 
     /// Convert multivariate polynomial p ∈ K[x₁, x₂, ..., xᵢ, ..., xₙ] into the univariate polynomial
     /// p' ∈ (k[x₁, x₂, ..., xₙ])[xᵢ] in the polynomial field k[...] and in the unique variable xᵢ.
@@ -1360,10 +1375,10 @@ module rec Polynomial =
         /// Returns the content of the integer-coefficients given polynomial.
         /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
         let public content (p: Polynomial) =
-            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+            if not (hasIntegerCoefficients p) then
                 raise (PolynomialHaveNonIntegerCoefficientsException p)
             
-            List.aggregate intGCD (Factorization.IntegerCoefficients.integerCoefficients p)
+            List.aggregate intGCD (integerCoefficients p)
             |> double
             |> Constant
             |> Const
@@ -1371,7 +1386,7 @@ module rec Polynomial =
         /// Returns the primitive part of the integer-coefficients given polynomial.
         /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
         let public primitive (p: Polynomial) =
-            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+            if not (hasIntegerCoefficients p) then
                 raise (PolynomialHaveNonIntegerCoefficientsException p)
 
             p / content p
@@ -1379,7 +1394,7 @@ module rec Polynomial =
         /// Check if the content of the integer-coefficients given polynomial equals 1.
         /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
         let public isPrimitive (p: Polynomial) =
-            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+            if not (hasIntegerCoefficients p) then
                 raise (PolynomialHaveNonIntegerCoefficientsException p)
             
             Misc.isOne (content p)
@@ -1956,15 +1971,6 @@ module rec Polynomial =
         [<RequireQualifiedAccess>]
         module public IntegerCoefficients =
 
-            /// Check whether the given univariate polynomial has integer coefficients only.
-            let public hasIntegerCoefficients (p: Polynomial) =
-                List.forall Misc.isPureConstInteger (completeCoefficients p)
-
-            /// Returns the complete list of coefficients of the given univariate polynomial with integer coefficients.
-            let public integerCoefficients (p: Polynomial) =
-                if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
-                List.map (function PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
-
             [<RequireQualifiedAccess>]
             module public RationalRoots =
 
@@ -2188,7 +2194,7 @@ module rec Polynomial =
                  |> Option.orElseWith (konst (Specific.trySophieGermain p))
 
         let inline private tryIntCoeff (p: Polynomial) =
-            if IntegerCoefficients.hasIntegerCoefficients p
+            if hasIntegerCoefficients p
             then IntegerCoefficients.RationalRoots.tryFactoring p
             else None
 
