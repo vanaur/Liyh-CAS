@@ -1036,20 +1036,6 @@ module rec Polynomial =
             | GeneralPolynomial excludedVariables poly -> poly
             | other -> raise (NotAPolynomialException other)
 
-        /// Check whether the given polynomial is univariate.
-        let public isUnivariate { variables = variables; polynomial = polynomial } =
-
-            // A polynomial may not be multivariate in its variables list, but only have monomials in the same variable,
-            // and thus be univariate by definition.
-            let univariateTest () =
-                let matrix = List.map (function MonomialDegree deg -> deg) (Seq.toList (Map.keys polynomial))
-                List.length (List.filter (flip List.any (( <> ) 0)) (List.transpose matrix)) <= 1
-
-            List.length variables = 1 || univariateTest ()
-
-        /// Check whether the given polynomial is multiunivariate.
-        let public isMultivariate = not << isUnivariate
-
     /// Various methods for working with leading monomials (LT, LM, LC), coefficients and degrees.
     [<AutoOpen>]
     module public Tools =
@@ -1210,6 +1196,81 @@ module rec Polynomial =
             if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
             List.map (function PureConstantExpressionInteger coeff -> coeff) (completeCoefficients p)
 
+    [<AutoOpen>]
+    module public Univariate =
+
+        /// Check whether the given polynomial is univariate.
+        let public isUnivariate { variables = variables; polynomial = polynomial } =
+
+            // A polynomial may not be multivariate in its variables list, but only have monomials in the same variable,
+            // and thus be univariate by definition.
+            let univariateTest () =
+                let matrix = List.map (function MonomialDegree deg -> deg) (Seq.toList (Map.keys polynomial))
+                List.length (List.filter (flip List.any (( <> ) 0)) (List.transpose matrix)) <= 1
+
+            List.length variables = 1 || univariateTest ()
+
+        /// Check whether the given polynomial is multiunivariate.
+        let public isMultivariate = not << isUnivariate
+
+        /// Returns the univariate polynomial variable and its position in the type structure.
+        let public getUnivariateVariableAndIndex ({ variables = variables; polynomial = polynomial } as p) =
+            if not (isUnivariate p) then
+                raise (NotUnivariatePolynomialException p)
+
+            if List.length variables = 1 then List.head variables, 0 else
+            if isConstantPolynomial p then failwith "Cannot find the variable in a constant polynomial."
+
+            let indexes = Seq.filter (function MonomialDegree deg -> List.any deg (( <> ) 0)) (Map.keys polynomial)
+            let index = match Seq.head indexes with MonomialDegree deg -> List.findIndex (( <> ) 0) deg // lazy filter
+
+            variables.[index], index
+
+        /// Convert multivariate polynomial p ∈ K[x₁, x₂, ..., xᵢ, ..., xₙ] into the univariate polynomial
+        /// p' ∈ (k[x₁, x₂, ..., xₙ])[xᵢ] in the polynomial field k[...] and in the unique variable xᵢ.
+        ///
+        /// For example, let p(x, y, z) = x³yz + x²y² + 3x³ + 2x² + xy + xz + 1 (with x, y, z ∈ K) then
+        /// we can write the univariate polynomial p'(x) = (yz + 3)x³ + (y² + 2)x² + (y + z)x + 1 as a polynomial
+        /// in the multivariate polynomial field K[y, z] and with variable x.
+        let public asUnivariate (variable: Variable) (p: Polynomial) =
+            if not (List.contains variable p.variables) then
+                raise (PolynomialNotContainsVariablesException (p, [ variable ]))
+
+            if isUnivariate p then
+                p
+            else
+
+                let degIndex = List.findIndex ((=) variable) p.variables
+                let variables' = List.removeAt degIndex p.variables
+
+                let variablesAsCoefficients =
+                    List.map2 (fun var (deg: int) -> var ** deg) variables'
+
+                let rec inner result =
+                    function
+                    | [] -> result
+                    | (MonomialDegree degs, coeff) :: rest ->
+                        let udeg = MonomialDegree [ degs.[degIndex] ]
+                        let degs' = List.removeAt degIndex degs
+                        let vs = List.filter (not << Misc.isZero) (variablesAsCoefficients degs')
+                        let coeff' = List.reduce ( * ) (coeff :: vs)
+                        let result = Map.addOrUpdate udeg coeff' result ((+) coeff')
+                        inner result rest
+
+                { p with
+                    variables = [ p.variables.[degIndex] ]
+                    polynomial = inner Map.empty (Map.toList p.polynomial) }
+
+                |> simplifyCoefficients
+
+        /// Returns the total number of roots that the given univariate polynomial has. The result does not take into account
+        /// the multiplicity of roots.
+        let public countAllRoots (p: Polynomial) =
+            if not (isUnivariate p) then
+                raise (NotUnivariatePolynomialException p)
+
+            totalDegree p
+
     module public Calculus =
 
         /// Performs the derivative (formally, the partial derivative) of the polynomial in the given variable.
@@ -1277,19 +1338,6 @@ module rec Polynomial =
 
             0
 
-    /// Returns the univariate polynomial variable and its position in the type structure.
-    let private getUnivariateVariableAndIndex ({ variables = variables; polynomial = polynomial } as p) =
-        if not (isUnivariate p) then
-            raise (NotUnivariatePolynomialException p)
-
-        if List.length variables = 1 then List.head variables, 0 else
-        if isConstantPolynomial p then failwith "Cannot find the variable in a constant polynomial."
-
-        let indexes = Seq.filter (function MonomialDegree deg -> List.any deg (( <> ) 0)) (Map.keys polynomial)
-        let index = match Seq.head indexes with MonomialDegree deg -> List.findIndex (( <> ) 0) deg // lazy filter
-
-        variables.[index], index
-
     /// Makes the leading coefficient equal to 1 and divides the other coefficients accordingly.
     let private normalize (p: Polynomial) =
         match leadingCoeff p with
@@ -1323,50 +1371,6 @@ module rec Polynomial =
         let poly = Map.ofArray (Array.zip degrees coefficients')
 
         { p with polynomial = poly }
-
-
-    /// Convert multivariate polynomial p ∈ K[x₁, x₂, ..., xᵢ, ..., xₙ] into the univariate polynomial
-    /// p' ∈ (k[x₁, x₂, ..., xₙ])[xᵢ] in the polynomial field k[...] and in the unique variable xᵢ.
-    ///
-    /// For example, let p(x, y, z) = x³yz + x²y² + 3x³ + 2x² + xy + xz + 1 (with x, y, z ∈ K) then
-    /// we can write the univariate polynomial p'(x) = (yz + 3)x³ + (y² + 2)x² + (y + z)x + 1 as a polynomial
-    /// in the multivariate polynomial field K[y, z] and with variable x.
-    let public asUnivariate (variable: Variable) (p: Polynomial) =
-        assert (List.contains variable p.variables)
-
-        if isUnivariate p then
-            p
-        else
-
-            let degIndex = List.findIndex ((=) variable) p.variables
-            let variables' = List.removeAt degIndex p.variables
-
-            let variablesAsCoefficients =
-                List.map2 (fun var (deg: int) -> var ** deg) variables'
-
-            let rec inner result =
-                function
-                | [] -> result
-                | (MonomialDegree degs, coeff) :: rest ->
-                    let udeg = MonomialDegree [ degs.[degIndex] ]
-                    let degs' = List.removeAt degIndex degs
-                    let vs = List.filter (not << Misc.isZero) (variablesAsCoefficients degs')
-                    let coeff' = List.reduce ( * ) (coeff :: vs)
-                    let result = Map.addOrUpdate udeg coeff' result ((+) coeff')
-                    inner result rest
-
-            { p with
-                variables = [ p.variables.[degIndex] ]
-                polynomial = inner Map.empty (Map.toList p.polynomial) }
-
-            |> simplifyCoefficients
-
-    /// Returns the total number of roots that the given univariate polynomial has. The result does not take into account
-    /// the multiplicity of roots.
-    let public countAllRoots (p: Polynomial) =
-        if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
-
-        totalDegree p
 
     // This module implement stuff about primitive part and content.
     // See https://en.wikipedia.org/wiki/Primitive_part_and_content.
