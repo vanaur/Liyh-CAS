@@ -1264,36 +1264,16 @@ module rec Polynomial =
         variables.[index], index
 
     /// Euclidean GDC algorithm adapted to univariate polynomials.
-    let public univariateGCD (p1: Polynomial) (p2: Polynomial) =
-        // Note: p1 and p2 must have the same variable!
-
-        if not (areCompatible p1 p2) then raise (NoCompatiblePolynomialsException [ p1; p2 ])
-        if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
-
-        let _, varIndex = getUnivariateVariableAndIndex p1
-        let rem a b = snd (Division.Univariate.expandedSyntheticDivision a b) //|> List.skipWhile Misc.isZero
-
-        let coeffs1, coeffs2 = completeCoefficients p1, completeCoefficients p2
-
-        let rec ugcd a b =
-            if List.isEmpty b || List.forall Misc.isZero b then a
-            else ugcd b (rem a b)
-
-        let raw = ugcd coeffs1 coeffs2
-        
-        let result = fst (Division.Univariate.expandedSyntheticDivision raw [ List.head raw ]) // normalize
-        let hdeg = [ for i = 0 to List.length p1.variables - 1 do if i = varIndex then List.length result - 1 else 0 ]
-
-        fromCoefficients p1.variables hdeg result
+    let rec private univariateGcd (p1: Polynomial) (p2: Polynomial) =
+        if isZeroPolynomial p2 then p1 else
+        univariateGcd p2 (Division.remainder p1 p2)
 
     /// Euclidean GDC algorithm adapted to any polynomials.
     let public polynomialGCD (p1: Polynomial) (p2: Polynomial) =
-        let p1, p2 = compatible p1 p2
-
-        if isUnivariate p1 then
-            univariateGCD p1 p2
+        if isUnivariate p1 && isUnivariate p2 then
+            compatible p1 p2 ||> univariateGcd |> normalize
         else
-            failwith "todo."
+            failwith "TODO: multivariate GCD"
 
     /// Makes the leading coefficient equal to 1 and divides the other coefficients accordingly.
     let inline private normalize (p: Polynomial) =
