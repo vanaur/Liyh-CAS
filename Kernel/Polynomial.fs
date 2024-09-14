@@ -1133,6 +1133,11 @@ module rec Polynomial =
         /// Returns the multidegree of the given polynomial (the ordering is defined in the polynomial).
         let public multiDegree = leadingTerm >> snd
 
+        /// Returns the coefficient of the constant term of the given polynomial.
+        let public getConstantTerm (p: Polynomial) =
+            if (isZeroPolynomial p) then Const Zero
+            else fst (List.minBy snd (getMonomials p))
+
     /// Some functions concerning polynomial density, i.e. the ratio between the number of non-zero coefficients
     /// and the total degree of the polynomial.
     module public Density =
@@ -1374,11 +1379,6 @@ module rec Polynomial =
         if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
 
         totalDegree p
-
-    /// Returns the coefficient of the constant term of the given polynomial.
-    let public getConstantTerm (p: Polynomial) =
-        if (isZeroPolynomial p) then Const Zero
-        else fst (List.minBy snd (getMonomials p))
 
     // This module contains useful algorithms for dividing and factoring polynomials.
     module public Division =

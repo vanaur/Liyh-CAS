@@ -167,7 +167,7 @@ module public Solve =
                     match Polynomial.Tools.totalDegree poly with
                     | 0 -> None // Not a solution, but a multiplicative factor.
                     | 1 ->
-                        let ct = Polynomial.getConstantTerm poly
+                        let ct = Polynomial.Tools.getConstantTerm poly
                         let lc = Polynomial.Tools.leadingCoeff poly
 
                         // It is an equation of the form P(x) ≡ αx + β = 0, so x = -β/α.
