@@ -2561,3 +2561,16 @@ module rec Polynomial =
                     Simplification.simpPureConst (Const num / Const (fromBigInt den)) ]
 
             fromCoefficients [ variable ] [ order ] coefficients
+
+        /// Generates a random multivariate polynomial for testing or debugging purpose.
+        let public generateRandom (n: int) (variables: string list) =
+            let vs = List.map Name variables
+            let rnd = Random()
+
+            List.init n (fun _ ->
+                Term
+                    [ powId (Const(rnd.Next(1, n)))
+                      Pow(vs.[rnd.Next(0, vs.Length)], Const(rnd.Next(1, n))) ])
+            |> Sum
+            |> asMultivariatePolynomial vs []
+            |> fst
