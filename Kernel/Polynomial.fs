@@ -1796,7 +1796,7 @@ module rec Polynomial =
         /// Our implementation is based on http://www.scholarpedia.org/article/Buchberger%27s_algorithm.
         let public buchberger (polynomials: Polynomial list) =
             let result = HashSet polynomials
-            let pairs = Queue [| for f in result do for g in result do (f, g) |]
+            let pairs = Queue [| for f in result do for g in result do if f <> g then (f, g) |]
 
             while pairs.Count > 0 do
                 let (f, g) = pairs.Dequeue()
@@ -1836,12 +1836,12 @@ module rec Polynomial =
                 let ltps = leadingTermsWithout p
                 let pms = getMonomials p
 
-                if List.any ltps ((=) >> List.any pms) then
+                if List.any ltps (( = ) >> List.any pms) then
                     polynomials <- List.removeAt i polynomials
                 else
                     i <- i + 1
 
-            polynomials
+            List.map simplifyCoefficients polynomials
 
         /// Compute the minimal and reduced Gröbner basis for the given ideal (modeled by a list of equivalent polynomials
         /// whose K-field is delegated to the SumPow representation) using the `currentOrdering` monomial order.
