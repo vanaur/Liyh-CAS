@@ -1772,6 +1772,11 @@ module rec Polynomial =
                 { quotients = quotients;
                   remainder = remainder }
 
+        /// Returns the remainder of the division of `p1` by `p2`, two arbitrary polynomials. If the polynomials are
+        /// multivariate, then use the default `currentOrdering` order.
+        let public remainder (p1: Polynomial) (p2: Polynomial) =
+            (Multivariate.reduce p1 [ p2 ]).remainder
+
     module public GroebnerBasis =
         open Division.Multivariate
 
