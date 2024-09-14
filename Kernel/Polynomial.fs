@@ -1346,39 +1346,43 @@ module rec Polynomial =
 
             |> simplifyCoefficients
 
-    /// Returns the content of the integer-coefficients given polynomial.
-    /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
-    let public content (p: Polynomial) =
-        if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
-            raise (PolynomialHaveNonIntegerCoefficientsException p)
-        
-        List.aggregate intGCD (Factorization.IntegerCoefficients.integerCoefficients p)
-        |> double
-        |> Constant
-        |> SumPow.Const
-
-    /// Returns the primitive part of the integer-coefficients given polynomial.
-    /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
-    let public primitive (p: Polynomial) =
-        if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
-            raise (PolynomialHaveNonIntegerCoefficientsException p)
-
-        p / content p
-
-    /// Check if the content of the integer-coefficients given polynomial equals 1.
-    /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
-    let public isPrimitive (p: Polynomial) =
-        if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
-            raise (PolynomialHaveNonIntegerCoefficientsException p)
-        
-        Misc.isOne (content p)
-
     /// Returns the total number of roots that the given univariate polynomial has. The result does not take into account
     /// the multiplicity of roots.
     let public countAllRoots (p: Polynomial) =
         if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
 
         totalDegree p
+
+    // This module implement stuff about primitive part and content.
+    // See https://en.wikipedia.org/wiki/Primitive_part_and_content.
+    module public PrimitiveAndContent =
+
+        /// Returns the content of the integer-coefficients given polynomial.
+        /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
+        let public content (p: Polynomial) =
+            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+                raise (PolynomialHaveNonIntegerCoefficientsException p)
+            
+            List.aggregate intGCD (Factorization.IntegerCoefficients.integerCoefficients p)
+            |> double
+            |> Constant
+            |> Const
+
+        /// Returns the primitive part of the integer-coefficients given polynomial.
+        /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
+        let public primitive (p: Polynomial) =
+            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+                raise (PolynomialHaveNonIntegerCoefficientsException p)
+
+            p / content p
+
+        /// Check if the content of the integer-coefficients given polynomial equals 1.
+        /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
+        let public isPrimitive (p: Polynomial) =
+            if not (Factorization.IntegerCoefficients.hasIntegerCoefficients p) then
+                raise (PolynomialHaveNonIntegerCoefficientsException p)
+            
+            Misc.isOne (content p)
 
     // This module contains useful algorithms for dividing and factoring polynomials.
     module public Division =
@@ -2089,7 +2093,7 @@ module rec Polynomial =
                 let public isIrreductible (p: Polynomial) =
                     if not (hasIntegerCoefficients p) then raise (PolynomialHaveNonIntegerCoefficientsException p)
 
-                    isPrimitive p && isSquareFree p
+                    PrimitiveAndContent.isPrimitive p && isSquareFree p
 
         [<RequireQualifiedAccess>]
         module public Specific =
