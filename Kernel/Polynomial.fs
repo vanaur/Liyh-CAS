@@ -1719,7 +1719,7 @@ module rec Polynomial =
 
             /// The result of the reduction ("generalized polynomial division") consists of a list of quotients associated
             /// with the polynomial divisor and a remainder of the division.
-            [<Struct>]
+            [<NoEquality; NoComparison>]
             type public Reduce =
                 { quotients: Map<Polynomial, Polynomial>
                   remainder: Polynomial }
@@ -1730,22 +1730,25 @@ module rec Polynomial =
             /// Note: the result of the reduction is not unique in general.
             let public reduce (p: Polynomial) (fs: Polynomial list) =
                 let (p :: fs) = compatibles (p :: fs)
-                let fs = List.removeMany ((=) p) fs
+                let fs = List.removeMany (( = ) p) fs
                 let zeroPolynomial = zeroPolynomial p.variables
 
                 let mutable p = p
                 let mutable remainder = zeroPolynomial
 
+                // Create the list of the quotients that will result from the algorithm
+                // associated with their original polynomials.
                 let mutable quotients =
                     (dict >> Dictionary) (List.map (flip tuple2 zeroPolynomial) fs)
 
+                // Theoretically, this loop must ends.
                 while not (isZeroPolynomial p) do
                     let mutable divisionOccurred = false
-                    let ltp = leadingTerm p
+                    let mutable ltp = leadingTerm p
 
                     let mutable i = 0
 
-                    while i <= List.length fs - 1 && divisionOccurred = false do
+                    while i < List.length fs && divisionOccurred = false do
                         let fᵢ = fs.[i]
                         let ltfᵢ = leadingTerm fᵢ
 
@@ -1753,15 +1756,20 @@ module rec Polynomial =
                         | Some divisionResult ->
                             quotients.[fᵢ] <- quotients.[fᵢ] + divisionResult
                             p <- p - divisionResult * fᵢ
+                            ltp <- leadingTerm p
                             divisionOccurred <- true
 
-                        | None -> i <- i + 1
+                        | None ->
+                            i <- i + 1
 
                     if divisionOccurred = false then
                         remainder <- remainder + ltp
                         p <- p - ltp
 
-                { quotients = quotients |> (Seq.map (|KeyValue|) >> Map.ofSeq)
+                // Convert dictionary to Map.
+                let quotients = Map.ofSeq (Seq.map (|KeyValue|) quotients)
+
+                { quotients = quotients;
                   remainder = remainder }
 
     module public GroebnerBasis =
