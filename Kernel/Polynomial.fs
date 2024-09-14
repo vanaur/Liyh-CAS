@@ -1103,11 +1103,10 @@ module rec Polynomial =
         //  - LC(f) = 3.
 
         let public leadingTerm { variables = variables; polynomial = polynomial } : Monomial =
-            if Map.isEmpty polynomial then
-                raise EmptyPolynomialException
-
-            let (MonomialDegree deg, coeff) = (|KeyValue|) (Seq.last polynomial)
-            coeff, List.map2 tuple2 variables deg
+            if Map.isEmpty polynomial then Const Zero, List.map (fun v -> (v, 0)) variables
+            else
+                let (MonomialDegree deg, coeff) = (|KeyValue|) (Seq.last polynomial)
+                coeff, List.map2 tuple2 variables deg
 
         let public leadingMonomial (p: Polynomial) : Monomial =
             let _, monomial = leadingTerm p
