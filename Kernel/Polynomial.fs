@@ -1263,18 +1263,6 @@ module rec Polynomial =
 
         variables.[index], index
 
-    /// Euclidean GDC algorithm adapted to univariate polynomials.
-    let rec private univariateGcd (p1: Polynomial) (p2: Polynomial) =
-        if isZeroPolynomial p2 then p1 else
-        univariateGcd p2 (Division.remainder p1 p2)
-
-    /// Euclidean GDC algorithm adapted to any polynomials.
-    let public polynomialGCD (p1: Polynomial) (p2: Polynomial) =
-        if isUnivariate p1 && isUnivariate p2 then
-            compatible p1 p2 ||> univariateGcd |> normalize
-        else
-            failwith "TODO: multivariate GCD"
-
     /// Makes the leading coefficient equal to 1 and divides the other coefficients accordingly.
     let private normalize (p: Polynomial) =
         match leadingCoeff p with
@@ -1679,6 +1667,18 @@ module rec Polynomial =
         let public remainder (p1: Polynomial) (p2: Polynomial) =
             (Multivariate.reduce p1 [ p2 ]).remainder
 
+        /// Euclidean GDC algorithm adapted to univariate polynomials.
+        let rec private univariateGcd (p1: Polynomial) (p2: Polynomial) =
+            if isZeroPolynomial p2 then p1 else
+            univariateGcd p2 (remainder p1 p2)
+
+        /// Euclidean GDC algorithm adapted to any polynomials.
+        let public polynomialGCD (p1: Polynomial) (p2: Polynomial) =
+            if isUnivariate p1 && isUnivariate p2 then
+                compatible p1 p2 ||> univariateGcd |> normalize
+            else
+                failwith "TODO: multivariate GCD"
+
     // This module implements some elements around resultants.
     // See https://en.wikipedia.org/wiki/Resultant.
     module public Resultant =
@@ -1904,7 +1904,7 @@ module rec Polynomial =
                     false
                 else // Only defined for univariate polynomials.
                     let variable, _ = getUnivariateVariableAndIndex p
-                    isOnePolynomial (polynomialGCD p (Calculus.derive p variable))
+                    isOnePolynomial (Division.polynomialGCD p (Calculus.derive p variable))
 
             /// Implements the Yun's algorithm for univariate square-free factorization. The return is a polynomial list with
             /// associated exponent. For example, g(x) = x⁴ + 7x³ + 18x² + 20x + 8 ≡ (x + 1)¹(x + 2)³.
@@ -1919,14 +1919,14 @@ module rec Polynomial =
                 /// Implements https://en.wikipedia.org/wiki/Square-free_polynomial#Yun's_algorithm.
                 let rec yun bi di =
                     if totalDegree bi <= 0 then [] else
-                    let ai = polynomialGCD bi di
+                    let ai = Division.polynomialGCD bi di
                     let bi1 = exactDivision bi ai varIndex
                     let ci1 = exactDivision di ai varIndex
                     let di1 = ci1 - Calculus.derive bi1 variable
                     ai :: yun bi1 di1
 
                 let p' = Calculus.derive p variable
-                let a0 = polynomialGCD p p'
+                let a0 = Division.polynomialGCD p p'
                 let b1 = exactDivision p a0 varIndex
                 let c1 = exactDivision p' a0 varIndex
                 let d1 = c1 - Calculus.derive b1 variable
