@@ -1276,7 +1276,7 @@ module rec Polynomial =
             failwith "TODO: multivariate GCD"
 
     /// Makes the leading coefficient equal to 1 and divides the other coefficients accordingly.
-    let inline private normalize (p: Polynomial) =
+    let private normalize (p: Polynomial) =
         match leadingCoeff p with
         | One -> p
         | c ->
