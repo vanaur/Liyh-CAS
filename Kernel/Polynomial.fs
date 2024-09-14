@@ -94,7 +94,7 @@ module rec Polynomial =
 
     /// Implements the degree of a monomial as a simple list of positive integers (e.g. `3x²yz³ -> [2; 1; 3]`). The interest in
     /// defining such a singular type lies in the implementation of a very particular order that monomials have to follow in the
-    /// plynomial representation: the graded reverse lexicographic order. Not all calculations require polynomials to be ordered,
+    /// plynomial representation, described by `currentOrdering`. Not all calculations require polynomials to be ordered,
     /// but making this order automatic simplifies matters. See https://en.wikipedia.org/wiki/Monomial_order.
     [<Struct; CustomComparison; CustomEquality>]
     type public MonomialDegree =
@@ -1688,8 +1688,9 @@ module rec Polynomial =
 
                 fromCoefficients p1.variables (hdeg quotient) quotient
 
-        // Division of multivariate polynomials is less straightforward than univariate division, and we need Gröbner bases to
-        // be able to do it rigorously. Buchberger algorithm is used to compute them.
+        // Division of multivariate polynomials is less straightforward than univariate division. In fact, we're more
+        // likely to talk about a ‘reduction’ instead. It should also be noted that the multivariate division is defined
+        // up to a monomial order and is not unique. We need it for the Buchberger algorithm.
         module public Multivariate =
 
             // P͟e͟r͟f͟o͟r͟m͟a͟n͟c͟e͟ ͟n͟o͟t͟e͟: The reduction in the specific case of two univariate polynomials is really fast using the
