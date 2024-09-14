@@ -260,7 +260,6 @@ module rec Polynomial =
         static member op_Subtraction(p: Polynomial, sp: SumPow) = PolynomialOperations.subtractionBySumPow p sp
         static member op_Subtraction(p: Polynomial, m: Monomial) = PolynomialOperations.subtractionByMonomial p m
         static member op_Division(p1: Polynomial, sp: SumPow) = PolynomialOperations.diviseBySumPow p1 sp
-        static member op_Division(p1: Polynomial, p2: Polynomial) = PolynomialOperations.division p1 p2
         static member op_Multiply(p1: Polynomial, p2: Polynomial) = PolynomialOperations.multiply p1 p2
         static member op_Multiply(p: Polynomial, sp: SumPow) = PolynomialOperations.multiplyBySumPow p sp
         static member op_Multiply(sp: SumPow, p: Polynomial) = PolynomialOperations.multiplyBySumPow p sp
@@ -462,8 +461,6 @@ module rec Polynomial =
             if Misc.isOne sp then p else
             { p with
                 polynomial = Map.map (fun _ value -> value / sp) p.polynomial }
-
-        let public division (p1: Polynomial) (p2: Polynomial) = failwith "todo."
 
         // This code is actually slower than the trivial implementation. The algorithm reduces the number of multiplications
         // but increases the size of the polynomials to be multiplied, so the efficiency of the procedure relies on the
