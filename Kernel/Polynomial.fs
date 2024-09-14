@@ -1353,85 +1353,6 @@ module rec Polynomial =
 
             |> simplifyCoefficients
 
-    /// Calculate the Sylvester matrix associated with the two given polynomials.
-    /// See https://en.wikipedia.org/wiki/Sylvester_matrix.
-    let public sylvesterMatrix (p1: Polynomial) (p2: Polynomial) =
-        if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
-        if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
-
-        let p1, p2 = compatible p1 p2
-        let m, n = totalDegree p1, totalDegree p2
-        let size = m + n
-
-        let coeffs1 = completeCoefficients p1
-        let coeffs2 = completeCoefficients p2
-
-        let inline initializer i j =
-            if i < n then
-                let shift = i
-                if j >= shift && j - shift < m + 1 then
-                    coeffs1.[j - shift]
-                else
-                    SumPow.Const Zero
-            else
-                let shift = i - n
-                if j >= shift && j - shift < n + 1 then
-                    coeffs2.[j - shift]
-                else
-                    SumPow.Const Zero
-
-        Array2D.init size size initializer
-
-    /// Calculate the resultant of the two given univariate polynomials.
-    /// See https://en.wikipedia.org/wiki/Resultant.
-    let public resultant (p1: Polynomial) (p2: Polynomial) =
-        if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
-        if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
-
-        let p1, p2 = compatible p1 p2
-
-        let rec loop u v =
-            let m = totalDegree u
-            let n = totalDegree v
-
-            if n = 0 then
-                leadingCoeff v ** m
-            else
-                let _, r = Division.Univariate.udiv u v
-                if isZeroPolynomial r then
-                    SumPow.Const Zero
-                else
-                    let s = totalDegree r
-                    let l = leadingCoeff v
-                    
-                    ((SumPow.Const -1) ** (m * n)) * (l ** (m - s)) * loop v r
-
-        loop p1 p2
-
-    /// Calculate the discriminant of the given univariate polynomial.
-    let public discriminant (p: Polynomial) =
-        if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
-
-        match totalDegree p with
-        | n when n <= 1 ->
-            // 1 by "convention".
-            SumPow.Const One
-        | 2 ->
-            let [ a; b; c ] = completeCoefficients p
-            // b² - 4ac
-            b ** 2 - 4 * a * c
-        | 3 ->
-            let [ a; b; c; d ] = completeCoefficients p
-            // b²c² - 4ac³ - 4b³d - 27a²d² + 18abcd
-            (b ** 2) * (c ** 2) - (4 * a * c ** 3) - (4 * b ** 3 * d) - (27 * a ** 2 * d ** 2) + (18 * a * b * c * d)
-        | n ->
-            let variable, _ = getUnivariateVariableAndIndex p
-            let p' = Calculus.derive p variable
-            let s = pown -1 (n * (n - 1) / 2)
-
-            // (-1)ⁿ⁽ⁿ⁻¹⁾½ / pₙ ⋅ Resᵥₐᵣ(p, p')
-            ((SumPow.Const s) * resultant p p') / leadingCoeff p
-
     /// Returns the content of the integer-coefficients given polynomial.
     /// See https://en.wikipedia.org/wiki/Primitive_part_and_content.
     let public content (p: Polynomial) =
@@ -1757,6 +1678,89 @@ module rec Polynomial =
         /// multivariate, then use the default `currentOrdering` order.
         let public remainder (p1: Polynomial) (p2: Polynomial) =
             (Multivariate.reduce p1 [ p2 ]).remainder
+
+    // This module implements some elements around resultants.
+    // See https://en.wikipedia.org/wiki/Resultant.
+    module public Resultant =
+
+        /// Calculate the Sylvester matrix associated with the two given polynomials.
+        /// See https://en.wikipedia.org/wiki/Sylvester_matrix.
+        let public sylvesterMatrix (p1: Polynomial) (p2: Polynomial) =
+            if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
+            if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
+
+            let p1, p2 = compatible p1 p2
+            let m, n = totalDegree p1, totalDegree p2
+            let size = m + n
+
+            let coeffs1 = completeCoefficients p1
+            let coeffs2 = completeCoefficients p2
+
+            let inline initializer i j =
+                if i < n then
+                    let shift = i
+                    if j >= shift && j - shift < m + 1 then
+                        coeffs1.[j - shift]
+                    else
+                        SumPow.Const Zero
+                else
+                    let shift = i - n
+                    if j >= shift && j - shift < n + 1 then
+                        coeffs2.[j - shift]
+                    else
+                        SumPow.Const Zero
+
+            Array2D.init size size initializer
+
+        /// Calculate the resultant of the two given univariate polynomials.
+        /// See https://en.wikipedia.org/wiki/Resultant.
+        let public resultant (p1: Polynomial) (p2: Polynomial) =
+            if not (isUnivariate p1) then raise (NotUnivariatePolynomialException p1)
+            if not (isUnivariate p2) then raise (NotUnivariatePolynomialException p2)
+
+            let p1, p2 = compatible p1 p2
+
+            let rec loop u v =
+                let m = totalDegree u
+                let n = totalDegree v
+
+                if n = 0 then
+                    leadingCoeff v ** m
+                else
+                    let _, r = Division.Univariate.udiv u v
+                    if isZeroPolynomial r then
+                        Const Zero
+                    else
+                        let s = totalDegree r
+                        let l = leadingCoeff v
+                        
+                        ((Const -1) ** (m * n)) * (l ** (m - s)) * loop v r
+
+            loop p1 p2
+
+        /// Calculate the discriminant of the given univariate polynomial.
+        let public discriminant (p: Polynomial) =
+            if not (isUnivariate p) then raise (NotUnivariatePolynomialException p)
+
+            match totalDegree p with
+            | n when n <= 1 ->
+                // 1 by "convention".
+                Const One
+            | 2 ->
+                let [ a; b; c ] = completeCoefficients p
+                // b² - 4ac
+                b ** 2 - 4 * a * c
+            | 3 ->
+                let [ a; b; c; d ] = completeCoefficients p
+                // b²c² - 4ac³ - 4b³d - 27a²d² + 18abcd
+                (b ** 2) * (c ** 2) - (4 * a * c ** 3) - (4 * b ** 3 * d) - (27 * a ** 2 * d ** 2) + (18 * a * b * c * d)
+            | n ->
+                let variable, _ = getUnivariateVariableAndIndex p
+                let p' = Calculus.derive p variable
+                let s = pown -1 (n * (n - 1) / 2)
+
+                // (-1)ⁿ⁽ⁿ⁻¹⁾½ / pₙ ⋅ Resᵥₐᵣ(p, p')
+                ((Const s) * resultant p p') / leadingCoeff p
 
     module public GroebnerBasis =
         open Division.Multivariate
