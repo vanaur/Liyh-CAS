@@ -1805,7 +1805,7 @@ module rec Polynomial =
         /// See https://en.wikipedia.org/wiki/Buchberger%27s_algorithm.
         /// Our implementation is based on http://www.scholarpedia.org/article/Buchberger%27s_algorithm.
         let public buchberger (polynomials: Polynomial list) =
-            let result = HashSet polynomials
+            let result = HashSet (compatibles polynomials)
             let pairs = Queue [| for f in result do for g in result do if f <> g then (f, g) |]
 
             while pairs.Count > 0 do
