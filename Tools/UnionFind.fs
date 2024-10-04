@@ -105,6 +105,8 @@ module UnionFind =
         /// Check whether two elements belong to the same equivalence class.
         member public __.AreConnected (left: 't) (right: 't) = find left = find right
 
+    /// Returns the representative element of the set containing the given value.
+    let inline public find (uf: 't UnionFind) = uf.Find
     /// Adds an element to the original set.
     let inline public addElement (uf: 't UnionFind) = uf.AddElement
     /// Adds the list of elements given in the original set.
