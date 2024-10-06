@@ -21,7 +21,7 @@ module rec Atomic =
 
     /// An atom is a basic building block for symbolic entities, making it possible to construct an identifier,
     /// a numerical constant or simple text.
-    [<Struct; Symbolic; NoEquality; NoComparison>]
+    [<Symbolic; StructuralEquality; StructuralComparison>]
     type public Atom =
         | Identifier of name: string
         | Const of cst: Constant
@@ -39,7 +39,7 @@ module rec Atomic =
     /// A symbol essentially consists of an atom to which attributes are assigned. This is what all Liyh symbolic
     /// elements are represented with, although specialised representations are used in practice. A symbol is therefore
     /// the abstract representation used to communicate between the various symbolic representations and with the user.
-    [<Symbolic; NoComparison; NoEquality>]
+    [<Symbolic; StructuralEquality; StructuralComparison>]
     type public Symbol =
         { atom: Atom
           attributes: (string * Symbol) list }
