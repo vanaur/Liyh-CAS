@@ -24,7 +24,8 @@
     <Compile Include="Kernel/Equation.fs" />
     <Compile Include="Kernel/Context.fs" />
     <Compile Include="Kernel/Factorize.fs" />
-    <Compile Include="Kernel/MultiLinearAlgebra.fs" />
+    <Compile Include="Kernel/LinearAlgebra.fs" />
+    <Compile Include="Kernel/Tensor.fs" />
     <Compile Include="Kernel/Calculus.fs" />
     <Compile Include="Kernel/Solve.fs" />
 

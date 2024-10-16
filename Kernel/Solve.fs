@@ -11,7 +11,7 @@ module public Solve =
     open Liyh.Kernel
     open Liyh.Kernel.SumPow.PureConstantExpression
     open Liyh.Kernel.Equation
-    open Liyh.Kernel.MultiLinearAlgebra
+    open Liyh.Kernel.LinearAlgebra
     open Liyh.Kernel.Polynomial.Factorization
 
     /// If the linear equation is of the diophantine type (only integer solutions are of interest and/or possible) and

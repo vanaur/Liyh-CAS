@@ -2,9 +2,10 @@ namespace Liyh.Kernel
 
 #nowarn "3391"
 #nowarn "25"
+#nowarn "46"
 
 /// This module covers vector, matrix and tensor algebra.
-module public rec MultiLinearAlgebra =
+module public rec LinearAlgebra =
     open System
     open Liyh.Kernel
     open Liyh.Utils
@@ -1411,16 +1412,3 @@ module public rec MultiLinearAlgebra =
 
             (H, U)
 
-    /// This module deals with classical tensor algebra over SumPow and index notation.
-    module public Tensor =
-
-        type public Tensor =
-            { indices: TensorIndex list
-              dimension: int
-              components: SumPow[] option }
-        
-        and public TensorIndex = Variance * string
-
-        and public Variance =
-        | Covariant
-        | Contravariant
