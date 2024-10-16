@@ -2,7 +2,6 @@ namespace Liyh.Kernel
 
 #nowarn "3391"
 #nowarn "25"
-#nowarn "46"
 
 /// This module covers vector, matrix and tensor algebra.
 module public rec LinearAlgebra =
