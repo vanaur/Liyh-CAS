@@ -81,6 +81,18 @@ module Absyn =
             { atom = Atom.Identifier "**"
               attributes = [(null, cosynExprToSymbolic cexpr); (null, { atom = Atom.Const(Constant exp); attributes = [] })] }
 
+        | CosynExpr'.ExprTensorIndexNotation(tin, _), _ ->
+            let inline inner index =
+                match index with
+                | TDown (x, _) -> "index", { atom = Atom.Identifier "CovariantIndex"; attributes = [ "indexName", { atom = Atom.Identifier x; attributes = [] } ] }
+                | TUp (x, _) -> "index", { atom = Atom.Identifier "ContravariantIndex"; attributes = [ "indexName", { atom = Atom.Identifier x; attributes = [] } ] }
+            
+            let tname = { atom = Atom.Identifier (fst tin.tname); attributes = [] }
+            let indices = { atom = Atom.Identifier "Indices"; attributes = List.map inner tin.indices }
+
+            { atom = Atom.Identifier "IndexedTensor"
+              attributes = [ ("name", tname); ("indices", indices) ] }
+
         | s -> failwithf "TODO: %A" s
 
 // On ne peut faire ça qu'après le typage...
