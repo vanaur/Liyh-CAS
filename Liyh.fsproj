@@ -16,6 +16,7 @@
     <Compile Include="Kernel/RepeatingDecimalNumber.fs" />
     <Compile Include="Kernel/Constant.fs" />
     <Compile Include="Kernel/Atomic.fs" />
+    <Compile Include="Kernel/Index.fs" />
     <Compile Include="Kernel/Set.fs" />
     <Compile Include="Kernel/Prime.fs" />
     <Compile Include="Kernel/SumPow.fs" />

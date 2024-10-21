@@ -6,6 +6,7 @@ namespace Liyh.Kernel
 
 /// This module deals with classical tensor algebra over SumPow and index notation.
 module public rec Tensor =
+    open Liyh.Kernel.Index
     open Liyh.Utils
     open Liyh.Kernel
     open Liyh.Kernel.LinearAlgebra
