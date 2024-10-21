@@ -2801,6 +2801,7 @@ module rec SumPow =
 
     /// Extends the field of reals (modeled by SumPow) to the field of complexes.
     module public Complex =
+        open InternalFunction
         open SimplifiedSum
         open ElemFun
 
@@ -2825,6 +2826,18 @@ module rec SumPow =
                 when (x = x') && ((n % 4) = 1) -> Some x
 
             | _ -> None
+
+        /// Returns the principal argument of the given complex number.
+        let rec public arg =
+            function
+            | ComplexSumPow.PolarForm (_, angle) -> angle
+            | ComplexSumPow.VectorForm (a, b) ->
+                if not (Misc.isZero a) && not (Misc.isZero b) then liyhArTan (b / a)
+                elif Misc.isZero a then liyhArSin (Const One)
+                elif Misc.isZero b then liyhArCos (Const One)
+                else ElementaryOperations.divByZero a
+
+                |> Simplification.simplify
 
         /// Matches an expression that reduces to the imaginary unit. The expression `Sqrt[-1]` is a dangerous abuse
         /// of notation that is not implemented as a representation of `i`.
@@ -2872,7 +2885,11 @@ module rec SumPow =
         let private convertToPolarForm =
             function
             | ComplexSumPow.PolarForm _ as z -> z
-            | _ -> failwith "todo."
+            | ComplexSumPow.VectorForm (re, im) as z ->
+                let r = liyhSqrt (re ** 2 + im ** 2)
+                let ϑ = arg z
+                
+                ComplexSumPow.PolarForm (r, ϑ)
 
         let private complexAddition =
             function
