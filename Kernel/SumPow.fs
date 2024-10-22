@@ -2837,8 +2837,8 @@ module rec SumPow =
             | _ -> None
 
         /// Returns the principal argument of the given complex number.
-        let rec public arg =
-            function
+        let public arg =
+            Simplification.simplify << function
             | ComplexSumPow.PolarForm (_, angle) -> angle
             | ComplexSumPow.VectorForm (a, b) ->
                 if not (Misc.isZero a) && not (Misc.isZero b) then liyhArTan (b / a)
@@ -2846,7 +2846,11 @@ module rec SumPow =
                 elif Misc.isZero b then liyhArCos (Const One)
                 else ElementaryOperations.divByZero a
 
-                |> Simplification.simplify
+        /// Return the norm of the given complex number.
+        let public norm =
+            Simplification.simplify << function
+            | ComplexSumPow.PolarForm (r, _) -> r
+            | ComplexSumPow.VectorForm (a, b) -> liyhSqrt (a ** 2 + b ** 2)
 
         /// Matches an expression that reduces to the imaginary unit. The expression `Sqrt[-1]` is a dangerous abuse
         /// of notation that is not implemented as a representation of `i`.
