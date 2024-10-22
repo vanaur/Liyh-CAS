@@ -2221,6 +2221,9 @@ module rec SumPow =
             // arSin(0) = 0
             | Zero -> Const Zero
 
+            // arSin(1) = π/2
+            | One -> Pi / 2
+
             // arSin(-x) = -arSin(x)
             | Negative (factor, rest) -> -liyhArSin (factor * rest)
 
@@ -2232,6 +2235,9 @@ module rec SumPow =
             // arCos(0) = π/2
             | Zero -> Pi / 2
 
+            // arCos(1) = 0
+            | One -> Const Zero
+
             | other -> liyhArCos other
 
         /// Algebraically simplifies `ArTan[x]` elementary function.
@@ -2242,6 +2248,9 @@ module rec SumPow =
 
             // arTan(-x) = -arTan(x)
             | Negative (factor, rest) -> -liyhTan (factor * rest)
+
+            // arTan(1) = π/4
+            | One -> Pi / 4
 
             | other -> liyhArTan other
 
