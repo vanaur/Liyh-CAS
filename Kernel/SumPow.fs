@@ -229,7 +229,7 @@ module rec SumPow =
                     | _ -> None
             | _ -> None
 
-        let public Pi = Name "pi"
+        let public Pi = Name "Pi"
         let public E = Name "E"
         let public I = Name "i"
 
@@ -471,6 +471,8 @@ module rec SumPow =
         let rec public toLatex =
             function
             | Const c -> string c
+            | Pi -> @"\pi"
+            | E -> @"e"
             | Name name -> sprintf (if String.length name > 1 then @"\text{%s}" else @"%s") name
             | Fun("Complex", [ re; im ]) -> toLatexComplex re im
             | InternalFunction ifun -> toLatexInternalFun ifun
