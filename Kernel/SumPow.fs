@@ -229,7 +229,7 @@ module rec SumPow =
                     | _ -> None
             | _ -> None
 
-        let public Pi = Name "Pi"
+        let public Pi = Name "pi"
         let public E = Name "E"
         let public I = Name "i"
 
