@@ -576,6 +576,7 @@ module rec SumPow =
             | LiyhRoot(x, None) -> sprintf @"\sqrt{%s}" (toLatex x)
             | LiyhRoot(x, Some b) -> sprintf @"\sqrt[%s]{%s}" (toLatex b) (toLatex x)
             | LiyhLog(x, None) -> sprintf @"\log\left(%s\right)" (toLatex x)
+            | LiyhLog(x, Some E) -> sprintf @"\log\left(%s\right)" (toLatex x)
             | LiyhLog(x, Some b) -> sprintf @"\log_{%s}\left(%s\right)" (toLatex b) (toLatex x)
             | LiyhExp x -> sprintf @"e^{%s}" (toLatex x)
             | LiyhSin x -> sprintf @"\sin\left(%s\right)" (toLatex x)
