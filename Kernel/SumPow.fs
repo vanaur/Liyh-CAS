@@ -2944,6 +2944,13 @@ module rec SumPow =
             | ComplexSumPow.VectorForm(re, im) -> ComplexSumPow.VectorForm(-re, -im)
             | ComplexSumPow.PolarForm(radius, angle) -> ComplexSumPow.PolarForm(-radius, angle)
 
+
+        let public complexZero =
+            ComplexSumPow.VectorForm (Const Zero, Const Zero)
+
+        let public complexOne =
+            ComplexSumPow.VectorForm (Const One, Const One)
+
         let inline private justRe x = ComplexSumPow.VectorForm(x, Const Zero)
         let inline private justIm x = ComplexSumPow.VectorForm(Const Zero, x)
         let inline private complex re im = ComplexSumPow.VectorForm(re, im)
