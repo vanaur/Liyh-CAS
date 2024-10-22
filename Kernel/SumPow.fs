@@ -256,7 +256,7 @@ module rec SumPow =
         open PureConstantExpression
 
         /// A pseudo-function symbol (in the sense of elementary functions) that represents division by zero.
-        let inline public divByZero (numerator: SumPow) =
+        let public divByZero (numerator: SumPow) =
             Fun ("DivByZero", [ numerator ])
 
         let public addition =
