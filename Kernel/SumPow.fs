@@ -2888,15 +2888,16 @@ module rec SumPow =
             static member op_Subtraction(a: ComplexSumPow, b: ComplexSumPow) = complexSubtraction (a, b)
             static member op_Multiply(a: ComplexSumPow, b: ComplexSumPow) = complexMultiplication (a, b)
             static member op_Division(a: ComplexSumPow, b: ComplexSumPow) = complexDivision (a, b)
+            static member Pow(a: ComplexSumPow, b: ComplexSumPow) = complexPower (a, b)
             static member op_UnaryNegation(a: ComplexSumPow) = complexNegation a
 
-        let private convertToVectorForm =
+        let public convertToVectorForm =
             function
             | ComplexSumPow.VectorForm _ as z -> z
             | ComplexSumPow.PolarForm(radius, angle) ->
                 ComplexSumPow.VectorForm(radius * Fun("Cos", [ angle ]), radius * Fun("Sin", [ angle ]))
 
-        let private convertToPolarForm =
+        let public convertToPolarForm =
             function
             | ComplexSumPow.PolarForm _ as z -> z
             | ComplexSumPow.VectorForm (re, im) as z ->
@@ -2950,6 +2951,28 @@ module rec SumPow =
             | ComplexSumPow.VectorForm(re, im) -> ComplexSumPow.VectorForm(-re, -im)
             | ComplexSumPow.PolarForm(radius, angle) -> ComplexSumPow.PolarForm(-radius, angle)
 
+        let private complexPower =
+            // The two cases are totally equivalent, but depending on the power argument, it's useful to
+            // switch from one case to the other, this potentially means one less conversion.
+            simplifyComplex << function
+            | z1, ComplexSumPow.VectorForm (c, d) ->
+                let radius, angle = norm z1, arg z1
+                let e1 = c * liyhLn radius - d * angle
+                let e2 = d * liyhLn radius + c * angle
+                ComplexSumPow.PolarForm (liyhExp e1, e2)
+
+            | z1, ComplexSumPow.PolarForm (r2, θ2) ->
+                let r1, θ1 = norm z1, arg z1
+                let l = liyhLn r1
+                ComplexSumPow.PolarForm (liyhExp (r2 * l - θ2 * θ1), r2 * θ1 + θ2 * l)  
+
+        let public simplifyComplex =
+            function
+            | ComplexSumPow.PolarForm (r, θ) ->
+                ComplexSumPow.PolarForm (Simplification.simplify r, Simplification.simplify θ)
+
+            | ComplexSumPow.VectorForm (a, b) ->
+                ComplexSumPow.VectorForm (Simplification.simplify a, Simplification.simplify b)
 
         let public complexZero =
             ComplexSumPow.VectorForm (Const Zero, Const Zero)
