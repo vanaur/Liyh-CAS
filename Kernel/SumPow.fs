@@ -2940,7 +2940,8 @@ module rec SumPow =
 
             | z1, z2 -> convertToPolarForm z1 / convertToPolarForm z2
 
-        let private complexNegation = function
+        let private complexNegation =
+            function
             | ComplexSumPow.VectorForm(re, im) -> ComplexSumPow.VectorForm(-re, -im)
             | ComplexSumPow.PolarForm(radius, angle) -> ComplexSumPow.PolarForm(-radius, angle)
 
