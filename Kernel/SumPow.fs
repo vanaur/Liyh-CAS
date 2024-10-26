@@ -493,10 +493,11 @@ module rec SumPow =
             | other -> toLatex other
 
         and private toLatexComplex (re: SumPow) (im: SumPow) =
-            match re, im with
-            | re, Const (Constant 0.) -> toLatex re
-            | Const (Constant 0.), im -> sprintf @"%si" (mayParens im)
-            | re, im -> sprintf @"%s + %si" (mayParens re) (mayParens im)
+            toLatex (re + Name "i" * im) // better handle
+            // match re, im with
+            // | re, Const (Constant 0.) -> toLatex re
+            // | Const (Constant 0.), im -> sprintf @"%si" (mayParens im)
+            // | re, im -> sprintf @"%s + %si" (mayParens re) (mayParens im)
 
         and private toLatexPower (b: SumPow) (p: SumPow) =
             match b, p with
