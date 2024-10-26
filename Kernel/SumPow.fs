@@ -2894,14 +2894,16 @@ module rec SumPow =
             static member Pow(a: ComplexSumPow, b: ComplexSumPow) = complexPower (a, b)
             static member op_UnaryNegation(a: ComplexSumPow) = complexNegation a
 
+        /// Convert a complex number to the form `a + bi`.
         let public convertToVectorForm =
-            function
+            simplifyComplex << function
             | ComplexSumPow.VectorForm _ as z -> z
             | ComplexSumPow.PolarForm(radius, angle) ->
                 ComplexSumPow.VectorForm(radius * Fun("Cos", [ angle ]), radius * Fun("Sin", [ angle ]))
 
+        /// Convert a complex number to the form `re^(iφ)`.
         let public convertToPolarForm =
-            function
+            simplifyComplex << function
             | ComplexSumPow.PolarForm _ as z -> z
             | ComplexSumPow.VectorForm (re, im) as z ->
                 let r = liyhSqrt (re ** 2 + im ** 2)
@@ -2969,6 +2971,7 @@ module rec SumPow =
                 let l = liyhLn r1
                 ComplexSumPow.PolarForm (liyhExp (r2 * l - θ2 * θ1), r2 * θ1 + θ2 * l)  
 
+        /// Use `Simplification.Simplify` on each `SumPow` component part of the given complex number.
         let public simplifyComplex =
             function
             | ComplexSumPow.PolarForm (r, θ) ->
