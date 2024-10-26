@@ -2872,6 +2872,18 @@ module rec SumPow =
 
             | _ -> None
 
+        /// Pattern-match a purely imaginary complex number of the form `(a + bi)` where `a = 0`, and if so return `b`.
+        let private (|PureImaginary|_|) =
+            convertToVectorForm >> function
+            | ComplexSumPow.VectorForm (Zero, b) -> if Misc.isZero b then None else Some b
+            | _ -> None
+
+        /// Pattern-match a purely real complex number of the form `(a + bi)` where `b = 0`, and if so return `a`.
+        let private (|PureReal|_|) =
+            convertToVectorForm >> function
+            | ComplexSumPow.VectorForm (a, Zero) -> if Misc.isZero a then None else Some a
+            | _ -> None
+
         /// Check whether the given expression corresponds to the imaginary unit `i`.
         let public isImaginaryUnit =
             function
