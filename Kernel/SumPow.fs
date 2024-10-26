@@ -3011,9 +3011,21 @@ module rec SumPow =
             | Prod prod -> List.fold (fun acc (b, p) -> acc * (asComplex b ** asComplex p)) complexOne prod
             | SumList sl -> List.fold (fun acc z -> acc + asComplex z) complexZero sl
 
-        let public asSumPow (z: ComplexSumPow) =
+        /// Convert the given complex number into a SumPow expression of the form `a + bi`.
+        let public asSumPowVecExpression (z: ComplexSumPow) =
             let (ComplexSumPow.VectorForm(re, im)) = convertToVectorForm z
             re + (imaginaryUnitNotation * im)
+
+        /// Convert the given complex number into a SumPow expression of the form `re^(iφ)`.
+        let public asSumPowExpExpression (z: ComplexSumPow) =
+            let (ComplexSumPow.PolarForm(r, φ)) = convertToPolarForm z
+            r * liyhExp (imaginaryUnitNotation * φ)
+
+        /// Convert the given complex number into the SumPow pseudo-function `Complex[a, b]`.
+        /// That's the recommended way (because it's much easier to identify afterwards).
+        let public asSumPowFunction (z: ComplexSumPow) =
+            let (ComplexSumPow.VectorForm(re, im)) = convertToVectorForm z
+            Fun ("Complex", [ re; im ])
 
     [<RequireQualifiedAccess>]
     module public ModularArithmetic =
