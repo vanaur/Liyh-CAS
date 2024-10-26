@@ -2998,16 +2998,9 @@ module rec SumPow =
             | 3 -> -imaginaryUnitNotation
             | _ -> failwith "Unexpected case"
 
-        let private complexProduct (prod: (SumPow * SumPow) list) =
-            let im, re = List.partition (fst >> isImaginaryUnit) prod
-            let im1, im2 = List.partition (snd >> Misc.isPureConstInteger) im
-            let (Const (CInteger p)) = List.fold ( + ) (Const Zero) (List.map snd im1)
-            let im1 = expnImg p
-            let re = Misc.prodToSumPow re
-            let im =  Misc.prodToSumPow ((im1, Const One) :: im2)
-
-            complex re im
-
+        /// Convert a SumPow into a complex number. It is recommended to use the pseudo-function `Complex[a, b]` to express
+        /// complex numbers via SumPow, but if an imaginary unit `i` is detected in the SumPow expression, this `asComplex`
+        /// function should be able to incorporate it into the conversion.
         let public asComplex =
             function
             | Fun("Complex", [ re; im ]) -> complex re im
@@ -3015,7 +3008,8 @@ module rec SumPow =
             | ImaginaryUnit -> justIm (Const One)
             | SimpleSP x -> justRe x
             | Power(ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) -> asComplex (expnImg n)
-            | Prod prod -> complexProduct prod
+            | Prod prod -> List.fold (fun acc (b, p) -> acc * (asComplex b ** asComplex p)) complexOne prod
+            | SumList sl -> List.fold (fun acc z -> acc + asComplex z) complexZero sl
 
         let public asSumPow (z: ComplexSumPow) =
             let (ComplexSumPow.VectorForm(re, im)) = convertToVectorForm z
