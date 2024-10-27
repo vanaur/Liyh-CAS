@@ -7,6 +7,8 @@
     <PublishAot>false</PublishAot>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FFI/CFFI.fs" />
+
     <Compile Include="Tools/Utils.fs" />
     <Compile Include="Tools/UnionFind.fs" />
 
