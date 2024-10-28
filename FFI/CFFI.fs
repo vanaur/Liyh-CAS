@@ -133,7 +133,7 @@ module public CFFI =
 
         match ctype, ftype with
         | CType.String, (:? nativeint as ptr) -> free ptr
-        | CType.Pointer _, (:? nativeint as ptr) -> free ptr
+     // | CType.Pointer _, (:? nativeint as ptr) -> free ptr
         | _ -> ()
 
     let private cTypeToParamType =
