@@ -98,16 +98,17 @@ module public CFFI =
     let inline private (|ZeroIntPtr|_|) (n: nativeint) =
         if n = 0n then Some () else None
 
-    [<Struct; RequireQualifiedAccess>]
+    [<RequireQualifiedAccess>]
     type public CType =
-        | Int32     // int32
-        | Int64     // int64
-        | Char      // char
-        | Float     // float
-        | Double    // double
-        | String    // char*
-        | Pointer   // int*
-        | Void      // void
+        | Int32             // int32
+        | Int64             // int64
+        | Char              // char
+        | Float             // float
+        | Single            // single
+        | Double            // double
+        | String            // char*
+        | Pointer of CType  // ctype*
+        | Void              // void
 
     [<Struct>]
     type public FunctionSignature =
@@ -122,15 +123,29 @@ module public CFFI =
             Marshal.FreeHGlobal ptr
             str :> obj
 
+    let inline private convertIntPtrToPtrObj (value: obj) (ctype: CType) =
+        match value :?> nativeint with
+        | ZeroIntPtr -> null
+        | ptr -> ptr :> obj
+
+    let inline private freePtrMemory (ctype: CType, ftype: obj) =
+        let free ptr = if ptr <> 0n then Marshal.FreeHGlobal ptr
+
+        match ctype, ftype with
+        | CType.String, (:? nativeint as ptr) -> free ptr
+        | CType.Pointer _, (:? nativeint as ptr) -> free ptr
+        | _ -> ()
+
     let private cTypeToParamType =
         function
         | CType.Int32 -> typeof<int32>
         | CType.Int64 -> typeof<int64>
         | CType.Char -> typeof<char>
-        | CType.Float -> typeof<float32>
+        | CType.Float -> typeof<float>
+        | CType.Single -> typeof<float32>
         | CType.Double -> typeof<double>
         | CType.String -> typeof<string>
-        | CType.Pointer -> typeof<nativeint>
+        | CType.Pointer _ -> typeof<nativeint>
         | CType.Void -> typeof<Void>
 
     let private cTypeToReturnType =
@@ -225,18 +240,17 @@ module public CFFI =
             try
                 let result = delegate'.DynamicInvoke args
 
-                if signature.returnType = CType.String
-                then convertIntPtrToStringObj result
-                else result
+                // If the return type is a pointer, then we need to perform certain manipulations for conversion.
+                match signature.returnType with
+                | CType.String -> convertIntPtrToStringObj result
+                | CType.Pointer ctype -> convertIntPtrToPtrObj result ctype
+                | _ -> result
 
             finally
 
                 // -- Frees up memory if needed -- //
 
-                Array.zip signature.parameters args
-                |> Array.iter (function
-                    | CType.String, (:? nativeint as ptr) -> if ptr <> 0n then Marshal.FreeHGlobal ptr
-                    | _ -> ())
+                Array.iter freePtrMemory (Array.zip signature.parameters args)
 
         interface IDisposable with
 
@@ -253,6 +267,7 @@ module public CFFI =
     let inline public convertObjToInt32 (value: obj) = value :?> int32
     let inline public convertObjToInt64 (value: obj) = value :?> int64
     let inline public convertObjToFloat (value: obj) = value :?> float
+    let inline public convertObjToSingle (value: obj) = value :?> float32
     let inline public convertObjToDouble (value: obj) = value :?> double
     let inline public convertObjToString (value: obj) = value :?> string
     let inline public convertObjToPointer (value: obj) = value :?> nativeint
