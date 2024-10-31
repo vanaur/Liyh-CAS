@@ -3026,6 +3026,35 @@ module rec SumPow =
             | Prod prod -> List.fold (fun acc (b, p) -> acc * asComplex (b ** p)) complexOne prod
             | SumList sl -> List.fold (fun acc z -> acc + asComplex z) complexZero sl
 
+        /// Deduce whether the given complex number is purely real.
+        let public isPureReal =
+            function
+            | PureReal _ -> true
+            | _ -> false
+        
+        /// Deduce whether the given complex number is purely imaginary.
+        let public isPureImaginary =
+            not << isPureReal
+
+        /// Deduce whether the given SumPow expression is purely real.
+        let public isPureRealSumPow =
+            asComplex >> isPureReal
+
+        /// Deduce whether the given SumPow expression is purely imaginary.
+        let public isPureImaginarySumPow =
+            asComplex >> isPureImaginary
+
+        /// Active pattern for pure complex numbers (not real numbers).
+        let public (|ComplexSumPow|_|) (sp: SumPow) =
+            match asComplex sp with
+            | PureReal _ -> None
+            | complex -> Some complex
+
+        /// Convert the SumPow representation into the SumPow representation extended to complexes,
+        /// i.e. the SumPow expression is translated in the form `Complex[re, im]`.
+        let public sumPowAsComplexSumPowFunction =
+            asComplex >> asSumPowFunction
+
         /// Convert the given complex number into a SumPow expression of the form `a + bi`.
         let public asSumPowVecExpression (z: ComplexSumPow) =
             let (ComplexSumPow.VectorForm(re, im)) = convertToVectorForm z
