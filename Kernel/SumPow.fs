@@ -3001,6 +3001,7 @@ module rec SumPow =
         let inline private justRe x = ComplexSumPow.VectorForm(x, Const Zero)
         let inline private justIm x = ComplexSumPow.VectorForm(Const Zero, x)
         let inline private complex re im = ComplexSumPow.VectorForm(re, im)
+        let inline private cis arg = complex (liyhCos arg) (liyhSin arg)
 
         let private expnImg (n: int) =
             match n % 4 with
