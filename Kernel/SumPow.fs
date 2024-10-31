@@ -3016,7 +3016,7 @@ module rec SumPow =
         let public asComplex =
             function
             | Fun("Complex", [ re; im ]) -> complex re im
-            | Cis arg -> complex arg arg
+            | Cis arg -> cis arg
             | ImaginaryUnit -> justIm (Const One)
             | SimpleSP x -> justRe x
             | Power(ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) -> asComplex (expnImg n)
