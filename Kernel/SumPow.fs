@@ -3020,7 +3020,7 @@ module rec SumPow =
             | ImaginaryUnit -> justIm (Const One)
             | SimpleSP x -> justRe x
             | Power(ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) -> asComplex (expnImg n)
-            | Prod prod -> List.fold (fun acc (b, p) -> acc * (asComplex b ** asComplex p)) complexOne prod
+            | ProdWith1 isImaginaryUnit x -> justIm (Misc.prodToSumPow x)
             | SumList sl -> List.fold (fun acc z -> acc + asComplex z) complexZero sl
 
         /// Convert the given complex number into a SumPow expression of the form `a + bi`.
