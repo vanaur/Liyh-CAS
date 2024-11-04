@@ -3138,7 +3138,6 @@ module rec SumPow =
     [<RequireQualifiedAccess>]
     module public EqualityTest =
         open System.Collections.Generic
-        open System.Threading.Tasks
 
         [<Literal>]
         let private maxIteration = 80
@@ -3147,50 +3146,41 @@ module rec SumPow =
         /// This method is good for disproving equality, but is not safe for proving equality. This method of
         /// checking equality has the advantage of not using canonical transformations and is therefore fast.
         let public equalityTest (sp1: SumPow) (sp2: SumPow) =
+            let expr = NumericEvaluation.partialEval (sp1 - sp2) // This reduces the cost of subsequent calculations.
+            let variables = Array.ofList (Misc.listVariables expr)
 
-            // There are two passes: the first filters out the possibility of non-equality, which is quick
-            // to stop, and the second tests equality in parallel, which is slower to stop.
+            let rnd = Random.Shared
 
-            match (sp1 - sp2) with
-            | Zero -> true // when the result is easily and symbolically detected as 0.
-            | expr ->
-                let vars = Array.ofList (Misc.listVariables expr)
-                let rnd = new Random()
+            let inline initializer _ =
+                let dc = dict (Array.map (fun a -> a, rnd.NextDouble() |> Constant) variables)
+                NumericEvaluation.evaluate expr (Dictionary dc) |> toDouble
 
-                let mutable result = true
-                let mutable running = true
-                let mutable count = 0
+            let rtable = Array.Parallel.init maxIteration initializer
 
-                // The first pass highlights the inequality more quickly. In other words, if the two
-                // expressions are clearly unequal, the code will finish more quickly.
+            let inline meanAndVariance (values: double[]) =
+                let mutable sum = 0.0
+                let mutable sumOfSquares = 0.0
+                let n = double (Array.length values)
 
-                while running && count < maxIteration / 2 do
-                    let dc = dict (Array.map (fun a -> a, Constant(rnd.NextDouble())) vars)
-                    let ev = NumericEvaluation.evaluate expr (Dictionary dc)
+                for x in values do
+                    sum <- sum + x
+                    sumOfSquares <- sumOfSquares + pown x 2
 
-                    if not (approximatelyEquals ev Zero ValueNone) then
-                        result <- false
-                        running <- false
+                let mean = sum / n
+                let variance = (sumOfSquares / n) - (pown mean 2)
 
-                    count <- count + 1
+                (mean, variance)
 
-                // The second pass runs in parallel to test more cases, but stops more slowly in the case
-                // of unequal expressions. Hence a first pass that filters a first time.
+            let m, v = meanAndVariance rtable
 
-                if result then
-                    Parallel.For(0, maxIteration,
-                        fun _ state ->
-                            let dc = dict (Array.map (fun a -> a, Constant(rnd.NextDouble())) vars)
-                            let ev = NumericEvaluation.evaluate expr (Dictionary dc)
+            // The mean of the values should be approximately zero, and the separation of these
+            // values from the mean should also be close to zero for the result to be `true`.
 
-                            if not (approximatelyEquals ev Zero ValueNone) then
-                                result <- false
-                                state.Break()) |> ignore
-
-                result
+            Math.approximatelyEquals m 0.0 ValueNone && Math.approximatelyEquals v 0.0 ValueNone
 
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
+
     module public Misc =
         open PureConstantExpression
         open SimplifiedSum
