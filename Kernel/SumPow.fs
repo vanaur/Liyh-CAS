@@ -1515,12 +1515,19 @@ module rec SumPow =
 
             | a, b -> a * b
 
-        /// Expand a sum or product power.
+        /// Expand a sum or a product power.
         let private expandPow =
             function
             | Prod xs, p -> Sum [ Term(List.map (fun (b, p') -> power'(expand b, expand p' * p)) xs) ], Const One
-            | Sum [ Term x; Term y ], PureConstantExpression.PureConstantExpressionInteger p when p > 0 -> newtonBinomial x y p, Const One
-            | Sum terms, PureConstantExpression.PureConstantExpressionInteger p when p > 0 -> newtonMultinomial terms p, Const One
+
+            | Sum terms, PureConstantExpressionInteger p when p > 0 ->
+
+                // Null terms are filtered out.
+                match List.filter (sumId >> ( == ) (Const Zero) >> not) terms with
+                | [ term ] -> sumId term, Const p
+                | [ Term x; Term y ] -> newtonBinomial x y p, Const One
+                | terms -> newtonMultinomial terms p, Const One
+
             | b, p -> expand b, expand p
 
         /// Expand a product.
