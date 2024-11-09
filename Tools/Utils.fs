@@ -198,22 +198,34 @@ module rec Utils =
         /// Calculates the binomial coefficient (n k).
         /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
         let inline binomial n k =
-            List.fold (fun s i -> s * (n - i + 1) / i) 1 [ 1..k ]
+            if   k < 0 || k > n then 0
+            elif k = 0 || k = n then 1
+            else
+                // To optimize the calculation, we use the `C(n,k) = C(n,n-k)` property of the binomial coefficient.
 
-        /// Calculates the binomial coefficient (n k).
-        /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
-        let inline fbinomial (n: double) (k: double) =
-            Array.fold (fun s i -> s * (n - i + 1.0) / i) 1.0 [| 1.0 .. k |]
+                let k = min k (n - k)
 
-        /// Calculates the binomial coefficient (n k).
-        /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
-        let inline dbinomial (n: decimal) (k: decimal) =
-            Array.fold (fun s i -> s * (n - i + 1m) / i) 1m [| 1m .. k |]
+                let rec loop i result =
+                    if i > k then result
+                    else loop (i + 1) (result * (n - i + 1) / i)
+                
+                loop 1 1
 
         /// Calculates the binomial coefficient (n k).
         /// See https://en.wikipedia.org/wiki/Binomial_coefficient.
         let inline ibinomial (n: bigint) (k: bigint) =
-            Array.fold (fun s i -> s * (n - i + 1I) / i) 1I [| 1I .. k |]
+            if   k < 0I || k > n then 0I
+            elif k = 0I || k = n then 1I
+            else
+                // To optimize the calculation, we use the `C(n,k) = C(n,n-k)` property of the binomial coefficient.
+
+                let k = min k (n - k)
+
+                let rec loop i result =
+                    if i > k then result
+                    else loop (i + 1I) (result * (n - i + 1I) / i)
+
+                loop 1I 1I
 
         /// Calculates the multinomial coefficient.
         /// See https://en.wikipedia.org/wiki/Multinomial_theorem.
