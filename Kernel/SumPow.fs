@@ -2809,7 +2809,7 @@ module rec SumPow =
             Simplification.simplify (peval sp)
 
         /// Partially evaluates the given expression, only calculating the constant expressions numerically after expand.
-        /// For example, `4x*(Sqrt[2]/5 + x/3)` will give `2.26274169979695x`.
+        /// For example, `4x*(Sqrt[2]/5 + x/3)` will give `1.1313x + x²1.3333`.
         let public partialEvalExpand = Expand.fullExpand >> partialEval
 
         /// Given an expression and a variable, returns a lambda `double -> double`. This makes univariate numerical
