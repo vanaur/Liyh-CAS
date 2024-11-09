@@ -1440,6 +1440,7 @@ module rec SumPow =
     /// Development (distributivity of sum and product) of SumPow algebraic expressions.
     [<RequireQualifiedAccess>]
     module public Expand =
+        open PureConstantExpression
         open ElementaryOperations
         open SimplifiedSum
 
@@ -1468,11 +1469,12 @@ module rec SumPow =
 
         /// Implements the generalized binomial theorem for `(x₁ + x₂ + ⋅⋅⋅ + xₘ)^n`.
         /// See https://en.wikipedia.org/wiki/Multinomial_theorem.
-        let private newtonMultinomial (xs: Term list) (n: int) =
+        let private newtonMultinomial (terms: Term list) (n: int) =
+            let len = List.length terms
 
             /// Generates the list of powers that will be involved in the final sum.
             let rec inner start currentSum currentCombination combinations =
-                if List.length currentCombination = List.length xs then
+                if List.length currentCombination = len then
                     if currentSum = n then currentCombination :: combinations
                     else combinations
                 else
@@ -1486,8 +1488,8 @@ module rec SumPow =
 
             let multinomialTerm (vec: int list) =
                 let mul = Const(multinomial vec)
-                let folder acc p term =  acc * power (sumId term, Const (int p))
-                List.fold2 folder mul vec xs
+                let folder acc p term = acc * power (sumId term, Const (int p))
+                List.fold2 folder mul vec terms
 
             Sum (manyTermId (List.map multinomialTerm exponentVectors))
 
