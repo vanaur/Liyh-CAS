@@ -67,12 +67,12 @@ module rec SumPow =
         open ElementaryOperations
         open PureConstantExpression
 
-        /// An active pattern that represents either a variable (`Name _`), a pure constant (`PureConstantExpression.PureConstantExpression _`) or a
+        /// An active pattern that represents either a variable (`Name _`), a pure constant (`PureConstantExpression _`) or a
         /// function (`Fun _`). In other words, it's not a sum, a product or a power.
         let public (|SimpleSP|_|) =
             function
             | Name _ as a -> Some a
-            | PureConstantExpression.PureConstantExpressionInteger _ as a -> Some a
+            | PureConstantExpression _ as a -> Some a   
             | Fun _ as a -> Some a
             | _ -> None
 
@@ -1446,18 +1446,20 @@ module rec SumPow =
         /// Implements Newton's binomial for `(x + y)^n`. Takes the two sum terms and the integer exponent and returns
         /// the resulting sum. See https://en.wikipedia.org/wiki/Binomial_theorem.
         let private newtonBinomial (x: Pow list) (y: Pow list) (n: int) =
-            let spn = Const n
 
             let binomialTerm (k: int) =
                 let spk = Const k
+                let spnk = Const(double (n - k))
                 let bin = Const(binomial n k)
 
-                let inline mapping (Pow(b, p)) =
-                    [ power' (expand b, expand p * (spn - spk))
-                      power' (expand b, expand p * spk) ]
+                let inline mapping (m: SumPow) (Pow(b, p)) =
+                    power' (expand b, expand p * m)
+
+                let xTerm = List.map (mapping spk) x
+                let yTerm = List.map (mapping spnk) y
 
                 powId bin
-                :: List.collect mapping x
+                :: (xTerm @ yTerm)
                 |> Simplification.basicTermSimp
                 |> Flatten.flattenTerm
                 |> Term
