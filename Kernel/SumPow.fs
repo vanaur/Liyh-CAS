@@ -3189,6 +3189,10 @@ module rec SumPow =
 
             Math.approximatelyEquals m 0.0 ValueNone && Math.approximatelyEquals v 0.0 ValueNone
 
+        /// Using the `equalityTest` heuristic, check if the given expression equals zero. This function is memoized.
+        let public equalsZero =
+            memoize (equalityTest (Const Zero))
+
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
 
