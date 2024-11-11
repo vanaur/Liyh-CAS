@@ -3195,7 +3195,6 @@ module rec SumPow =
 
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
-
     module public Misc =
         open PureConstantExpression
         open SimplifiedSum
@@ -3259,9 +3258,9 @@ module rec SumPow =
                 function
                 | Name name -> Set.add name result
                 | Fun(_, args) -> List.fold inner result args
-                | SimplifiedSum.SimplifiedSum xs ->
+                | SimplifiedSum xs ->
                     let go (b, p) = Set.union (inner result b) (inner result p)
-                    SimplifiedSum.mapPowFlatten go xs |> Set.unionMany
+                    mapPowFlatten go xs |> Set.unionMany
                 | _ -> result
 
             inner Set.empty expr |> Set.toList
@@ -3285,14 +3284,3 @@ module rec SumPow =
             | SumList xs -> Sum (manyTermId (List.map convertAllRationalPowersToRoot xs))
             | other -> other
 
-        /// Counts the number of operations involved in the given expression.
-        let public countop (expr: SumPow) =
-
-            let rec loop result =
-                function
-                | Name _ | Const _ -> result
-                | Fun(_, [ arg ]) -> loop result arg
-                | Fun(_, xs) -> List.sum (List.map (loop 0) xs)
-                | SimplifiedSum xs -> List.sum (mapPowFlatten (fun x -> loop 1 (fst x) + loop 0 (snd x)) xs)
-
-            loop 0 expr
