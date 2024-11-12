@@ -3150,12 +3150,35 @@ module rec SumPow =
     module public EqualityTest =
         open System.Collections.Generic
 
-        [<Literal>]
-        let private maxIteration = 80
+        exception public NumericallyDivergentExpressionException of SumPow
 
-        /// Checks whether the two given expressions are equal or not using a random value generation heuristic.
-        /// This method is good for disproving equality, but is not safe for proving equality. This method of
-        /// checking equality has the advantage of not using canonical transformations and is therefore fast.
+        // The limit is of arbitrary size; of course, the higher it is, the slower the test function
+        // will be, but it's also less reliable.
+        let private maxIteration = 150
+
+        // We want to generate a number in a relevant range, with significant digits preserved.
+        let private bounds = (-10e-14, +10e+14)
+
+        /// Returns the mean and variance of the given table of values. 
+        let private meanAndVariance (values: double[]) =
+            let mutable sum = 0.0
+            let mutable sumOfSquares = 0.0
+            let n = double (Array.length values)
+
+            for x in values do
+                sum <- sum + x
+                sumOfSquares <- sumOfSquares + pown x 2
+
+            let mean = sum / n
+            let variance = (sumOfSquares / n) - (pown mean 2)
+
+            (mean, variance)
+
+        /// Tests whether the two given expressions are equal.
+        /// 
+        /// This method is not symbolic, but uses numerical and statistical heuristics, so it cannot guarantee the "truth".
+        /// Since this method doesn't perform any canonical transformations, it's generally faster than symbolic equality,
+        /// testing and therefore also applies to an unlimited number of cases.
         let public equalityTest (sp1: SumPow) (sp2: SumPow) =
             let expr = NumericEvaluation.partialEval (sp1 - sp2) // This reduces the cost of subsequent calculations.
             let variables = Array.ofList (Misc.listVariables expr)
@@ -3163,25 +3186,22 @@ module rec SumPow =
             let rnd = Random.Shared
 
             let inline initializer _ =
-                let dc = dict (Array.map (fun a -> a, rnd.NextDouble() |> Constant) variables)
-                NumericEvaluation.evaluate expr (Dictionary dc) |> toDouble
+                let rec randomEvaluation (count: int) =
+
+                    // If the expression to be tested returns an undefined value too many times, we throw an exception.
+                    // In practice, this might be very rare.
+                    if count >= maxIteration then
+                        raise (NumericallyDivergentExpressionException expr)
+
+                    let dc = Array.map (fun a -> a, Constant(rnd.NextDoubleLogarithmic bounds)) variables
+
+                    match NumericEvaluation.evaluate expr (Dictionary (dict dc)) with
+                    | Constant n when not (Double.IsFinite n) -> randomEvaluation (count + 1)
+                    | Constant n -> n
+
+                randomEvaluation 0
 
             let rtable = Array.Parallel.init maxIteration initializer
-
-            let inline meanAndVariance (values: double[]) =
-                let mutable sum = 0.0
-                let mutable sumOfSquares = 0.0
-                let n = double (Array.length values)
-
-                for x in values do
-                    sum <- sum + x
-                    sumOfSquares <- sumOfSquares + pown x 2
-
-                let mean = sum / n
-                let variance = (sumOfSquares / n) - (pown mean 2)
-
-                (mean, variance)
-
             let m, v = meanAndVariance rtable
 
             // The mean of the values should be approximately zero, and the separation of these
