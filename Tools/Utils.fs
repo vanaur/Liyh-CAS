@@ -24,6 +24,50 @@ module rec Utils =
         | [ x ] -> hash x
         | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
 
+    /// Generates a random double number between bounds of arbitrary size, and well distributed between them.
+    /// Code inspired by https://stackoverflow.com/a/51590636/9382127.
+    let private nextDoubleLogarithmic (random: Random) (minValue: double) (maxValue: double) =
+        let minAbs = min (abs minValue) (abs maxValue)
+        let maxAbs = max (abs minValue) (abs maxValue)
+
+        let inline nextDoubleLinear (minValue: double) (maxValue: double) =
+            let sample = random.NextDouble()
+            (maxValue * sample) + (minValue * (1. - sample))
+
+        // If both negative and positive results are expected we select the sign based on the size of the ranges.
+        let sign =
+            if not (minValue < 0. && maxValue > 0.)
+            then if minValue < 0. then -1. else 1.
+            else
+                let sample = random.NextDouble()
+                let rate = minAbs / maxAbs
+                let absMinValue = abs minValue
+                let isNeg = if absMinValue <= maxValue then rate / 2. > sample else rate / 2. < sample
+                if isNeg then -1. else 1.
+
+        // Possible double exponents are -1022..1023 but we don't generate too small exponents for big ranges because
+        // that would cause too many almost zero results, which are much smaller than the original NextDouble values.
+        let minExponent = if minAbs = 0. then -16. else Math.Log(minAbs, 2.)
+        let maxExponent = Math.Log(maxAbs, 2.)
+
+        if minExponent = maxExponent then minValue
+        else
+            // We decrease exponents only if the given range is already small.
+            // Even lower than -1022 is no problem, the result may be 0
+
+            let minExponent = if maxExponent < minExponent then maxExponent - 4.0 else minExponent
+            let result = sign * Math.Pow(2., nextDoubleLinear minExponent maxExponent)
+
+            // Protecting ourselves against inaccurate calculations; however, in practice result is always in range.
+            if result < minValue then minValue else (if result > maxValue then maxValue else result)
+
+    type Random with
+
+        /// Generates a random double number between bounds of arbitrary size, and well distributed between them.
+        /// Code inspired by https://stackoverflow.com/a/51590636/9382127.
+        member public random.NextDoubleLogarithmic(minValue: double, maxValue: double) =
+            nextDoubleLogarithmic random minValue maxValue
+
     // Some extensions to the standard module.
     module public Array =
 
