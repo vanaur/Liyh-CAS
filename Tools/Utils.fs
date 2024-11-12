@@ -7,20 +7,14 @@ module rec Utils =
     open System
     open System.Linq
     open System.Collections.Generic
+    open System.Collections.Concurrent
     open System.Runtime.CompilerServices
 
-    /// Used to store the results of a (pure) function so that they have not to be recalculated later in a re-call.
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    /// Create a closure that stores each result of the given function (provided it is pure for this to work
+    /// correctly) so it don't have to recalculate it afterwards. This function is thread-safe.
     let inline public memoize ([<InlineIfLambda>] fn: 'a -> 'b) =
-        let cache = new Dictionary<'a, 'b>()
-
-        fun arg ->
-            match cache.TryGetValue arg with
-            | true, value -> value
-            | _ ->
-                let value = fn arg
-                cache.Add(arg, value) |> ignore
-                value
+        let cache = new ConcurrentDictionary<'a, 'b>()
+        fun arg -> cache.GetOrAdd(arg, fun _ -> fn arg)
 
     /// Generates a hash code regardless of the order of the elements in the given sequence.
     [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
