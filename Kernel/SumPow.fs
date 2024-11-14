@@ -3048,7 +3048,7 @@ module rec SumPow =
             | Fun("Complex", [ re; im ]) -> complex re im
             | Cis arg -> cis arg
             | ImaginaryUnit -> justIm (Const One)
-            | SimpleSP x -> justRe x
+            | (Const _ as sp) | (Name _ as sp) | (Fun _ as sp) -> justRe sp // TODO: converting standard functions to complex!
             | Power(ImaginaryUnit, PureConstantExpressionInteger n) -> asComplex (expnImg n)
             | Power(a, b) -> asComplex a ** asComplex b
             | ProdWith1 isImaginaryUnit x -> justIm (Misc.prodToSumPow x)
