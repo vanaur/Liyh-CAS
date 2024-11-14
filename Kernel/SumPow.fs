@@ -989,6 +989,7 @@ module rec SumPow =
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
         let rec public (|PureConstantExpression|_|) =
             function
+            | (E | I | Pi) as sp -> Some sp // Known named constants
             | Name _ -> None
             | Const _ as c -> Some c
             | SimplifiedSum ss as c ->
