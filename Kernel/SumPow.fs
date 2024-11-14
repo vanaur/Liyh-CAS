@@ -3040,6 +3040,12 @@ module rec SumPow =
             | 3 -> -imaginaryUnitNotation
             | _ -> failwith "Unexpected case"
 
+        /// Calculate the complex conjugate of the given complex number.
+        let rec public conjugate =
+            function
+            | ComplexSumPow.VectorForm (re, im) -> ComplexSumPow.VectorForm (re, -im)
+            | ComplexSumPow.PolarForm (r, θ) -> ComplexSumPow.PolarForm (r, -θ)
+
         /// Convert a SumPow into a complex number. It is recommended to use the pseudo-function `Complex[a, b]` to express
         /// complex numbers via SumPow, but if an imaginary unit `i` is detected in the SumPow expression, this `asComplex`
         /// function should be able to incorporate it into the conversion.
