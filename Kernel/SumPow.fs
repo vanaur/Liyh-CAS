@@ -159,25 +159,37 @@ module rec SumPow =
         /// An active pattern that matches a product that contains the given expression at least once. In case of Some,
         /// returns a tuple `Prod (prod, n)` where `prod` is the product expression list without the the expression to
         /// be found and where `n` is the number of time it appears.
-        let public (|ProdWith|_|) (pred: SumPow -> bool) =
-            function
-            | Prod [ p ] when pred (power p) -> Some ([ ], 1)
+        let public (|ProdWith|_|) (pred: SumPow -> bool) (sp: SumPow) =
+
+            // Just return the unit of multiplication when the product only contains the term to be matched.
+            let punit = (Const One, Const One)
+
+            match sp with
+            | Prod [ p ] when pred (power p) -> Some ([ punit ], 1)
             | Prod xs ->
                 match List.partition (fun p -> pred (power p)) xs with
                 | [], _ -> None
-                | ts, xs' -> Some(xs', List.length ts)
+                | ts, xs' ->
+                    let res = if List.isEmpty xs' then [ punit ] else xs'
+                    Some(res, List.length ts)
             | _ -> None
 
         /// An active pattern that matches a sum that contains the given expression at least once. In case of Some,
         /// returns a tuple `Sum (sum, n)` where `sum` is the sum expression list without the the expression to
         /// be found and where `n` is the number of time it appears.
-        let public (|SumWith|_|) (pred: SumPow -> bool) =
-            function
-            | SimplifiedSum.SumList [ term ] when pred term -> Some ([ ], 1)
+        let public (|SumWith|_|) (pred: SumPow -> bool) (sp: SumPow) =
+
+            // Just return the unit of summation when the sum only contains the term to be matched. 
+            let sunit = (Const Zero)
+
+            match sp with
+            | SimplifiedSum.SumList [ term ] when pred term -> Some ([ sunit ], 1) // Just return the unit of the sum
             | SimplifiedSum.SumList xs ->
                 match List.partition pred xs with
                 | [], _ -> None
-                | ts, xs' -> Some(xs', List.length ts)
+                | ts, xs' ->
+                    let res = if List.isEmpty xs' then [ sunit ] else xs'
+                    Some(res, List.length ts)
             | _ -> None
 
         /// An active pattern that matches a product that contains exactly once the given expression. In case of Some,
