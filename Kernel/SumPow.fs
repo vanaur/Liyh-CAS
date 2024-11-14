@@ -17,6 +17,7 @@ module rec SumPow =
     /// These functions should be called every time a sum / term or power is constructed.
     [<AutoOpen>]
     module public PowId =
+        open PureConstantExpression
 
         /// Creates a power to the exponent 1 from the given expression. If the expression is not itself a power,
         /// then returns it to the power 1, otherwise just return the power.
@@ -57,8 +58,8 @@ module rec SumPow =
             function
             | Term [ Pow(b, One) ] -> b
             | Term [ Pow(Sum [ term ], One) ] -> sumId term
-            | Term [ Pow((PureConstantExpression.PureConstantExpressionInteger _ as b) 
-                        ,(PureConstantExpression.PureConstantExpressionInteger _ as p)) ] -> b ** p
+            | Term [ Pow((PureConstantExpressionInteger _ as b) 
+                        ,(PureConstantExpressionInteger _ as p)) ] -> b ** p
             | term -> Sum [ term ]
 
     /// Various active patterns useful for working around SumPow.
@@ -85,19 +86,19 @@ module rec SumPow =
         /// An active pattern that matches the pure constant expression which reduces to the integer 0.
         let public (|Zero|_|) =
             function
-            | PureConstantExpression.PureConstantExpressionInteger 0 -> Some()
+            | PureConstantExpressionInteger 0 -> Some()
             | _ -> None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer 1.
         let public (|One|_|) =
             function
-            | PureConstantExpression.PureConstantExpressionInteger 1 -> Some()
+            | PureConstantExpressionInteger 1 -> Some()
             | _ -> None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer -1.
         let public (|NegOne|_|) =
             function
-            | PureConstantExpression.PureConstantExpressionInteger -1 -> Some()
+            |   PureConstantExpressionInteger -1 -> Some()
             | _ -> None
 
         /// An active pattern that matches a term with negative powers ("fractions").
@@ -417,11 +418,12 @@ module rec SumPow =
 
     /// The module that implements SumPow custom comparaison.
     module private Comparison =
+        open PureConstantExpression
 
         let public compareSumPow =
             function
             | Const a, Const b -> compare a b
-            | PureConstantExpression.PureConstantExpressionInteger a, PureConstantExpression.PureConstantExpressionInteger b -> compare a b
+            | PureConstantExpressionInteger a, PureConstantExpressionInteger b -> compare a b
             | Name a, Name b -> compare a b
             | Sum [ x ], Sum [ y ] -> compare x y
             | Sum xs, Sum ys -> compare xs ys
@@ -1262,6 +1264,7 @@ module rec SumPow =
     /// Elementary simplifications, concerned with common terms that simplify each other.
     /// This simplification module is the basis for all other simplifications in Liyh.
     module public Simplification =
+        open PureConstantExpression
         open InternalFunction
         open ElementaryOperations
         open SimplifiedSum
@@ -1292,10 +1295,10 @@ module rec SumPow =
         /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
         /// involves floating-point constants, then the simplification is subject to the inaccuracies.
         let public simpPureConst (sp: SumPow) =
-            if not (PureConstantExpression.isPureConstantExpression sp) then
-                raise (PureConstantExpression.ExpressionIsNotPureConstantException sp)
+            if not (isPureConstantExpression sp) then
+                raise (ExpressionIsNotPureConstantException sp)
 
-            PureConstantExpression.csimplify sp
+            csimplify sp
 
         /// Basic simplifies the fraction, given in numerator and denominator form. Returns a SumPow.
         let private simpFrac (num: SumPow) (den: SumPow) =
@@ -1379,7 +1382,7 @@ module rec SumPow =
 
                 | Term term :: xs ->
                     match (simpProd term) with
-                    | PureConstantExpression.PureConstantExpression c, [] -> makeSimp result (constant + c) xs
+                    | PureConstantExpression c, [] -> makeSimp result (constant + c) xs
 
                     | factor, term ->
                         match Map.tryFind term result with
@@ -1428,7 +1431,7 @@ module rec SumPow =
             //FixedPoint.tryFixedPoint 5 //>> memoize
             FixedPoint.fixedPointMax' 5
             <| function
-                | PureConstantExpression.PureConstantExpression cst -> simpPureConst cst
+                | PureConstantExpression cst -> simpPureConst cst
                 | Name _ as name -> name
 
                 | Power (b, One) -> simplify b
@@ -1437,7 +1440,7 @@ module rec SumPow =
 
                 | Sum xs -> simpSum xs
 
-                | InternalFunction.InternalFunction ifun -> InternalFunction.simplifyd ifun
+                | InternalFunction ifun -> simplifyd ifun
                 | Fun(name, args) -> Fun(name, List.map simplify args)
                 | other -> other
 
@@ -2703,6 +2706,7 @@ module rec SumPow =
 
     /// A module for the approximate numerical evaluation of SumPow expressions.
     module public NumericEvaluation =
+        open PureConstantExpression
         open System.Linq
         open System.Collections.Generic
 
@@ -2813,7 +2817,7 @@ module rec SumPow =
                 List.fold ( + ) (Const Zero) ncs + List.fold ( + ) (Const Zero) cs
 
             let rec peval = function
-                | PureConstantExpression.PureConstantExpression pc -> Const (evaluate0 pc)
+                | PureConstantExpression pc -> Const (evaluate0 pc)
                 | Sum sum -> partialEvalSum sum
                 | Fun(fname, args) -> Fun(fname, List.map partialEval args)
                 | other -> other
@@ -2837,6 +2841,7 @@ module rec SumPow =
 
     /// Extends the field of reals (modeled by SumPow) to the field of complexes.
     module public Complex =
+        open PureConstantExpression
         open InternalFunction
         open SimplifiedSum
         open ElemFun
@@ -2855,10 +2860,10 @@ module rec SumPow =
             | Exp(ProdWith1 isImaginaryUnit prod) -> Some (Misc.prodToSumPow prod)
 
             // Cos[x] + iSin[x]
-            | SimplifiedSum [ [ Cos x, One ]; [ (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n); Sin x', One ] ]
-            | SimplifiedSum [ [ Cos x, One ]; [ Sin x', One ; (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n)] ]
-            | SimplifiedSum [ [ Sin x', One; (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) ]; [ Cos x, One ] ]
-            | SimplifiedSum [ [ (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n); Sin x', One ]; [ Cos x, One ] ]
+            | SimplifiedSum [ [ Cos x, One ]; [ (ImaginaryUnit, PureConstantExpressionInteger n); Sin x', One ] ]
+            | SimplifiedSum [ [ Cos x, One ]; [ Sin x', One ; (ImaginaryUnit, PureConstantExpressionInteger n)] ]
+            | SimplifiedSum [ [ Sin x', One; (ImaginaryUnit, PureConstantExpressionInteger n) ]; [ Cos x, One ] ]
+            | SimplifiedSum [ [ (ImaginaryUnit, PureConstantExpressionInteger n); Sin x', One ]; [ Cos x, One ] ]
                 when (x = x') && ((n % 4) = 1) -> Some x
 
             | _ -> None
@@ -2888,10 +2893,10 @@ module rec SumPow =
             | i when i = imaginaryUnitNotation -> Some ()
 
             // i^(4n + 1) ≡ i
-            | Power (ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) when (n % 4) = 1 -> Some ()
+            | Power (ImaginaryUnit, PureConstantExpressionInteger n) when (n % 4) = 1 -> Some ()
 
             // Cis[pi/2] ≡ Cos[pi/2] + iSin[pi/2] ≡ Exp[iπ/2] ≡ i
-            | Cis (Frac (Name "pi", PureConstantExpression.PureConstantExpressionInteger 2)) -> Some ()
+            | Cis (Frac (Name "pi", PureConstantExpressionInteger 2)) -> Some ()
 
             | _ -> None
 
@@ -3043,12 +3048,12 @@ module rec SumPow =
             | Cis arg -> cis arg
             | ImaginaryUnit -> justIm (Const One)
             | SimpleSP x -> justRe x
-            | Power(ImaginaryUnit, PureConstantExpression.PureConstantExpressionInteger n) -> asComplex (expnImg n)
+            | Power(ImaginaryUnit, PureConstantExpressionInteger n) -> asComplex (expnImg n)
             | Power(a, b) -> asComplex a ** asComplex b
             | ProdWith1 isImaginaryUnit x -> justIm (Misc.prodToSumPow x)
             | Prod prod -> List.fold (fun acc (b, p) -> acc * asComplex (b ** p)) complexOne prod
             | SumList sl -> List.fold (fun acc z -> acc + asComplex z) complexZero sl
-
+    
         /// Deduce whether the given complex number is purely real.
         let public isPureReal =
             function
@@ -3097,6 +3102,7 @@ module rec SumPow =
     [<RequireQualifiedAccess>]
     module public ModularArithmetic =
         open ElementaryOperations
+        open PureConstantExpression
 
         exception public NumberHaveNotTheSameModulus of ModularNumber list
 
@@ -3134,12 +3140,12 @@ module rec SumPow =
 
         let inline private congruence { number = number; modulus = modulus } =
             match number with
-            | PureConstantExpression.PureConstantExpressionInteger number -> { number = Const (double (number % modulus)); modulus = modulus }
+            | PureConstantExpressionInteger number -> { number = Const (double (number % modulus)); modulus = modulus }
             | number -> { number = number; modulus = modulus }
 
         let public (|ModularNumber|_|) =
             function
-            | Fun("ModularNumber", [ number; PureConstantExpression.PureConstantExpressionInteger modulus ]) ->
+            | Fun("ModularNumber", [ number; PureConstantExpressionInteger modulus ]) ->
                 Some (congruence { number = number; modulus = modulus })
             | _ -> None
 

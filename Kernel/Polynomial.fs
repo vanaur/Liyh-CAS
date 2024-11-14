@@ -138,6 +138,7 @@ module rec Polynomial =
     /// Implements the "Monomial" representation, simplifying the use of polynomial terms.
     [<AutoOpen>]
     module public Monomial =
+        open PureConstantExpression
 
         /// A monomial consists of a coefficient and a list of variables associated with an exponent.
         type public Monomial = SumPow * (Variable * int) list // Coefficient × Monomial variable vector
@@ -160,7 +161,7 @@ module rec Polynomial =
             /// Retrieves the integer powers of the variable part of the monomial.
             let retrieveDegree =
                 List.map (function
-                    | (_, PureConstantExpression.PureConstantExpressionInteger degree) -> degree
+                    | (_, PureConstantExpressionInteger degree) -> degree
                     | _ -> failwith "??")
 
             match Simplification.simplify expr with
@@ -179,7 +180,7 @@ module rec Polynomial =
 
                     Some(cpart, monomial)
 
-            | Power(b, PureConstantExpression.PureConstantExpressionInteger p) when List.contains b variables -> Some(SumPow.Const One, [ (b, p) ])
+            | Power(b, PureConstantExpressionInteger p) when List.contains b variables -> Some(SumPow.Const One, [ (b, p) ])
 
             | v when List.contains v variables -> Some(SumPow.Const One, [ (v, 1) ])
 
@@ -2250,6 +2251,7 @@ module rec Polynomial =
                     List.map (fun (p, d) -> sprintf @"\left(%s\right)^%d" (toLatexValue p) d) ps)
 
     module public Interpolation =
+        open PureConstantExpression
 
         /// Fast approximation of the value of `f(x)` using polynomial interpolation. If `x` is numeric, then the result
         /// will be a constant. Otherwise, the result will be a univariate polynomial in the variable `x`.
@@ -2273,7 +2275,7 @@ module rec Polynomial =
                 result <- coefficients.[degree - k] + (x - xdata.[degree - k]) * result
 
             match result with
-            | PureConstantExpression.PureConstantExpression pc -> SumPow.Const (NumericEvaluation.evaluate0 pc)
+            | PureConstantExpression pc -> SumPow.Const (NumericEvaluation.evaluate0 pc)
             | result -> result
 
     module public NumericEvaluation =
