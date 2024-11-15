@@ -3000,9 +3000,19 @@ module rec SumPow =
             | ComplexSumPow.PolarForm(radius, angle) -> ComplexSumPow.PolarForm(-radius, angle)
 
         let private complexPower =
+            simplifyComplex << function
+            | z1, PureReal (PureConstantExpressionInteger n) ->
+                let r, θ = norm z1, arg z1
+                let r', θ' = (r ** n), (n * θ)
+
+                let re = r' * liyhCos θ'
+                let im = r' * liyhSin θ'
+
+                ComplexSumPow.VectorForm(re, im)
+
             // The two cases are totally equivalent, but depending on the power argument, it's useful to
             // switch from one case to the other, this potentially means one less conversion.
-            simplifyComplex << function
+
             | z1, ComplexSumPow.VectorForm (c, d) ->
                 let radius, angle = norm z1, arg z1
                 let e1 = c * liyhLn radius - d * angle
