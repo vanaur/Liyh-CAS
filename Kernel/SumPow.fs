@@ -1124,7 +1124,10 @@ module rec SumPow =
                     (iacc, Const (pown b (abs p)) * facc, oacc)
 
                 | b, p ->
-                    (iacc, facc, oacc * power (b, p))
+                    (iacc, facc, oacc * csimplify (b ** p))
+
+                // | b, p ->
+                //     (iacc, facc, oacc * power (b, p))
 
             // The calculations are divided into four parts:
             //  a. manage the product of roots
