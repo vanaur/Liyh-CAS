@@ -1048,8 +1048,10 @@ module rec SumPow =
             <| function
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
-                | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) when p = nth ->
-                    csimplify x
+                | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) as pc ->
+                    if p = nth then csimplify x
+                    elif p % nth = 0 then csimplify (x ** (p / nth))
+                    else pc
 
                 | Power(Prod prod, p) ->
                     let p = csimplify p
