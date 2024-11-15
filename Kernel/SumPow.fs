@@ -2921,7 +2921,7 @@ module rec SumPow =
             | ImaginaryUnit _ -> true
             | _ -> false
 
-        [<Struct; RequireQualifiedAccess>]
+        [<RequireQualifiedAccess>]
         type public ComplexSumPow =
 
             /// Complex expression of the form `z = a + ib`
