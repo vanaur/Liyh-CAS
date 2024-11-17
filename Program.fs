@@ -1,7 +1,6 @@
 #nowarn "3391"
 #nowarn "25"
 
-open Binarysharp.Benchmark
 open System
 open System.IO
 open Plotly.NET
@@ -39,32 +38,11 @@ let sp' text =
     | Success (res, _, _) -> Liyh.Language.Absyn'.Absyn.cosynExprToSymbolic res
     | _ -> raise (Exception "BOOM")
 
+let sp = toSumPow << sp'
 
-// let diag = Liyh.Internal.Diagnostics.FileDiagnostic("./test.ly") //Liyh.Internal.Diagnostics.FileDiagnostic("test.ly")
-// let r = startParser diag
-// diag.Repport ()
 
-// printfn "%A" r
 
-// let shark = BenchShark()
-// let res = shark.EvaluateTask(Action(fun _ -> ignore (simp sp)), uint nbr)
-// printfn "%gms" res.AverageExecutionTime.TotalMilliseconds
-
-let inline bench ([<InlineIfLambda>] fn) n =
-    let shark = BenchShark()
-    let task = Action fn
-    let res = shark.EvaluateTask(task, uint n)
-    printfn "[%d runs] %gms." n res.AverageExecutionTime.TotalMilliseconds
-
-//      // --------- ON EN ETAIT ICI ------------ //
-//      let a = toSumPow <| sp' "6b + 2a + 1 + 3c"
-//      //let a = toSumPow <| sp' "8a + (1/4) * (6 + 2a)"
-//      // let a = toSumPow <| sp' "2*(1 + 4*x) + (1 + x)*(1 + 4*x) + 2*(1 + x)"
-//      let s = Simplification.simplify a
-//      printfn "\n_________\n%s = %s" (toLatex a).Value (toLatex s).Value
-//      
-//      
-//      printfn "%A" <| primeFactorDecompose 56
+(*
 
 let generateUnivPoly n v =
     let rnd = Random()
@@ -228,6 +206,8 @@ let fs =
         // "y**2 + 1"
         // "x*y + 1"
     ]
+
+*)
 
 // let groebnerBasis = Polynomial.GroebnerBasis.computeGroebnerBasis fs
 // List.iter (toLatexValue >> printfn @"%s") groebnerBasis
