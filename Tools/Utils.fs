@@ -6,6 +6,7 @@ namespace Liyh.Utils
 module rec Utils =
     open System
     open System.Linq
+    open Binarysharp.Benchmark
     open System.Collections.Generic
     open System.Collections.Concurrent
     open System.Runtime.CompilerServices
@@ -23,6 +24,14 @@ module rec Utils =
         | [] -> 7307
         | [ x ] -> hash x
         | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
+
+    /// A small utility for benchmarking a function given the number of iterations to be performed.
+    /// This function does not replace a real benchmark tool, but is a first approach.
+    let inline bench ([<InlineIfLambda>] (fn: unit -> 'a)) (iterations: int) =
+        let shark = BenchShark()
+        let res = shark.EvaluateTask(Action (fn >> ignore), uint iterations)
+
+        printfn "[%d runs] %gms." iterations res.AverageExecutionTime.TotalMilliseconds
 
     /// Generates a random double number between bounds of arbitrary size, and well distributed between them.
     /// Code inspired by https://stackoverflow.com/a/51590636/9382127.
