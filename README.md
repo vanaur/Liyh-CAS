@@ -79,6 +79,9 @@ Liyh is not intended to solve any particular problem, but to add to the list of 
 ## How to pronounce "Liyh"?
 Actually, just like "li". This doesn't refer to "Lie" groups or algebras, but to a blue flower that grows on rocks near rivers.
 
+## Ressources 📚
+We provide some resources that are of interest or have helped in the implementation of certain Liyh features, you can check out [here](/Ressources/README.md).
+
 ## Every contribution is worthwhile 💪
 Don't hesitate to make your contribution to the project. Even the smallest report of spelling mistakes will be appreciated. If you have any other suggestions for the project, we will be happy to hear from you.
 
