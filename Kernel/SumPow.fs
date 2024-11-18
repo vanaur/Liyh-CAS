@@ -3223,6 +3223,10 @@ module rec SumPow =
             let expr = NumericEvaluation.partialEval (sp1 - sp2) // This reduces the cost of subsequent calculations.
             let variables = Array.ofList (Misc.listVariables expr)
 
+            // If the expression is purely numerical then there's no need to run all the machinery.
+            if Array.isEmpty variables then
+                NumericEvaluation.approximatelyEqualsZero expr ValueNone else
+
             let rnd = Random.Shared
 
             let inline initializer _ =
