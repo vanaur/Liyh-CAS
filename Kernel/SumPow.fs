@@ -85,15 +85,32 @@ module rec SumPow =
 
         /// An active pattern that matches the pure constant expression which reduces to the integer 0.
         let public (|Zero|_|) =
-            function
-            | PureConstantExpressionInteger 0 -> Some()
-            | _ -> None
+
+            let matcher =
+                function
+                | PureConstantExpressionInteger 0 -> Some()
+                | _ -> None
+
+            // Many similar calls should be made to this active-pattern, in the interests of general
+            // performance we can memoize the result.
+            memoize matcher
+
+        /// An active pattern that matches the pure constant expression which reduces to the integer 0.
+        /// This active pattern use the EqualityTest heuristic.
+        let public (|Zero'|_|) (sp: SumPow) =
+            if EqualityTest.equalsZero sp then Some() else None
 
         /// An active pattern that matches the pure constant expression which reduces to the integer 1.
         let public (|One|_|) =
-            function
-            | PureConstantExpressionInteger 1 -> Some()
-            | _ -> None
+
+            let matcher =
+                function
+                | PureConstantExpressionInteger 1 -> Some()
+                | _ -> None
+
+            // Many similar calls should be made to this active-pattern, in the interests of general
+            // performance we can memoize the result.
+            memoize matcher
 
         /// An active pattern that matches the pure constant expression which reduces to the integer -1.
         let public (|NegOne|_|) =
@@ -242,6 +259,8 @@ module rec SumPow =
                     | _ -> None
             | _ -> None
 
+        // -- Standard name for named constants -- //
+
         let public Pi = Name "Pi"
         let public E = Name "E"
         let public I = Name "i"
@@ -249,7 +268,7 @@ module rec SumPow =
         /// Equivalent to `Name "Pi"` for the π constant.
         let public (|Pi|_|) =
             function
-            | Name "Pi" -> Some ()
+            | Name "Pi" | Name "π" -> Some ()
             | _ -> None
 
         /// Equivalent to `Name "E"` for the e constant.
@@ -458,11 +477,9 @@ module rec SumPow =
             | :? SumPow as sp2 ->
                 match sp1, sp2 with
                 | Name name1, Name name2 -> name1 = name2
-                | Const a, Const b -> a = b
+                | Const a, Const b -> approximatelyEquals a b ValueNone
                 | Sum xs, Sum ys -> Hashing.hashSum xs = Hashing.hashSum ys
                 | Fun(a, xs), Fun(b, ys) -> a = b && xs = ys
-                | Sum [ Term [ Pow(a, One) ] ], b -> a = b
-                | a, Sum [ Term [ Pow(b, One) ] ] -> b = a
                 | _ -> false
             | _ -> false
 
@@ -828,7 +845,7 @@ module rec SumPow =
 
         /// Convert the given `SimplifiedSum` to `SumPow`.
         let public simplifiedSumToSum (ss: SimplifiedSum) =
-            let inline makeTerm term = [ for (b, p) in term -> ElementaryOperations.power'(b, p) ]
+            let inline makeTerm term = [ for (b, p) in term -> power'(b, p) ]
             Sum [ for term in ss -> (Flatten.flattenTerm >> Term) (makeTerm term) ]
 
         /// Active pattern for `SumPow`'s sum to `SimplifiedSum`.
@@ -846,7 +863,7 @@ module rec SumPow =
             List.map (List.map mapping) ss
 
         /// Map each power of the simplified sum with the given function and flatten the result.
-        let public mapPowFlatten (mapping) (ss: SimplifiedSum) =
+        let public mapPowFlatten (mapping: SumPow * SumPow -> 't) (ss: SimplifiedSum) =
             (List.map (List.map mapping) >> List.flatten) ss
 
         //
@@ -890,7 +907,7 @@ module rec SumPow =
     module public PureConstantExpression =
         open SimplifiedSum
         open ElementaryOperations
-        open ElemFun
+        open InternalFunction
 
         exception public ExpressionIsNotPureConstantException of SumPow
         exception public ExpressionIsNotPureConstantRationalException of SumPow
@@ -981,28 +998,34 @@ module rec SumPow =
         let private csimplifyIntRootAsSumPow (x: int) (nth: int) =
             match csimplifyIntRoot x nth with
             | SimpIntRoot.Int r -> Const r
-            | SimpIntRoot.IrredRoot(x, nth) -> Fun("Root", [ Const x; Const nth ])
-            | SimpIntRoot.IntRootProd (c, (x, nth)) -> c * Fun("Root", [ Const x; Const nth ])
+            | SimpIntRoot.IrredRoot(x, nth) -> liyhRoot (Const x, Const nth)
+            | SimpIntRoot.IntRootProd (c, (x, nth)) -> c * liyhRoot (Const x, Const nth)
 
         /// Checks if the given expression is a "pure constant" (i.e. an expression containing no `Name string` data).
         /// The returned expression is unvalued.
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
         let rec public (|PureConstantExpression|_|) =
-            function
-            | (E | I | Pi) as sp -> Some sp // Known named constants
-            | Name _ -> None
-            | Const _ as c -> Some c
-            | SimplifiedSum ss as c ->
-                let isPureConstPow (b, p) = isPureConstantExpression b && isPureConstantExpression p
-                if List.forall (List.forall isPureConstPow) ss then Some c
-                else None
 
-            | DivByZero _ as sp -> Some sp
-            | Fun(_, args) as c ->
-                if List.forall isPureConstantExpression args then Some c
-                else None
+            let matcher =
+                function
+                | (E | I | Pi) as sp -> Some sp // Known named constants
+                | Name _ -> None
+                | Const _ as c -> Some c
+                | SimplifiedSum ss as c ->
+                    let isPureConstPow (b, p) = isPureConstantExpression b && isPureConstantExpression p
+                    if List.forall (List.forall isPureConstPow) ss then Some c
+                    else None
 
-            | other -> raise (UnknownSumPowExpressionException other)
+                | DivByZero _ as sp -> Some sp
+                | Fun(_, args) as c ->
+                    if List.forall isPureConstantExpression args then Some c
+                    else None
+
+                | other -> raise (UnknownSumPowExpressionException other)
+
+            // Many similar calls should be made to this active-pattern, in the interests of general
+            // performance we can memoize the result.
+            memoize matcher
 
         /// An active pattern that matches an integer constant expression and evaluates it.
         and public (|PureConstantExpressionInteger|_|) =
@@ -1044,8 +1067,9 @@ module rec SumPow =
         /// the constant in a simplified form (that is not approximate to the initial expression). If the initial expression
         /// involves floating-point constants, then the simplification is subject to the inaccuracies.
         and public csimplify =
-            id//FixedPoint.tryFixedPoint 5 // Is the fixed point necessary?
-            <| function
+
+            let matcher =
+                function
                 | Const _ as cst -> cst
                 | Power(b, One) -> csimplify b
                 | Power(Root(x, PureConstantExpressionInteger nth), PureConstantExpressionInteger p) as pc ->
@@ -1075,9 +1099,13 @@ module rec SumPow =
 
                 | Prod prod -> csimplifyProd prod
                 | Sum terms -> csimplifySum terms
-                | InternalFunction.InternalFunction ifun -> InternalFunction.simplifyd ifun
+                | InternalFunction ifun -> simplifyFunction ifun
                 | Fun(fname, args) -> Fun(fname, List.map csimplify args)
                 | other -> other
+
+            // Many similar calls should be made to this active-pattern, in the interests of general
+            // performance we can memoize the result.
+            memoize matcher
 
         and private csimplifyProd (prod: (SumPow * SumPow) list) =
             let prod = shneg prod
@@ -1324,7 +1352,7 @@ module rec SumPow =
                 factor * Sum [ Term term ]
 
             // Otherwise
-            | num, den -> ElementaryOperations.frac(num, den)
+            | num, den -> num / den
 
         /// Simplify the terms in common in the given product (a list of powers).
         [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
@@ -1435,7 +1463,7 @@ module rec SumPow =
             // exception, as this is not expected behavior).
 
             //FixedPoint.tryFixedPoint 5 //>> memoize
-            FixedPoint.fixedPointMax' 5
+            FixedPoint.fixedPointMax' 5 >> memoize
             <| function
                 | PureConstantExpression cst -> simpPureConst cst
                 | Name _ as name -> name
@@ -1446,7 +1474,7 @@ module rec SumPow =
 
                 | Sum xs -> simpSum xs
 
-                | InternalFunction ifun -> simplifyd ifun
+                | InternalFunction ifun -> simplifyFunction ifun
                 | Fun(name, args) -> Fun(name, List.map simplify args)
                 | other -> other
 
@@ -1599,20 +1627,12 @@ module rec SumPow =
             inner expr
 
         /// Replaces the variables (many `Name string`) with the associated constant.
-        let public manySubstVarConst (pairs: Dictionary<string, Constant>) (expr: SumPow) =
+        let public manySubstVarConst (pairs: Dictionary<string, Constant>) =
+            manySubstVar (Dictionary (dict (Seq.map (function KeyValue(k, v) -> (k, Const v)) pairs)))
 
-            let rec inner =
-                function
-                | Name name' ->
-                    match pairs.TryGetValue name' with
-                    | true, sub -> Const sub
-                    | _ -> Name name'
-
-                | Fun(fname, args) -> Fun(fname, List.map inner args)
-                | Sum xs -> Sum(mapPow' (fun b p -> Pow(inner b, inner p)) xs)
-                | remains -> remains
-
-            inner expr
+        /// Replaces the variables (many `Name string`) with the associated constant.
+        let public manySubstVarDouble (pairs: Dictionary<string, double>) =
+            manySubstVar (Dictionary (dict (Seq.map (function KeyValue(k, v) -> (k, Const (Constant v))) pairs)))
 
         (* Helpers for the `hsubst` substitution function. *)
 
@@ -1906,7 +1926,7 @@ module rec SumPow =
             | LiyhId x -> liyhId x
 
         /// Evaluates the given elementary function numerically.
-        let inline public evaluate (spEval: SumPow -> Constant) =
+        let public evaluate (spEval: SumPow -> Constant) =
             function
             | InternalFunction.LiyhPow(base', exp) -> spEval base' ** spEval exp
             | InternalFunction.LiyhRoot(base', None) -> mapf sqrt (spEval base')
@@ -2011,7 +2031,7 @@ module rec SumPow =
                 | LiyhArCsc x -> 1 / x
                 | LiyhArSec x -> liyhSqrt (x ** 2 - 1) / x
                 | LiyhArCot x -> 1 / liyhSqrt (1 + x ** 2)
-                | ifun -> liyhSin (simplifyd ifun)
+                | ifun -> liyhSin (simplifyFunction ifun)
 
             | other -> liyhSin other
 
@@ -2063,7 +2083,7 @@ module rec SumPow =
                 | LiyhArCsc x -> liyhSqrt (x ** 2 - 1) / x
                 | LiyhArSec x -> 1 / x
                 | LiyhArCot x -> x / liyhSqrt (1 + x ** 2)
-                | ifun -> liyhCos (simplifyd ifun)
+                | ifun -> liyhCos (simplifyFunction ifun)
 
             | other -> liyhCos other
 
@@ -2112,7 +2132,7 @@ module rec SumPow =
                 | LiyhArCsc x -> 1 / liyhSqrt (x ** 2 - 1)
                 | LiyhArSec x -> liyhSqrt (x ** 2 - 1)
                 | LiyhArCot x -> 1 / x
-                | ifun -> liyhTan (simplifyd ifun)
+                | ifun -> liyhTan (simplifyFunction ifun)
 
             | other -> liyhTan other
 
@@ -2155,7 +2175,7 @@ module rec SumPow =
                 | LiyhArCsc x -> x
                 | LiyhArSec x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
                 | LiyhArCot x -> liyhSqrt (1 / (x ** 2) + 1) * x
-                | ifun -> liyhSin (simplifyd ifun)
+                | ifun -> liyhSin (simplifyFunction ifun)
 
             | other -> liyhCsc other
 
@@ -2204,7 +2224,7 @@ module rec SumPow =
                 | LiyhArCsc x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
                 | LiyhArSec x -> x
                 | LiyhArCot x -> liyhSqrt (1 / (x ** 2) + 1)
-                | ifun -> liyhSin (simplifyd ifun)
+                | ifun -> liyhSin (simplifyFunction ifun)
 
             | other -> liyhSec other
 
@@ -2247,7 +2267,7 @@ module rec SumPow =
                 | LiyhArCsc x -> liyhSqrt (1 - 1 / (x ** 2)) * x
                 | LiyhArSec x -> 1 / liyhSqrt (1 - 1 / (x ** 2)) * x
                 | LiyhArCot x -> x
-                | ifun -> liyhCot (simplifyd ifun)
+                | ifun -> liyhCot (simplifyFunction ifun)
 
             | other -> liyhCot other
 
@@ -2337,7 +2357,7 @@ module rec SumPow =
                 | LiyhArCsch x -> 1 / x
                 | LiyhArSech x -> (liyhSqrt ((1 - x) / (1 + x)) * (x + 1)) / x
                 | LiyhArCoth x -> 1 / (liyhSqrt (1 - (1 / (x ** 2))) * x)
-                | ifun -> liyhSinh (simplifyd ifun)
+                | ifun -> liyhSinh (simplifyFunction ifun)
 
             | other -> liyhSinh other
 
@@ -2362,7 +2382,7 @@ module rec SumPow =
                 | LiyhArCsch x -> liyhSqrt (1 / (x ** 2) + 1)
                 | LiyhArSech x -> 1 / x
                 | LiyhArCoth x -> 1 / liyhSqrt (1 - (1 / (x ** 2)))
-                | ifun -> liyhCosh (simplifyd ifun)
+                | ifun -> liyhCosh (simplifyFunction ifun)
 
             | other -> liyhCosh other
 
@@ -2387,7 +2407,7 @@ module rec SumPow =
                 | LiyhArCsch x -> 1 / (liyhSqrt (1 / (x ** 2) + 1) * x)
                 | LiyhArSech x -> liyhSqrt ((1 - x) / (1 + x)) * (x + 1)
                 | LiyhArCoth x -> 1 / x
-                | ifun -> liyhTanh (simplifyd ifun)
+                | ifun -> liyhTanh (simplifyFunction ifun)
 
             | other -> liyhTanh other
 
@@ -2409,7 +2429,7 @@ module rec SumPow =
                 | LiyhArCsch x -> x
                 | LiyhArSech x -> x / (liyhSqrt ((1 - x) / (1 + x)) * (x + 1))
                 | LiyhArCoth x -> liyhSqrt (1 + 1 / (x ** 2)) * x
-                | ifun -> liyhCsch (simplifyd ifun)
+                | ifun -> liyhCsch (simplifyFunction ifun)
 
             | other -> liyhCsch other
 
@@ -2434,7 +2454,7 @@ module rec SumPow =
                 | LiyhArCsch x -> 1 / liyhSqrt (1 / (x ** 2) + 1)
                 | LiyhArSech x -> x
                 | LiyhArCoth x -> liyhSqrt (1 - 1 / (x ** 2))
-                | ifun -> liyhSech (simplifyd ifun)
+                | ifun -> liyhSech (simplifyFunction ifun)
 
             | other -> liyhSech other
 
@@ -2451,7 +2471,7 @@ module rec SumPow =
                 | LiyhArCosh x -> x / (liyhSqrt ((x - 1) / (x + 1)) * (x + 1))
                 | LiyhArTanh x -> 1 / x
                 | LiyhArCoth x -> x
-                | ifun -> liyhCoth (simplifyd ifun)
+                | ifun -> liyhCoth (simplifyFunction ifun)
 
             | other -> liyhCoth other
 
@@ -2617,7 +2637,7 @@ module rec SumPow =
             | other -> liyhRound other
 
         /// Algebraically simplifies elementary functions when particular arguments or identities match.
-        let public simplifyd =
+        let public simplifyFunction =
             function
 
             // Power and logarithm functions.
@@ -2625,7 +2645,7 @@ module rec SumPow =
             | LiyhPow(b, p) -> simplifydPow b p
             | LiyhRoot(x, nth) -> simplifydRoot x nth
             | LiyhLog(x, b) -> simplifydLog x b
-            | LiyhExp x -> simplifyd (LiyhPow (E, x))
+            | LiyhExp x -> simplifyFunction (LiyhPow (E, x))
 
             // Trigonometric functions.
 
@@ -2674,12 +2694,8 @@ module rec SumPow =
             | LiyhRound x -> simplifydRound x
             | LiyhId x -> Simplification.simplify x
 
-    /// A module for elementary functions (see https://en.wikipedia.org/wiki/Elementary_function).
-    module public ElemFun =
-        open ElementaryOperations
-        open Complex
+        // -- Some patterns for internal functions -- //
 
-        /// An active pattern that matches either `Exp[arg]` or `e**arg`.
         let public (|Exp|_|) =
             function
             | Power(Name "e", p) -> Some p
@@ -2739,17 +2755,19 @@ module rec SumPow =
                 function
 
                 // Common constants
-                | Name "pi"  | Name "π" | Name "Pi" -> Constant 3.141592653589793 // pi  π
-                | Name "e"   | Name "E"             -> Constant 2.718281828459045 // e   E
-                | Name "tau" | Name "τ"             -> Constant 6.283185307179586 // tau τ
-                | Name "phi" | Name "φ"             -> Constant 1.618033988749895 // phi φ
+                | Pattern.Pi -> Constant Math.PI
+                | Pattern.E -> Constant Math.E
 
+                // Numeric constants
                 | Const cst -> cst
+
                 | Frac(a, b) -> inner a / inner b
                 | Power(b, p) -> inner b ** inner p
                 | Sum xs -> List.fold (fun acc a -> acc + evalTerm a) Zero xs
                 | InternalFunction.InternalFunction f -> InternalFunction.evaluate inner f
                 | Fun(fname, _) -> raise (UnboundFunctionException fname)
+
+                // If a variable has not been referenced, an exception is thrown.
                 | Name name -> raise (UnboundVariableException name)
 
             and evalTerm (Term prod) = List.fold (fun acc a -> acc * evalPow a) One prod
@@ -2822,7 +2840,8 @@ module rec SumPow =
                 let cs, ncs = List.partition (function Const _ -> true | _ -> false) z
                 List.fold ( + ) (Const Zero) ncs + List.fold ( + ) (Const Zero) cs
 
-            let rec peval = function
+            let rec peval =
+                function
                 | PureConstantExpression pc -> Const (evaluate0 pc)
                 | Sum sum -> partialEvalSum sum
                 | Fun(fname, args) -> Fun(fname, List.map partialEval args)
@@ -2850,7 +2869,6 @@ module rec SumPow =
         open PureConstantExpression
         open InternalFunction
         open SimplifiedSum
-        open ElemFun
 
         /// The variable used to represent the imaginary unit is `Name "i"`.
         let private imaginaryUnitNotation = Name "i"
@@ -3160,7 +3178,7 @@ module rec SumPow =
             if Misc.isZero number then Const Zero
             else Fun("ModularNumber", [ number; Const (double modulus) ])
 
-        let inline private congruence { number = number; modulus = modulus } =
+        let private congruence { number = number; modulus = modulus } =
             match number with
             | PureConstantExpressionInteger number -> { number = Const (double (number % modulus)); modulus = modulus }
             | number -> { number = number; modulus = modulus }
@@ -3261,8 +3279,8 @@ module rec SumPow =
     [<RequireQualifiedAccess>]
     module public Misc =
         open PureConstantExpression
-        open SimplifiedSum
         open ElementaryOperations
+        open SimplifiedSum
 
         /// Checks if the given expression is a pure constant (contains no `Name string`).
         let public isPureConst =
@@ -3302,7 +3320,7 @@ module rec SumPow =
         /// Check that the given expression is a root.
         let public isRoot =
             function
-            | ElemFun.Root _ -> true
+            | InternalFunction.Root _ -> true
             | _ -> false
 
         /// Convert the product representation into SumPow.
@@ -3315,7 +3333,7 @@ module rec SumPow =
             | Sum xs -> List.length xs > 1
             | _ -> false
 
-        /// Lists the syntactic variables present in the given expression.
+        /// Lists the syntactic variables present in the given expression (i.e. all `Name _`).
         let public listVariables (expr: SumPow) =
 
             let rec inner (result: string Set) =
@@ -3332,7 +3350,7 @@ module rec SumPow =
         /// Recursively transforms each `Root[x, nth]` of the given expression into `x^(1/nth)`.
         let rec public convertAllRootsToPower =
             function
-            | ElemFun.Root(x, PureConstantExpressionInteger nth) -> (convertAllRootsToPower x) ** (1 / Const nth)
+            | InternalFunction.Root(x, PureConstantExpressionInteger nth) -> (convertAllRootsToPower x) ** (1 / Const nth)
             | Power(b, p) -> convertAllRootsToPower b ** convertAllRootsToPower p
             | Fun(fname, args) -> Fun(fname, List.map convertAllRootsToPower args)
             | SumList xs -> Sum (manyTermId (List.map convertAllRootsToPower xs))
@@ -3342,7 +3360,7 @@ module rec SumPow =
         let rec public convertAllRationalPowersToRoot =
             function
             | Power(b, PureConstantExpressionRational(num, den)) -> Fun("Root", [ b ** num; Const den ])
-            | ElemFun.Root(x, PureConstantExpressionInteger nth) -> Fun("Root", [ x; Const nth ])
+            | InternalFunction.Root(x, PureConstantExpressionInteger nth) -> Fun("Root", [ x; Const nth ])
             | Power(b, p) -> convertAllRationalPowersToRoot b ** convertAllRationalPowersToRoot p
             | Fun(fname, args) -> Fun(fname, List.map convertAllRationalPowersToRoot args)
             | SumList xs -> Sum (manyTermId (List.map convertAllRationalPowersToRoot xs))

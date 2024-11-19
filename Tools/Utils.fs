@@ -23,7 +23,7 @@ module rec Utils =
         match xs with
         | [] -> 7307
         | [ x ] -> hash x
-        | xs -> List.fold (fun acc x -> Operators.(+) acc (hash x)) 7307 xs
+        | xs -> List.fold (fun acc x -> acc + (hash x)) 7307 xs
 
     /// A small utility for benchmarking a function given the number of iterations to be performed.
     /// This function does not replace a real benchmark tool, but is a first approach.
