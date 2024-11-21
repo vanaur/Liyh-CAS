@@ -1486,6 +1486,10 @@ module rec SumPow =
         let public simplifyAndExpand =
             Simplification.simplify >> Expand.fullExpand
 
+        /// Simplify and expand until a fixed point.
+        let public fixSimplify =
+            FixedPoint.fixedPointMax' 10 Simplification.simplifyAndExpand
+
     /// Development (distributivity of sum and product) of SumPow algebraic expressions.
     [<RequireQualifiedAccess>]
     module public Expand =
