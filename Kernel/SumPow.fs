@@ -437,22 +437,33 @@ module rec SumPow =
 
     /// The module that implements SumPow custom comparaison.
     module private Comparison =
-        open PureConstantExpression
 
-        let public compareSumPow =
-            function
-            | Const a, Const b -> compare a b
-            | PureConstantExpressionInteger a, PureConstantExpressionInteger b -> compare a b
-            | Name a, Name b -> compare a b
-            | Sum [ x ], Sum [ y ] -> compare x y
-            | Sum xs, Sum ys -> compare xs ys
-            | Fun(fname1, xs), Fun(fname2, ys) when fname1 = fname2 -> compare xs ys
-        //  | _ -> -1
-            | DivByZero _, DivByZero _ -> -1
-            | a, b -> compare (hash a) (hash b)
+        //
+        // We need `IComparable` for SumPow because we are using the `Map<'Key, 'Value>` type from standard F# library
+        // which requires comparison; however comparison with SumPow is ill-defined. We can't tell how an expression is
+        // greater than another, or lesser, etc. All we can say, more or less, is whether they are "sufficiently" equal.
+        //
+        // We have two choices:
+        //  1. Change data structure when we need a dictionary-like data type ;
+        //  2. Use a "weak" and "arbitrary" comparison that depends on the hashcode.
+        //
+        // We implement solution 2 for the following reasons: we want to retain the functional style of F# and the really
+        // practical aspects of immutable (but persistent) data structures, like `Map`. By "weak" and "arbitrary" we don't
+        // mean a buggy solution, but one in which the value of a comparison can change between runtimes (since the hash
+        // is never the same from one runtime to the next in .NET) or is not interpretable as "greater" or "smaller" (for
+        // example: is `Name "a"` greater or smaller than `Const 8`? It doesn't make much sense). As a result the notion of
+        // being "greater" or "smaller" would be meaningless, but that doesn't matter because all we want is to respect
+        // the comparison's properties of transitivity and symmetry (which the solution 2actually does!).
+        //
 
-        let public compareTerm (Term xs, Term ys) = compare xs ys
-        let public comparePow (Pow(a, b), Pow(c, d)) = compare (a, b) (c, d)
+        let inline public compareSumPow (sp1: SumPow) (sp2: SumPow) =
+            compare (hash sp1) (hash sp2)
+
+        let inline public compareTerm (t1: Term) (t2: Term) =
+            compare (hash t1) (hash t2)
+
+        let inline public comparePow (p1: Pow) (p2: Pow) =
+            compare (hash p1) (hash p2)
 
     /// The module that implements SumPow custom equality.
     module private Equality =
@@ -753,7 +764,7 @@ module rec SumPow =
         interface IComparable with
             member sp1.CompareTo obj =
                 match obj with
-                | :? SumPow as sp2 -> Comparison.compareSumPow (sp1, sp2)
+                | :? SumPow as sp2 -> Comparison.compareSumPow sp1 sp2
                 | _ -> invalidArg "obj" "cannot compare value of different types"
 
         interface ISymbolic with
@@ -804,7 +815,7 @@ module rec SumPow =
         interface IComparable with
             member term1.CompareTo obj =
                 match obj with
-                | :? Term as term2 -> Comparison.compareTerm (term1, term2)
+                | :? Term as term2 -> Comparison.compareTerm term1 term2
                 | _ -> invalidArg "obj" "cannot compare value of different types"
 
     /// A "Pow" is a SumPow tuple.
@@ -819,7 +830,7 @@ module rec SumPow =
         interface IComparable with
             member pow1.CompareTo obj =
                 match obj with
-                | :? Pow as pow2 -> Comparison.comparePow (pow1, pow2)
+                | :? Pow as pow2 -> Comparison.comparePow pow1 pow2
                 | _ -> invalidArg "obj" "cannot compare value of different types"
 
     /// This module contains some utilities that make it easier to manipulate SumPow's sums.
