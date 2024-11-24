@@ -585,7 +585,7 @@ module public rec LinearAlgebra =
                     | Some inv -> pown inv (abs n)
 
         let public simplifyComponents (m: Matrix) =
-            Matrix (Array2D.map Simplification.simplify (copyFreeComponents m))
+            Matrix (Array2D.map Simplification.fixSimplify (copyFreeComponents m))
 
         /// Check if the matrix is square.
         let public isSquareMatrix (m: Matrix) =
