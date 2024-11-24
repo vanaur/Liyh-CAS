@@ -462,3 +462,6 @@ ignore
 
 # BenchmarkDotNet
 BenchmarkDotNet.Artifacts/*
+
+# Other stuff
+libtestlib.*
