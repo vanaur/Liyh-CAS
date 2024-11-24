@@ -1770,6 +1770,89 @@ module rec SumPow =
 
                 hsubst expr
 
+        (* Helpers for the `suggest` substitution function. *)
+
+        /// Generates all list combinations of lengths > 1 from the given list. For example,
+        /// 
+        ///     combination [ 'a'; 'b'; 'c' ] ≡ [ [ 'a'; 'b'; 'c' ]; [ 'a'; 'b' ]; [ 'a'; 'c' ]; [ 'b'; 'c' ] ]
+        /// 
+        /// This code explodes very quickly (it actually follows the sequence of Eulerian numbers), and in our case we'll
+        /// restrict the input to 10 elements in the list for our purpose.
+        let private combination (lst: 't list) =
+
+            let rec inner result =
+                function
+                | [] -> result
+                | x :: xs ->
+                    let newItem = List.map (fun c -> x :: c) result
+                    inner (result @ newItem) xs
+
+            // If `lst` has 10 items then the result will have 2036 ones, for example, and with 11 items the
+            // result will have 4083 ones! To avoid performance loss, we limit the size of the input.
+
+            let lst = List.distinct lst
+
+            if List.length lst <= 10 then inner [[]] lst |> List.filter (fun lst -> List.length lst > 1) |> Some
+            else None
+
+        let inline private addOrUpdate k r =
+            Map.addOrUpdate k 1 r (( + ) 1)
+
+        /// Suggest sub-expressions of a sum, taking commutativity into account.
+        let private mayAppendSum (sl: SumPow list) (result: Map<SumPow, int>) =
+            match combination sl |> Option.map (List.map (manyTermId >> Sum)) with
+            | None | Some [] -> result
+            | Some lst -> List.fold (flip addOrUpdate) result lst
+
+        /// Converts a SumPow list into a product with each factor to the power of 1.
+        let private spListTo1Prod (pd: SumPow list) =
+            List.map (fun p -> power' (p, Const One)) pd |> Term |> sumId
+
+        /// Suggest sub-expressions of a product, taking commutativity into account.
+        let private mayAppendProd (prod: (SumPow * SumPow) list) (result: Map<SumPow, int>) =
+            let gp = List.groupBy snd prod |> List.map (snd >> List.map fst)
+
+            let inline folder (result: Map<SumPow, int>) (pd: SumPow list) =
+                match combination pd |> Option.map (List.map spListTo1Prod) with
+                | None | Some [] -> result
+                | Some lst -> List.fold (flip addOrUpdate) result lst
+
+            List.fold folder result gp
+
+        /// Returns an array of suggested sub-expressions to be substituted. Suggested sub-expressions are those that
+        /// will appear in the global expression a number of times greater than the given `criterion` (default is `>1`).
+        /// Suggested sub-expressions are sorted by number of occurrences.
+        /// This function will be useful for operations requiring non-user-assisted substitution.
+        let public suggest (sp: SumPow) (criterion: int option) =
+            let criterion = Option.defaultValue 1 criterion
+
+            if criterion < 0 then
+                invalidArg "criterion" "The suggestion criterion cannot be negative."
+
+            let rec inner result (sp: SumPow) =
+                match sp with
+                | Const _ | Name _ -> result // not interesting to substitute
+
+                | Prod prod ->
+                    let result = mayAppendProd prod result
+                    List.fold (fun acc (b, p) -> inner (inner acc b) p) result prod
+
+                | SumList sl when List.length sl > 1 ->
+                    let result = mayAppendSum sl result
+                    List.fold inner result sl
+
+                | Fun(_, args) ->
+                    let result = addOrUpdate sp result
+                    List.fold inner result args
+
+                | other -> addOrUpdate other result
+
+            inner Map.empty sp
+            |> Map.toArray
+            |> Array.filter (fun (_, k) -> k > criterion)
+            |> Array.sortByDescending snd
+            |> Array.map fst
+
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
         open PureConstantExpression
