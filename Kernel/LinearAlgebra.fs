@@ -348,6 +348,10 @@ module public rec LinearAlgebra =
 
             Matrix matrix
 
+        /// Converts an array2d into a matrix.
+        let public fromArray2D (components: SumPow array2d) =
+            Matrix components
+
         /// Create a matrix where each column corresponds to one of the given vectors.
         let public fromVectors (vectors: Vector array) =
             if Array.isEmpty vectors then
