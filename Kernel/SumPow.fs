@@ -1606,12 +1606,16 @@ module rec SumPow =
 
         /// Expands the given expression.
         let public expand =
-            function
-            | SimpleSP x -> x
-            | Power(b, p) -> power (expandPow (b, p))
-            | Prod prod -> expandTerm prod
-            | SimplifiedSum ss -> Sum (manyTermId (List.map expandTerm ss))
-            | other -> other
+
+            let inner =
+                function
+                | SimpleSP x -> x
+                | Power(b, p) -> power (expandPow (b, p))
+                | Prod prod -> expandTerm prod
+                | SimplifiedSum ss -> Sum (manyTermId (List.map expandTerm ss))
+                | other -> other
+
+            memoize inner
 
         /// Apply expansion until a fixed point. Might throw an exception if a fixed point is not found.
         let public fullExpand = FixedPoint.tryFixedPoint 20 expand
