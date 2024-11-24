@@ -846,7 +846,12 @@ module rec SumPow =
 
         /// Convert the given `SumPow` sum (list of terms) to `SimplifiedSum`.
         let inline public simplifiedSum (sum: Term list) : SimplifiedSum =
-            [ for Term term in sum -> [ for Pow(b, p) in term -> (b, p) ] ]
+            //[ for Term term in sum -> [ for Pow(b, p) in term -> (b, p) ] ]
+
+            [ for Term term in sum do
+                // I'm not a fan of this, it's like hiding a problem under the carpet (it means that a calculation
+                // has generated an empty list for a sum or product, which can't normally be valid).
+                if not (List.isEmpty term) then [ for Pow(b, p) in term -> (b, p) ] ]
 
         /// Convert the given `SumPow` sum to `SimplifiedSum`.
         let inline public simplifiedSum' (expr: SumPow) : SimplifiedSum =
