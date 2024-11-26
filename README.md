@@ -88,7 +88,7 @@ Don't hesitate to make your contribution to the project. Even the smallest repor
 ## Credits & acknowledgements
 Persons:
 
- - [Mesa le bg 🐱](https://github.com/Mesabloo) for his ideas, encouragement and presence.
+ - [Mesa le bg 🐱](https://github.com/Mesabloo) for his ideas, valuable advice, encouragement and presence.
  - My cat 🐈 for his purrs and his sweet little face. So cute!
 
 ## License 📜
