@@ -1,21 +1,20 @@
 namespace Liyh.Kernel
 
-/// An interface for rendering and displaying mathematical expressions and formulas into markup languages, mainly with
+/// An interface for rendering and displaying *mathematical expressions* and formulas into markup languages, mainly with
 /// LaTeX in mind. This module focuses on transforming abstract mathematical notations into proper visual representations.
-/// Normally, by default, we try to make rendering independent of any package from the target markup language.
+/// Normally, by default, we try to make rendering independent of any package from the target markup language. This minilib
+/// is not designed for writing documents, but only for rendering mathmode expressions.
 module public rec MathRender =
     open System
 
-    exception public UnsupportedMarkupLanguageException of MarkupLanguage
+    // The markup languages listed here are all only partially supported, in the sense that only the features
+    // we need for math rendering in Liyh are implemented.
 
     [<RequireQualifiedAccess>]
     type public MarkupLanguage =
-        | Latex     // <-- our default support
+        | Latex // Default support
         | Typst
         | Mathml
-        | Ascii
-        | Unicode
-        | Other of string
 
     [<Struct>]
     type public TextFormat =
@@ -335,9 +334,200 @@ module public rec MathRender =
 
             env body
 
+    /// Handle typst rendering from `MathRender`.
+    [<RequireQualifiedAccess>]
+    module public MathRenderTypst =
+
+        let private compileSize =
+            function
+            | _ -> "" // not supported
+
+        let private compileSpace =
+            function // 1mu = 1em/18
+            | Normal -> @" "
+            | Quad -> @"#h(18em/18)"
+            | QQuad -> @"#h(36em/18)"
+            | Space1 -> @"#h(3em/18)"
+            | Space2 -> @"#h(4em/18)"
+            | Space3 -> @"#h(5em/18)"
+            | AntiSpace -> @"#h(-3em/18)"
+
+        /// Compiles the given abstract math render to a Latex equivalent.
+        let rec public compile =
+            function
+            | Text txt -> compileText txt
+            | Symbol s -> s
+            | Script script -> compileScript script
+            | Space space -> compileSpace space
+            | Group group -> compileGroup group
+            | Between between -> compileBetween between
+            | Command command -> compileCommand command
+            | Nothing -> ""
+
+        and private compileText (text: Text) =
+            let format =
+                match Option.defaultValue TextFormat.Normal text.format with
+                | TextFormat.Bold -> @"bold"
+                | TextFormat.Italic -> @"italic"
+                | TextFormat.Normal -> ""
+
+            let font =
+                match Option.defaultValue TextFont.Normal text.font with
+                | TextFont.Mathbb -> @"bb"
+                | TextFont.Mathcal -> @"cal"
+                | TextFont.Mathfrak -> @"frak"
+                | TextFont.Normal -> ""
+
+            let size = compileSize (Option.defaultValue Size.Normal text.size)
+
+            [ format; font; size ]
+            |> List.filter (not << String.IsNullOrEmpty)
+            |> function
+                | [] -> sprintf "\"%s\"" text.text
+                | formats ->
+                    List.fold (fun acc fmt -> sprintf @"%s(%s)" fmt acc) (sprintf "\"%s\"" text.text) formats
+
+        and private compileScript (script: Script) =
+            let space = if script.spaced then " #h(0pt) " else ""
+
+            let su =
+                match script.kind with
+                | ScriptKind.SubScript -> @"_"
+                | ScriptKind.SuperScript -> @"^"
+
+            let content = compile script.content
+
+            sprintf @"%s%s(%s)" space su content
+
+        and private compileGroup (group: MathRender list) =
+            List.fold (fun acc a -> acc + compile a) "" group
+
+        and private compileBetween (between: Between) =
+            let spaced =
+                match between.kind with
+                | BetweenKind.Custom _ -> " "
+                | _ -> ""
+
+            let left, right =
+                match between.kind with
+                | BetweenKind.Braces -> "{", "}"
+                | BetweenKind.Brackets -> "[", "]"
+                | BetweenKind.Parentheses -> "(", ")"
+                | BetweenKind.Custom(l, r) -> l, r // may not work depending the markup actually...
+
+            left + spaced + (compile between.content) + spaced + right
+
+        and private compileCommand =
+            function
+            | Command.Frac(a, b) -> sprintf @"frac(%s, %s)" (compile a) (compile b)
+            | Command.Sqrt a -> sprintf @"sqrt(%s)" (compile a)
+            | Command.Root(a, b) -> sprintf @"root(%s, %s)" (compile b) (compile a)
+            | Command.Abs a -> sprintf @"abs(%s)" (compile a)
+            | Command.Mat a -> compileMat a
+            | Command.Leq -> @"lt.eq"
+            | Command.Geq -> @"gt.eq"
+            | Command.Neq -> @"eq.not"
+
+        and private compileMat (mat: MathRender array2d) =
+            let cs = Array2D.map compile mat
+            let rows = [| for row in 0 .. Array2D.length1 cs - 1 -> cs.[row, *] |]
+            let rows = Array.map (fun (c: string array) -> System.String.Join(", ", c)) rows
+
+            let env = sprintf @"\begin{bmatrix} %s \end{bmatrix}"
+            let body = System.String.Join(@"; ", rows)
+
+            env body
+
+    /// Handle mathml rendering from `MathRender`.
+    [<RequireQualifiedAccess>]
+    module public MathRenderMathML =
+
+        let private compileSize =
+            function
+            | _ -> "" // not supported
+
+        let private compileSpace =
+            function
+            | _ -> "" // not supported
+
+        /// Compiles the given abstract math render to a Latex equivalent.
+        let rec public compile =
+            function
+            | Text txt -> compileText txt
+            | Symbol s -> sprintf "<mi>%s</mi>" s
+            | Script script -> compileScript script
+            | Space space -> compileSpace space
+            | Group group -> compileGroup group
+            | Between between -> compileBetween between
+            | Command command -> compileCommand command
+            | Nothing -> ""
+
+        and private compileText (text: Text) =
+            sprintf "<mo>%s</mo>" text.text
+
+        and private compileScript (script: Script) =
+            let space = if script.spaced then "<mo>&#xA0;</mo>" else ""
+
+            let su1, su2 =
+                match script.kind with
+                | ScriptKind.SubScript -> "<msub>", "</msub>"
+                | ScriptKind.SuperScript -> "<msup>", "</msup>"
+
+            let content = compile script.content
+
+            sprintf @"%s%s<none></none><mrow>%s</mrow>%s" space su1 content su2
+
+        and private compileGroup (group: MathRender list) =
+            "<mrow>" + List.fold (fun acc a -> acc + compile a) "" group + "</mrow>"
+
+        and private compileBetween (between: Between) =
+            let spaced =
+                match between.kind with
+                | BetweenKind.Custom _ -> "<mo>&#xA0;</mo>"
+                | _ -> ""
+
+            let left, right =
+                match between.kind with
+                | BetweenKind.Braces -> "<mrow><mo>{</mo>", "<mo>}</mo></mrow>"
+                | BetweenKind.Brackets -> "<mrow><mo>[</mo>", "<mo>]</mo></mrow>"
+                | BetweenKind.Parentheses -> "<mrow><mo>(</mo>", "<mo>)</mo></mrow>"
+                | BetweenKind.Custom(l, r) -> $"<mrow><mo>{l}</mo>", $"<mo>{r}</mo></mrow>"
+
+            left + spaced + (compile between.content) + spaced + right
+
+        and private compileCommand =
+            function
+            | Command.Frac(a, b) -> sprintf "<mfrac><mrow>%s</mrow><mrow>%s</mrow></mfrac>" (compile a) (compile b)
+            | Command.Sqrt a -> sprintf "<msqrt>%s</msqrt>" (compile a)
+            | Command.Root(a, b) -> sprintf "<mroot><mrow>%s</mrow><mrow>%s</mrow></mroot>" (compile b) (compile a)
+            | Command.Abs a -> sprintf "<mrow><mo>|</mo>%s<mo>|</mo></mrow>" (compile a)
+            | Command.Mat a -> compileMat a
+            | Command.Leq -> "<mo>&#x2264;</mo>"
+            | Command.Geq -> "<mo>&#x2264;</mo>"
+            | Command.Neq -> "<mo>&#x2260;</mo>"
+
+        and private compileMat (mat: MathRender array2d) =
+            let cs = Array2D.map compile mat
+
+            let rows = Array2D.length1 cs
+            let cols = Array2D.length2 cs
+
+            let rowsToMathML =
+                [for i in 0 .. rows - 1 ->
+                    let row =
+                        [ for j in 0 .. cols - 1 -> $"<mtd><mi>{cs.[i, j]}</mi></mtd>" ]
+                        |> String.concat ""
+                    $"<mtr>{row}</mtr>"]
+                |> String.concat ""
+
+            $"<mtable>{rowsToMathML}</mtable>"
+
+    let inline private texEnclose s = "$" + s + "$"
+    let inline private mathmlEnclose s = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">" + s + "</math>"
+
     /// Converts the `MathRender` abstract representation into a string corresponding to the specified markup language.
     let public compile (mathrender: MathRender) =
         function
-        | MarkupLanguage.Latex -> MathRenderLatex.compile mathrender
-        | other -> raise (UnsupportedMarkupLanguageException other)
-
+        | MarkupLanguage.Latex -> texEnclose (MathRenderLatex.compile mathrender)
+        | MarkupLanguage.Typst -> texEnclose (MathRenderTypst.compile mathrender)
+        | MarkupLanguage.Mathml -> mathmlEnclose (MathRenderMathML.compile mathrender)
