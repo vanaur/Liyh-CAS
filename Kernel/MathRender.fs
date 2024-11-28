@@ -306,7 +306,7 @@ module public rec MathRender =
 
             let left, right =
                 match between.kind with
-                | BetweenKind.Braces -> @"\left{", @"\right}"
+                | BetweenKind.Braces -> @"\left\{", @"\right\}"
                 | BetweenKind.Brackets -> @"\left[", @"\right]"
                 | BetweenKind.Parentheses -> @"\left(", @"\right)"
                 | BetweenKind.Custom(l, r) -> l, r // may not work depending the markup actually...
