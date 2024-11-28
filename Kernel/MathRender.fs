@@ -210,11 +210,11 @@ module public rec MathRender =
 
         (* -- symbols -- *)
 
-        let public leq = Command.Leq
-        let public geq = Command.Geq
+        let public leq = Command Command.Leq
+        let public geq = Command Command.Geq
         let public le = symbol "<"
         let public ge = symbol ">"
-        let public neq = Command.Neq
+        let public neq = Command Command.Neq
         let public plus = symbol "+"
         let public minus = symbol "-"
         let public cdot = symbol "⋅"
