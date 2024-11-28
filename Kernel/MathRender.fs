@@ -435,7 +435,7 @@ module public rec MathRender =
             let rows = [| for row in 0 .. Array2D.length1 cs - 1 -> cs.[row, *] |]
             let rows = Array.map (fun (c: string array) -> System.String.Join(", ", c)) rows
 
-            let env = sprintf @"\begin{bmatrix} %s \end{bmatrix}"
+            let env = sprintf @"mat(%s)"
             let body = System.String.Join(@"; ", rows)
 
             env body
