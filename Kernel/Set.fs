@@ -6,6 +6,7 @@ namespace Liyh.Kernel
 module rec SymbolicSet =
     open System
     open Liyh.Kernel.Atomic
+    open MathRender
 
     type private ISymbolicConstraint<'T when 'T :> ISymbolic> = 'T
     type public ISymbolicComparaison = ISymbolic -> ISymbolic -> int
@@ -19,9 +20,9 @@ module rec SymbolicSet =
 
         interface ISymbolic with
             member this.ToSymbolic() = toSymbolic this
-            member this.ToLatex() = Some (toLatex this)
-            member this.ToLatexOrString() = toLatex this
-            member this.Hash = 0
+            member this.ToMathRender() = Some (toMathRenderSet this)
+            member this.ToMathRenderOrString() = Choice1Of2 (toMathRenderSet this)
+            member this.Hash = 0 // todo!
 
     let rec private toSymbolic =
         function
@@ -41,13 +42,17 @@ module rec SymbolicSet =
               attributes = [ ("expression", Atomic.toSymbolic f)
                              ("predicate", Atomic.toSymbolic p) ] }
 
-    let private toLatex =
+    let private toMathRenderSet =
         function
         | Enumerated []
-        | Empty -> sprintf @"\empty"
-        | Singleton x -> sprintf @"\left\{ %s \right\}" (toLatexOrString x)
-        | Enumerated xs -> sprintf @"\left\{ %s \right\}" (System.String.Join(";", List.map toLatexOrString xs))
-        | Predicated (f, p) -> sprintf @"\left\{ \left. %s \right| %s \right\}" (toLatexOrString f) (toLatexOrString p)
+        | Empty -> MathRenderHelper.symbol "∅"
+        | Singleton x -> MathRenderHelper.braces (MathRenderHelper.braces (forceToMathRender x))
+        | Enumerated xs ->
+            let inline folder acc a = acc ++ MathRenderHelper.symbol "," ++ forceToMathRender a
+            let items = List.fold folder MathRenderHelper.nothing xs
+            MathRenderHelper.braces items
+        | Predicated (f, p) ->
+            MathRenderHelper.braces (forceToMathRender f ++ MathRenderHelper.symbol "|" ++ forceToMathRender p)
 
     let private hashSymbolicSet =
         function

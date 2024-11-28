@@ -8,6 +8,7 @@ module public rec LinearAlgebra =
     open System
     open Liyh.Kernel
     open Liyh.Utils
+    open MathRender
 
     /// This module deals with classical vector algebra over SumPow.
     module public Vector =
@@ -37,8 +38,8 @@ module public rec LinearAlgebra =
 
             interface ISymbolic with
                 member this.ToSymbolic() = toSymbolic this
-                member this.ToLatex() = Some(toLatex this)
-                member this.ToLatexOrString() = toLatex this
+                member this.ToMathRender() = Some(ToMathRender this)
+                member this.ToMathRenderOrString() = Choice1Of2 (ToMathRender this)
                 member this.Hash = hash this
 
             override this.GetHashCode() = hashVector this
@@ -63,9 +64,11 @@ module public rec LinearAlgebra =
             { atom = Atomic.Identifier "Vector"
               attributes = List.ofArray arguments }
 
-        let private toLatex (Vector components) =
-            let components = Array.map toLatexValue components
-            sprintf @"\left(%s\right)" (System.String.Join(", ", components))
+        let private ToMathRender (Vector components) =
+            let components = Array.map toMathRenderValue components
+            let inline folder acc a = acc ++ MathRenderHelper.symbol "," ++ a
+
+            MathRenderHelper.parens (Array.fold folder MathRenderHelper.nothing components)
 
         let private hashVector (Vector components) =
             HashCode.Combine(Vector, components)
@@ -259,8 +262,8 @@ module public rec LinearAlgebra =
 
             interface ISymbolic with
                 member this.ToSymbolic() = toSymbolic this
-                member this.ToLatex() = Some(toLatex this)
-                member this.ToLatexOrString() = toLatex this
+                member this.ToMathRender() = Some(toMathRender this)
+                member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
                 member this.Hash = hash this
 
             static member op_Addition(a: Matrix, b: Matrix) = Operations.addition a b
@@ -297,17 +300,12 @@ module public rec LinearAlgebra =
 
             { atom = Identifier "Matrix"
               attributes = args }
-        
-        let private toLatex (matrix: Matrix) =
-            let cs = components matrix
-            let cs = Array2D.map toLatexOrString cs
-            let rows = [| for row in 0 .. Array2D.length1 cs - 1 -> cs.[row, *] |]
-            let rows = Array.map (fun (c: string array) -> System.String.Join(" & ", c)) rows
 
-            let env = sprintf @"\begin{bmatrix} %s \end{bmatrix}"
-            let body = System.String.Join(@" \\ ", rows)
+        let private toMathRender (matrix: Matrix) =
+            let cs = copyFreeComponents matrix
+            let cs = Array2D.map toMathRenderValue cs
 
-            env body
+            MathRenderHelper.mat cs
 
         /// Returns the columns of the given matrix.
         let public getColumns (matrix: Matrix) =

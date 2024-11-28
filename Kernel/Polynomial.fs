@@ -18,6 +18,7 @@ module rec Polynomial =
     open System.Runtime.CompilerServices
     open Liyh.Kernel.TrueVariable
     open Liyh.Utils
+    open MathRender
 
     exception public EmptyPolynomialException
     exception public ExcludedVariableIsVariableException of string
@@ -250,8 +251,8 @@ module rec Polynomial =
 
         interface ISymbolic with
             member this.ToSymbolic() = toSymbolic this
-            member this.ToLatex() = Some(toLatex this)
-            member this.ToLatexOrString() = toLatex this
+            member this.ToMathRender() = Some(toMathRender this)
+            member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
             member this.Hash = hash this
 
         static member op_Addition(p1: Polynomial, p2: Polynomial) = PolynomialOperations.addition p1 p2
@@ -1140,7 +1141,7 @@ module rec Polynomial =
         /// A polynomial is considered sparse if its density is less than 60% (this is our definition).
         let public isSparse = isDense >> not
 
-    let private toLatex = toSumPow >> Atomic.toLatexValue
+    let private toMathRender = toSumPow >> Atomic.toMathRenderValue
     let private toSymbolic = toSumPow >> Atomic.toSymbolic
 
     [<AutoOpen>]
@@ -1414,16 +1415,16 @@ module rec Polynomial =
               denominator: Polynomial option }
 
             interface ISymbolic with
-                member this.ToLatex () = Some (toLatex this)
-                member this.ToLatexOrString () = toLatex this
+                member this.ToMathRender () = Some (toMathRender this)
+                member this.ToMathRenderOrString () = Choice1Of2 (toMathRender this)
                 member this.ToSymbolic () = toSymbolic this
                 member this.Hash = hash this
 
-        let private toLatex { numerator = num; denominator = den } =
+        let private toMathRender { numerator = num; denominator = den } =
             match num, den with
-            | Some num, Some den -> sprintf @"\frac{%s}{%s}" (toLatexValue num) (toLatexValue den)
-            | Some num, None -> toLatexValue num
-            | None, Some den -> sprintf @"\frac{1}{%s}" (toLatexValue den)
+            | Some num, Some den -> MathRenderHelper.frac (toMathRenderValue num) (toMathRenderValue den)
+            | Some num, None -> toMathRenderValue num
+            | None, Some den -> MathRenderHelper.frac (MathRenderHelper.number 1) (toMathRenderValue den)
             | None, None -> failwith "??" // May not happen
 
         let private toSymbolic { numerator = num; denominator = den } =
@@ -2237,18 +2238,18 @@ module rec Polynomial =
             then FactoringResult.Alternatives (Seq.map (termFactoringWithRespectTo p) p.variables)
             else FactoringResult.Univariate (factor1 p)
 
-        let public showFactoringResult =
-            function
-            | FactoringResult.Nothing -> @"\text{Nothing}"
-
-            | FactoringResult.Alternatives alternatives ->
-                let alternatives = Seq.toList alternatives
-                sprintf @"\begin{align*} %s \end{align*}"
-                        (System.String.Join(@"\\", List.map (fun (c, p) -> sprintf @"%s\cdot\left(%s\right)" (toLatexValue c) (toLatexValue p)) alternatives))
-
-            | FactoringResult.Univariate ps ->
-                System.String.Join(@" \cdot ",
-                    List.map (fun (p, d) -> sprintf @"\left(%s\right)^%d" (toLatexValue p) d) ps)
+        //        let public showFactoringResult =
+        //            function
+        //            | FactoringResult.Nothing -> @"\text{Nothing}"
+        //
+        //            | FactoringResult.Alternatives alternatives ->
+        //                let alternatives = Seq.toList alternatives
+        //                sprintf @"\begin{align*} %s \end{align*}"
+        //                        (System.String.Join(@"\\", List.map (fun (c, p) -> sprintf @"%s\cdot\left(%s\right)" (toLatexValue c) (toLatexValue p)) alternatives))
+        //
+        //            | FactoringResult.Univariate ps ->
+        //                System.String.Join(@" \cdot ",
+        //                    List.map (fun (p, d) -> sprintf @"\left(%s\right)^%d" (toLatexValue p) d) ps)
 
     module public Interpolation =
         open PureConstantExpression

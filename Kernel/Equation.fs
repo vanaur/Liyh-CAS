@@ -7,6 +7,7 @@ module public rec Equation =
     open Liyh.Kernel.TrueVariable
     open Liyh.Utils
     open System.Collections.Generic
+    open MathRender
 
     exception public NotSymbolicEquationException of Symbol
     exception public UnboundVariableException of string
@@ -20,13 +21,13 @@ module public rec Equation =
         | GreaterThan
         | GreaterOrEqualThan
 
-    let private equationKindToLatex =
+    let private equationKindToMathRender =
         function
-        | Equality -> "="
-        | LesserThan -> "<"
-        | LesserOrEqualThan -> @"\leqslant"
-        | GreaterThan -> ">"
-        | GreaterOrEqualThan -> @"\geqslant"
+        | Equality -> MathRenderHelper.symbol "="
+        | LesserThan -> MathRenderHelper.le
+        | LesserOrEqualThan -> MathRenderHelper.leq
+        | GreaterThan -> MathRenderHelper.ge
+        | GreaterOrEqualThan -> MathRenderHelper.geq
 
     [<Symbolic; Struct; NoComparison>]
     type public Equation =
@@ -34,12 +35,12 @@ module public rec Equation =
 
         interface ISymbolic with
             member this.ToSymbolic() = toSymbolic this
-            member this.ToLatex() = Some(toLatex this)
-            member this.ToLatexOrString() = toLatex this
+            member this.ToMathRender() = Some(toMathRender this)
+            member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
             member this.Hash = hash this
 
-    let private toLatex (Equation(kind, lhs, rhs)) =
-        sprintf "%s %s %s" (toLatexValue lhs) (equationKindToLatex kind) (toLatexValue rhs)
+    let private toMathRender (Equation(kind, lhs, rhs)) =
+        toMathRenderValue lhs ++ (equationKindToMathRender kind) ++ toMathRenderValue rhs
 
     let private toSymbolic (Equation(kind, lhs, rhs)) =
         let kind =
@@ -134,18 +135,20 @@ module public rec Equation =
 
         interface ISymbolic with
             member this.ToSymbolic() = toSymbolic' this
-            member this.ToLatex() = Some(toLatex' this)
-            member this.ToLatexOrString() = toLatex' this
+            member this.ToMathRender() = Some(toMathRender' this)
+            member this.ToMathRenderOrString() = Choice1Of2 (toMathRender' this)
             member this.Hash = hash this
 
     let private toSymbolic' (EquationSystem sys) =
         { atom = Identifier "EquationSystem"
           attributes = List.map (fun x -> null, toSymbolic x) sys }
 
-    let private toLatex' (EquationSystem sys) =
-        let inline innerLatex (Equation(kind, lhs, rhs)) =
-            sprintf "%s &%s %s" (toLatexValue lhs) (equationKindToLatex kind) (toLatexValue rhs)
-        sprintf @"\begin{cases}%s\end{cases}" (System.String.Join(@"\\", (List.map innerLatex sys)))
+    let private toMathRender' (EquationSystem sys) =
+        failwith "todo: implement *cases* in `MathRender`"
+
+        // let inline innerLatex (Equation(kind, lhs, rhs)) =
+        //     sprintf "%s &%s %s" (toLatexValue lhs) (equationKindToLatex kind) (toLatexValue rhs)
+        // sprintf @"\begin{cases}%s\end{cases}" (System.String.Join(@"\\", (List.map innerLatex sys)))
 
     /// The simpliest equations to handle. An equation of the form a₁x₁ + ... + aₙxₙ + b = 0 where {xᵢ} are variables
     /// and {b; aᵢ} are coefficients is said to be a linear equation. See https://en.wikipedia.org/wiki/Linear_equation.

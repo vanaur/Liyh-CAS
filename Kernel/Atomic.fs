@@ -4,10 +4,12 @@ namespace Liyh.Kernel
 module rec Atomic =
     open System
     open System.Linq
-    open ByteDev.Encoding
+    open ByteDev.Encoding // would be used to "compile" symbolic code (in Liyh's VM)
+    open MathRender
 
     exception public UnknownSymbolicMatchException of Symbol
     exception public UnboundArgumentNameException of string list * Symbol
+    exception public SymbolDoesNotImplementMathRenderException
 
     let private symbolToString { atom = atom; attributes = attributes } =
         sprintf "%s%s" (string atom)
@@ -48,8 +50,8 @@ module rec Atomic =
 
         interface ISymbolic with
             member this.ToSymbolic() = this
-            member this.ToLatex() = None
-            member this.ToLatexOrString() = string this
+            member this.ToMathRender() = None
+            member this.ToMathRenderOrString() = Choice2Of2 (string this)
             member this.Hash = hashSymbol this
 
     /// Retrieves the arguments of the attributes of the given symbol, i.e. without parameter name.
@@ -64,24 +66,48 @@ module rec Atomic =
     /// in other words it has the members
     /// 
     ///  - `ToSymbolic: unit -> Symbol` which converts the type into a general symbolic representation.
-    ///  - `ToLatex: unit -> string option` which allows latex rendering when available and possible.
-    ///  - `ToLatexOrString: unit -> string` which renders latex when available and possible, otherwise return a string.
+    ///  - `ToMathRender: unit -> string option` which allows latex rendering when available and possible.
+    ///  - `ToMathRenderOrString: unit -> string` which renders latex when available and possible, otherwise return a string.
     ///  - `Hash: int` which yields the hash-code of the symbol.
     /// 
     /// The most important member being the `ToSymbolic` one, the others being of a practical nature..
     [<Serializable>]
     type public ISymbolic =
         abstract member ToSymbolic: unit -> Symbol
-        abstract member ToLatex: unit -> string option
-        abstract member ToLatexOrString: unit -> string
+        abstract member ToMathRender: unit -> MathRender option
+        abstract member ToMathRenderOrString: unit -> Choice<MathRender, string>
         abstract member Hash: int
 
     (* Helpers for ISymbolic interface. *)
 
     let inline public toSymbolic (x: ISymbolic) = x.ToSymbolic()
-    let inline public toLatex (x: ISymbolic) = x.ToLatex()
-    let inline public toLatexValue (x: ISymbolic) = x.ToLatex().Value
-    let inline public toLatexOrString (x: ISymbolic) = x.ToLatexOrString()
+    let inline public toMathRender (x: ISymbolic) = x.ToMathRender()
+    let inline public toMathRenderValue (x: ISymbolic) = x.ToMathRender().Value
+    let inline public toMathRenderOrString (x: ISymbolic) = x.ToMathRenderOrString()
+
+    /// Returns the mathrender of `x` as a mathrender or as a string embedded in a mathrender.
+    let inline public forceToMathRender (x: ISymbolic) =
+        match toMathRenderOrString x with
+        | Choice1Of2 mr -> mr
+        | Choice2Of2 sr -> MathRenderHelper.simpleText sr
+
+    /// Compiles the symbol into LaTeX.
+    let public latexCompile (x: ISymbolic) =
+        (Option.defaultWith
+            (fun _ -> raise SymbolDoesNotImplementMathRenderException)
+            (toMathRender x)).Compile MarkupLanguage.Latex
+
+    /// Compiles the symbol into Typst.
+    let public typstCompile (x: ISymbolic) =
+        (Option.defaultWith
+            (fun _ -> raise SymbolDoesNotImplementMathRenderException)
+            (toMathRender x)).Compile MarkupLanguage.Typst
+
+    /// Compiles the symbol into MathML.
+    let public mathmlCompile (x: ISymbolic) =
+        (Option.defaultWith
+            (fun _ -> raise SymbolDoesNotImplementMathRenderException)
+            (toMathRender x)).Compile MarkupLanguage.Mathml
 
     let private encoder = new Base64.Base64Encoder()
     let private serializer = new Serialization.Serializer(encoder);

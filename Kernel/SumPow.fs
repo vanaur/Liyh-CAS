@@ -10,6 +10,7 @@ module rec SumPow =
     open System.Runtime.CompilerServices
     open Liyh.Utils
     open Liyh.Kernel
+    open MathRender
 
     exception public UnknownSumPowExpressionException of SumPow
 
@@ -494,11 +495,11 @@ module rec SumPow =
                 | _ -> false
             | _ -> false
 
-    /// The module that transforms a SumPow expression into a LaTeX string.
-    module private Latex =
+    /// The module that transforms a SumPow expression into a MathRender.
+    module private MathRenderSumPow =
         open ElementaryOperations
         open InternalFunction
-        open SimplifiedSum
+        open MathRender
 
         [<Struct>]
         type private Sign =
@@ -510,68 +511,67 @@ module rec SumPow =
                 | Plus -> "+"
                 | Minus -> "-"
 
-        let rec public toLatex =
+        let rec public toMathRender =
             function
-            | Const c -> string c
-            | Pi -> @"\pi"
-            | E -> @"e"
-            | Name name -> sprintf (if String.length name > 1 then @"\text{%s}" else @"%s") name
-            | Fun("Complex", [ re; im ]) -> toLatexComplex re im
-            | InternalFunction ifun -> toLatexInternalFun ifun
-            | Fun(fname, arguments) -> toLatexFun fname arguments
-            | Frac(num, den) -> toLatexFrac num den
-            | Power(b, p) -> toLatexPower b p
-            | Prod prod -> toLatexProd prod
-            | SumList sl -> toLatexSum sl
+            | Const (Constant c) -> MathRenderHelper.number c
+            | Pi -> MathRenderHelper.symbol "π"
+            | Name name -> (if String.length name > 1 then MathRenderHelper.simpleText else MathRenderHelper.symbol) name
+            | Fun("Complex", [ re; im ]) -> toMRenderComplex re im
+            | InternalFunction ifun -> toMRenderInternalFun ifun
+            | Fun(fname, arguments) -> toMRenderFun fname arguments
+            | Pattern.Frac(num, den) -> toMRenderFrac num den
+            | Power(b, p) -> toMRenderPower b p
+            | Prod prod -> toMRenderProd prod
+            | SimplifiedSum.SumList sl -> toMRenderSum sl
             | other -> raise (UnknownSumPowExpressionException other)
 
         and private mayParens =
             function
-            | Frac(num, Const (Constant 1.)) -> toLatex num
-            | Frac(num, den) -> sprintf @"\left(%s\right)" (toLatexFrac num den)
-            | Power(b', Const (Constant 1.)) -> toLatex b'
-            | Power (b', p') -> sprintf @"\left(%s\right)" (toLatexPower b' p')
-            | SumList sl when List.length sl > 1 -> sprintf @"\left(%s\right)" (toLatexSum sl)
-            | other -> toLatex other
+            | Pattern.Frac(num, Const (Constant 1.)) -> toMathRender num
+            | Pattern.Frac(num, den) -> MathRenderHelper.parens (toMRenderFrac num den)
+            | Power(b', Const (Constant 1.)) -> toMathRender b'
+            | Power (b', p') -> MathRenderHelper.parens (toMRenderPower b' p')
+            | SimplifiedSum.SumList sl when List.length sl > 1 -> MathRenderHelper.parens (toMRenderSum sl)
+            | other -> toMathRender other
 
-        and private toLatexComplex (re: SumPow) (im: SumPow) =
-            toLatex (re + Name "i" * im) // better handle
-            // match re, im with
-            // | re, Const (Constant 0.) -> toLatex re
-            // | Const (Constant 0.), im -> sprintf @"%si" (mayParens im)
-            // | re, im -> sprintf @"%s + %si" (mayParens re) (mayParens im)
+        and private toMRenderComplex (re: SumPow) (im: SumPow) =
+            toMathRender (re + Name "i" * im)
 
-        and private toLatexPower (b: SumPow) (p: SumPow) =
+        and private toMRenderPower (b: SumPow) (p: SumPow) =
             match b, p with
-            | b, Const (Constant 1.) -> toLatex b
-            | b, Const (Constant -1.) -> sprintf @"\frac{1}{%s}" (toLatex b)
-            | b, Frac (num, den) -> toLatexInternalFun (LiyhRoot (power (b, num), Some den))
-            | b, p -> sprintf @"{%s}^{%s}" (mayParens b) (mayParens p)
+            | b, Const (Constant 1.) -> toMathRender b
+            | b, Const (Constant -1.) -> MathRenderHelper.frac (MathRenderHelper.number 1) (toMathRender b)
+            | b, Pattern.Frac (num, den) -> toMRenderInternalFun (LiyhRoot (power (b, num), Some den))
+            | b, p -> MathRenderHelper.power (mayParens b) (mayParens p)
 
-        and private toLatexFrac (num: SumPow) (den: SumPow) =
+        and private toMRenderFrac (num: SumPow) (den: SumPow) =
             match num, den with
-            | num, Const (Constant 1.) -> toLatex num
-            | num, den -> sprintf @"\frac{%s}{%s}" (toLatex num) (toLatex den)
+            | num, Const (Constant 1.) -> toMathRender num
+            | num, den -> MathRenderHelper.frac (toMathRender num) (toMathRender den)
 
-        and private toLatexProd (prod: (SumPow * SumPow) list) =
+        and private toMRenderProd (prod: (SumPow * SumPow) list) =
 
             let rec loop result lst =
                 let catResult cd addon =
-                    if String.IsNullOrWhiteSpace result then addon
-                    else sprintf @"%s%s%s" result (if cd then @"\cdot " else "") addon
+                    if List.isEmpty result then [ addon ]
+                    else
+                        (MathRenderHelper.group result
+                         :: if cd then MathRenderHelper.cdot else MathRenderHelper.nothing
+                         :: addon
+                         :: [])
 
                 match lst with
                 | [] -> result
                 | (b, p) :: lst ->
                     let cat =
                         match b with
-                        | Const _ | Name _ | Fun _ | Frac _ | Power _ -> false
+                        | Const _ | Name _ | Fun _ | Pattern.Frac _ | Power _ -> false
                         | _ -> true
 
                     let expr =
                         match p with
                         | Const (Constant 1.) -> mayParens b
-                        | _ -> toLatexPower b p
+                        | _ -> toMRenderPower b p
 
                     loop (catResult cat expr) lst
 
@@ -580,86 +580,89 @@ module rec SumPow =
                 let cst = List.filter (function Const (Constant 1.) -> false | _ -> true) cst
                 let rest = List.filter (function (Const (Constant 1.), Const (Constant 1.)) -> false | _ -> true) rest
 
-                let latexConstant = String.Join(@"\cdot", List.map toLatex cst)
-                let latexRest = loop "" rest
+                let latexConstant =
+                    match cst with
+                    | [] -> MathRenderHelper.nothing
+                    | c :: cst -> List.fold (fun acc r -> acc ++ MathRenderHelper.cdot ++ toMathRender r) (toMathRender c) cst
 
-                if List.isEmpty cst then loop "" rest
+                let latexRest = MathRenderHelper.group (loop [] rest)
+
+                if List.isEmpty cst then MathRenderHelper.group (loop [] rest)
                 elif List.length cst > 1 then
-                    if List.length rest > 1 then sprintf @"\left(%s\right)\left(%s\right)" latexConstant latexRest
-                    elif List.length rest = 1 then sprintf @"\left(%s\right)\cdot %s" latexConstant latexRest
+                    if List.length rest > 1 then MathRenderHelper.parens latexConstant ++ MathRenderHelper.parens latexRest
+                    elif List.length rest = 1 then MathRenderHelper.parens latexConstant ++ MathRenderHelper.cdot ++ latexRest
                     else latexConstant
                 else
                     match cst with
-                    | [ Const (Constant -1.) ] -> sprintf @"-%s" latexRest
-                    | _ -> sprintf @"%s %s" latexConstant latexRest
+                    | [ Const (Constant -1.) ] -> MathRenderHelper.minus ++ latexRest
+                    | _ -> latexConstant ++ latexRest
 
-            | Prod prod -> loop "" prod
+            | Prod prod -> MathRenderHelper.group (loop [] prod)
             | other -> raise (UnknownSumPowExpressionException other)
 
-        and private toLatexSum (sl: SumPow list) =
+        and private toMRenderSum (sl: SumPow list) =
 
             let rec loop result (lst: SumPow list) =
                 let catResult sign addon =
-                    if String.IsNullOrWhiteSpace result then if sign = Plus then addon else sprintf @"-%s" addon
-                    else sprintf @"%s %s %s" result (string sign) addon
+                    if List.isEmpty result then if sign = Plus then [ addon ] else [ MathRenderHelper.minus ++ addon ]
+                    else MathRenderHelper.group result :: MathRenderHelper.symbol (string sign) :: addon :: []
 
                 match lst with
                 | [] -> result
                 | Const (Constant 0.) :: lst -> loop result lst
-                | Const (Constant n) :: lst when n < 0 -> loop (catResult Minus (string (Constant (abs n)))) lst
-                | Negative (Const (Constant 1.), y) :: lst -> loop (catResult Minus (toLatex y)) lst
-                | Negative (Const n, y) :: lst -> loop (catResult Minus (sprintf @"%s{%s}" (string n) (toLatex y))) lst
-                | Negative (x, y) :: lst -> loop (catResult Minus (sprintf @"%s\cdot{%s}" (toLatex x) (toLatex y))) lst
-                | x :: lst -> loop (catResult Plus (toLatex x)) lst
+                | Const (Constant n) :: lst when n < 0 -> loop (catResult Minus (MathRenderHelper.number (abs n))) lst
+                | Negative (Const (Constant 1.), y) :: lst -> loop (catResult Minus (toMathRender y)) lst
+                | Negative (Const (Constant n), y) :: lst -> loop (catResult Minus (MathRenderHelper.number n ++ MathRenderHelper.group [ toMathRender y ])) lst
+                | Negative (x, y) :: lst -> loop (catResult Minus (toMathRender x ++ MathRenderHelper.cdot ++ MathRenderHelper.group [ toMathRender y ])) lst
+                | x :: lst -> loop (catResult Plus (toMathRender x)) lst
 
-            loop "" sl
+            MathRenderHelper.group (loop [] sl)
 
-        and private toLatexInternalFun =
+        and private toMRenderInternalFun =
             function
-            | LiyhPow(b, p) -> toLatexPower b p
+            | LiyhPow(b, p) -> toMRenderPower b p
             | LiyhRoot(x, Some (Const (Constant 2.)))
-            | LiyhRoot(x, None) -> sprintf @"\sqrt{%s}" (toLatex x)
-            | LiyhRoot(x, Some b) -> sprintf @"\sqrt[%s]{%s}" (toLatex b) (toLatex x)
-            | LiyhLog(x, None) -> sprintf @"\log\left(%s\right)" (toLatex x)
-            | LiyhLog(x, Some E) -> sprintf @"\log\left(%s\right)" (toLatex x)
-            | LiyhLog(x, Some b) -> sprintf @"\log_{%s}\left(%s\right)" (toLatex b) (toLatex x)
-            | LiyhExp x -> sprintf @"e^{%s}" (toLatex x)
-            | LiyhSin x -> sprintf @"\sin\left(%s\right)" (toLatex x)
-            | LiyhCos x -> sprintf @"\cos\left(%s\right)" (toLatex x)
-            | LiyhTan x -> sprintf @"\tan\left(%s\right)" (toLatex x)
-            | LiyhCsc x -> sprintf @"\csc\left(%s\right)" (toLatex x)
-            | LiyhSec x -> sprintf @"\sec\left(%s\right)" (toLatex x)
-            | LiyhCot x -> sprintf @"\cot\left(%s\right)" (toLatex x)
-            | LiyhArSin x -> sprintf @"\arcsin\left(%s\right)" (toLatex x)
-            | LiyhArCos x -> sprintf @"\arccos\left(%s\right)" (toLatex x)
-            | LiyhArTan x -> sprintf @"\arctan\left(%s\right)" (toLatex x)
-            | LiyhArCsc x -> sprintf @"\text{arcsc}\left(%s\right)" (toLatex x)
-            | LiyhArSec x -> sprintf @"\text{arsec}\left(%s\right)" (toLatex x)
-            | LiyhArCot x -> sprintf @"\text{arcot}\left(%s\right)" (toLatex x)
-            | LiyhSinh x -> sprintf @"\sinh\left(%s\right)" (toLatex x)
-            | LiyhCosh x -> sprintf @"\cosh\left(%s\right)" (toLatex x)
-            | LiyhTanh x -> sprintf @"\tanh\left(%s\right)" (toLatex x)
-            | LiyhCsch x -> sprintf @"\text{csch}\left(%s\right)" (toLatex x)
-            | LiyhSech x -> sprintf @"\text{sech}\left(%s\right)" (toLatex x)
-            | LiyhCoth x -> sprintf @"\text{coth}\left(%s\right)" (toLatex x)
-            | LiyhArSinh x -> sprintf @"\text{arsinh}\left(%s\right)" (toLatex x)
-            | LiyhArCosh x -> sprintf @"\text{arcosh}\left(%s\right)" (toLatex x)
-            | LiyhArTanh x -> sprintf @"\text{artanh}\left(%s\right)" (toLatex x)
-            | LiyhArCsch x -> sprintf @"\text{arcsch}\left(%s\right)" (toLatex x)
-            | LiyhArSech x -> sprintf @"\text{arsech}\left(%s\right)" (toLatex x)
-            | LiyhArCoth x -> sprintf @"\text{arcoth}\left(%s\right)" (toLatex x)
-            | LiyhSinc x -> sprintf @"\text{sinc}\left(%s\right)" (toLatex x)
-            | LiyhAbs x -> sprintf @"\left|{%s}\right|" (toLatex x)
-            | LiyhSgn x -> sprintf @"\text{sgn}\left(%s\right)" (toLatex x)
-            | LiyhDelta x -> sprintf @"\delta_\text{Dirac}\left(%s\right)" (toLatex x)
-            | LiyhCeil x -> sprintf @"\text{ceil}\left(%s\right)" (toLatex x)
-            | LiyhFloor x -> sprintf @"\text{floor}\left(%s\right)" (toLatex x)
-            | LiyhRound x -> sprintf @"\text{round}\left(%s\right)" (toLatex x)
-            | LiyhId x -> toLatex x
+            | LiyhRoot(x, None) -> MathRenderHelper.sqrt (toMathRender x)
+            | LiyhRoot(x, Some b) -> MathRenderHelper.root (toMathRender x) (toMathRender b)
+            | LiyhLog(x, None) -> MathRenderHelper.ln (toMathRender x)
+            | LiyhLog(x, Some E) -> MathRenderHelper.ln (toMathRender x)
+            | LiyhLog(x, Some b) -> MathRenderHelper.log (toMathRender x) (toMathRender b)
+            | LiyhExp x -> MathRenderHelper.power (MathRenderHelper.symbol "e") (toMathRender x)
+            | LiyhSin x -> MathRenderHelper.func "sin" [ toMathRender x ]
+            | LiyhCos x -> MathRenderHelper.func "cos" [ toMathRender x ]
+            | LiyhTan x -> MathRenderHelper.func "tan" [ toMathRender x ]
+            | LiyhCsc x -> MathRenderHelper.func "csc" [ toMathRender x ]
+            | LiyhSec x -> MathRenderHelper.func "sec" [ toMathRender x ]
+            | LiyhCot x -> MathRenderHelper.func "cot" [ toMathRender x ]
+            | LiyhArSin x -> MathRenderHelper.func "arcsin" [ toMathRender x ]
+            | LiyhArCos x -> MathRenderHelper.func "arccos" [ toMathRender x ]
+            | LiyhArTan x -> MathRenderHelper.func "arctan" [ toMathRender x ]
+            | LiyhArCsc x -> MathRenderHelper.func "arcsc" [ toMathRender x ]
+            | LiyhArSec x -> MathRenderHelper.func "arsec" [ toMathRender x ]
+            | LiyhArCot x -> MathRenderHelper.func "arcot" [ toMathRender x ]
+            | LiyhSinh x -> MathRenderHelper.func "sinh" [ toMathRender x ]
+            | LiyhCosh x -> MathRenderHelper.func "cosh" [ toMathRender x ]
+            | LiyhTanh x -> MathRenderHelper.func "tanh" [ toMathRender x ]
+            | LiyhCsch x -> MathRenderHelper.func "csch" [ toMathRender x ]
+            | LiyhSech x -> MathRenderHelper.func "sech" [ toMathRender x ]
+            | LiyhCoth x -> MathRenderHelper.func "coth" [ toMathRender x ]
+            | LiyhArSinh x -> MathRenderHelper.func "arsinh" [ toMathRender x ]
+            | LiyhArCosh x -> MathRenderHelper.func "arcosh" [ toMathRender x ]
+            | LiyhArTanh x -> MathRenderHelper.func "artanh" [ toMathRender x ]
+            | LiyhArCsch x -> MathRenderHelper.func "arcsch" [ toMathRender x ]
+            | LiyhArSech x -> MathRenderHelper.func "arsech" [ toMathRender x ]
+            | LiyhArCoth x -> MathRenderHelper.func "arcoth" [ toMathRender x ]
+            | LiyhSinc x -> MathRenderHelper.func "sinc" [ toMathRender x ]
+            | LiyhAbs x -> MathRenderHelper.abs (toMathRender x)
+            | LiyhSgn x -> MathRenderHelper.func "sgn" [ toMathRender x ]
+            | LiyhDelta x -> MathRenderHelper.symbol "δ" ++ MathRenderHelper.subscript (MathRenderHelper.simpleText "Dirac") ++ MathRenderHelper.parens (MathRenderHelper.group [ toMathRender x ])
+            | LiyhCeil x ->  MathRenderHelper.func "ceil" [ toMathRender x ]
+            | LiyhFloor x -> MathRenderHelper.func "floor" [ toMathRender x ]
+            | LiyhRound x -> MathRenderHelper.func "round" [ toMathRender x ]
+            | LiyhId x -> toMathRender x
 
-        and private toLatexFun (fname: string) (arguments: SumPow list) =
-            let latexArguments = String.Join(',', List.map toLatex arguments)
-            sprintf @"%s\left(%s\right)" fname latexArguments
+        and private toMRenderFun (fname: string) (arguments: SumPow list) =
+            MathRenderHelper.func fname (List.map toMathRender arguments)
 
     /// The module that interfaces with Symbolic.
     [<AutoOpen>]
@@ -757,7 +760,7 @@ module rec SumPow =
 
         override this.GetHashCode() = Hashing.hashSumPow this
         override this.Equals arg = Equality.equalsSumPow this arg
-        override this.ToString() = Latex.toLatex this
+        override this.ToString() = "<SumPow>" //Latex.toLatex this
 
         // -- Implement interfaces -- //
 
@@ -768,9 +771,9 @@ module rec SumPow =
                 | _ -> invalidArg "obj" "cannot compare value of different types"
 
         interface ISymbolic with
-            member this.ToSymbolic() = Symbolic.toSymbolic this
-            member this.ToLatex() = Some(Latex.toLatex this)
-            member this.ToLatexOrString() = Latex.toLatex this
+            member this.ToSymbolic() = toSymbolic this
+            member this.ToMathRender() = Some(MathRenderSumPow.toMathRender this)
+            member this.ToMathRenderOrString() = Choice1Of2 (MathRenderSumPow.toMathRender this)
             member this.Hash = hash this
 
         // -- Standards -- //
@@ -3267,12 +3270,14 @@ module rec SumPow =
 
             interface ISymbolic with
                 member this.ToSymbolic() = toSymbolic this
-                member this.ToLatex() = Some (toLatex this)
-                member this.ToLatexOrString() = string this
+                member this.ToMathRender() = Some (toMathRender this)
+                member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
                 member this.Hash = hash (toSumPow this)
 
-        let private toLatex { number = number; modulus = modulus } =
-            sprintf @"\left(%s\right)\;\left(\text{mod}\;%d\right)" (toLatexValue number) modulus
+        let private toMathRender { number = number; modulus = modulus } =
+            MathRenderHelper.parens (toMathRenderValue number)
+            ++ MathRenderHelper.symbol ";"
+            ++ MathRenderHelper.parens (MathRenderHelper.simpleText "mod" ++ MathRenderHelper.number modulus)
 
         let private toSymbolic { number = number; modulus = modulus } =
             let snum = Atomic.toSymbolic number
