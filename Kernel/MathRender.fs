@@ -65,11 +65,12 @@ module public rec MathRender =
         | Brackets      // [ ]
         | Braces        // { }
 
+    [<RequireQualifiedAccess>]
     type public Between =
         { content: MathRender
           kind: BetweenKind }
 
-    [<Struct>]
+    [<Struct; RequireQualifiedAccess>]
     type public Space =
         | Normal     // equivalent of space in normal text
         | Quad       // 18mu
@@ -81,6 +82,7 @@ module public rec MathRender =
 
     /// Represents elements that are too dependent on the target markup language to be built with the
     /// elementary bricks of `MathRender`. For example roots or fractions.
+    [<RequireQualifiedAccess>]
     type public Command =
         | Frac of MathRender * MathRender
         | Sqrt of MathRender
@@ -240,13 +242,13 @@ module public rec MathRender =
 
         let private compileSpace =
             function
-            | Normal -> @"\ "
-            | Quad -> @"\quad"
-            | QQuad -> @"\qquad"
-            | Space1 -> @"\,"
-            | Space2 -> @"\:"
-            | Space3 -> @"\;"
-            | AntiSpace -> @"\!"
+            | Space.Normal -> @"\ "
+            | Space.Quad -> @"\quad"
+            | Space.QQuad -> @"\qquad"
+            | Space.Space1 -> @"\,"
+            | Space.Space2 -> @"\:"
+            | Space.Space3 -> @"\;"
+            | Space.AntiSpace -> @"\!"
 
         /// Compiles the given abstract math render to a Latex equivalent.
         let rec public compile =
@@ -344,13 +346,13 @@ module public rec MathRender =
 
         let private compileSpace =
             function // 1mu = 1em/18
-            | Normal -> @" "
-            | Quad -> @"#h(18em/18)"
-            | QQuad -> @"#h(36em/18)"
-            | Space1 -> @"#h(3em/18)"
-            | Space2 -> @"#h(4em/18)"
-            | Space3 -> @"#h(5em/18)"
-            | AntiSpace -> @"#h(-3em/18)"
+            | Space.Normal -> @" "
+            | Space.Quad -> @"#h(18em/18)"
+            | Space.QQuad -> @"#h(36em/18)"
+            | Space.Space1 -> @"#h(3em/18)"
+            | Space.Space2 -> @"#h(4em/18)"
+            | Space.Space3 -> @"#h(5em/18)"
+            | Space.AntiSpace -> @"#h(-3em/18)"
 
         /// Compiles the given abstract math render to a Latex equivalent.
         let rec public compile =
