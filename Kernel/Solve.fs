@@ -8,11 +8,10 @@ module public Solve =
     open System
     open System.Numerics
     open Liyh.Utils
-    open Liyh.Kernel
-    open Liyh.Kernel.SumPow.PureConstantExpression
-    open Liyh.Kernel.Equation
-    open Liyh.Kernel.LinearAlgebra
-    open Liyh.Kernel.Polynomial.Factorization
+    open SumPow.PureConstantExpression
+    open Polynomial.Factorization
+    open Equation
+    open LinearAlgebra
 
     /// If the linear equation is of the diophantine type (only integer solutions are of interest and/or possible) and
     /// its coefficients are integers, then return the general solution of the equation.

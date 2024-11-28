@@ -12,8 +12,7 @@ namespace Liyh.Kernel
 
 [<AutoOpen>]
 module rec Context =
-    open Liyh.Kernel
-    open Liyh.Kernel.Equation
+    open Equation
 
     /// An "attribution" is a tag that indicates to which kind of object the expressions or symbols involved belong.
     [<Struct>]

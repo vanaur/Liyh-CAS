@@ -6,7 +6,6 @@ namespace Liyh.Kernel
 /// This module covers vector, matrix and tensor algebra.
 module public rec LinearAlgebra =
     open System
-    open Liyh.Kernel
     open Liyh.Utils
     open MathRender
 

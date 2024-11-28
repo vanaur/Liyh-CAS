@@ -2,8 +2,8 @@ namespace Liyh.Kernel
 
 [<AutoOpen>]
 module rec Constant =
-    open System
     open Liyh.Utils
+    open System
 
     type public Constant =
         | Constant of constant: double

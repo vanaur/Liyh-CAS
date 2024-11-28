@@ -12,11 +12,11 @@ namespace Liyh.Kernel
 
 [<RequireQualifiedAccess>]
 module rec Polynomial =
+    open System.Runtime.CompilerServices
     open System.Collections.Generic
     open System
     open Liyh.Kernel
-    open System.Runtime.CompilerServices
-    open Liyh.Kernel.TrueVariable
+    open TrueVariable
     open Liyh.Utils
     open MathRender
 

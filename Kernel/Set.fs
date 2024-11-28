@@ -5,7 +5,7 @@ namespace Liyh.Kernel
 [<RequireQualifiedAccess>]
 module rec SymbolicSet =
     open System
-    open Liyh.Kernel.Atomic
+    open Atomic
     open MathRender
 
     type private ISymbolicConstraint<'T when 'T :> ISymbolic> = 'T

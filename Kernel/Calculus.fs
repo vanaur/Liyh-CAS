@@ -10,10 +10,9 @@ namespace Liyh.Kernel
 //        - Integrals
 
 module rec Calculus =
-    open Liyh.Utils
-    open Liyh.Kernel
-    open Liyh.Kernel.TrueVariable
     open SumPow.InternalFunction
+    open TrueVariable
+    open Liyh.Utils
 
     exception public UnknownVariableException of string * SumPow
     exception public UnknownFunctionException of string

@@ -3,10 +3,9 @@ namespace Liyh.Kernel
 #nowarn "25"
 
 module public rec Equation =
-    open Liyh.Kernel
-    open Liyh.Kernel.TrueVariable
-    open Liyh.Utils
     open System.Collections.Generic
+    open TrueVariable
+    open Liyh.Utils
     open MathRender
 
     exception public NotSymbolicEquationException of Symbol

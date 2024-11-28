@@ -7,7 +7,7 @@ namespace Liyh.Kernel
 
 [<RequireQualifiedAccess>]
 module rec RepeatingDecimalNumber =
-    open Liyh.Utils.Utils
+    open Liyh.Utils
     open FParsec
 
     /// A data type representing a fraction for temporary use in calculations and to interface more easily.
