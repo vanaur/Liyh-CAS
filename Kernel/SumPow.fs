@@ -1638,7 +1638,7 @@ module rec SumPow =
             | remains -> remains
 
         /// Replaces the variables (many `Name string`) with the associated expressions.
-        let public manySubstVar (pairs: Dictionary<string, SumPow>) (expr: SumPow) =
+        let public manySubstVar (pairs: IDictionary<string, SumPow>) (expr: SumPow) =
 
             let rec inner =
                 function
@@ -1654,12 +1654,12 @@ module rec SumPow =
             inner expr
 
         /// Replaces the variables (many `Name string`) with the associated constant.
-        let public manySubstVarConst (pairs: Dictionary<string, Constant>) =
-            manySubstVar (Dictionary (dict (Seq.map (function KeyValue(k, v) -> (k, Const v)) pairs)))
+        let public manySubstVarConst (pairs: IDictionary<string, Constant>) =
+            manySubstVar (dict (Seq.map (function KeyValue(k, v) -> (k, Const v)) pairs))
 
         /// Replaces the variables (many `Name string`) with the associated constant.
-        let public manySubstVarDouble (pairs: Dictionary<string, double>) =
-            manySubstVar (Dictionary (dict (Seq.map (function KeyValue(k, v) -> (k, Const (Constant v))) pairs)))
+        let public manySubstVarDouble (pairs: IDictionary<string, double>) =
+            manySubstVar (dict (Seq.map (function KeyValue(k, v) -> (k, Const (Constant v))) pairs))
 
         (* Helpers for the `hsubst` substitution function. *)
 
@@ -2848,17 +2848,17 @@ module rec SumPow =
 
         /// Determine whether the two expressions are numerically approximately equal up to the given precision. If `eps` is `None`
         /// then the comparison is made with a fixed femto-precision (`1e-15`).
-        let public approximatelyEquals (sp1: SumPow) (sp2: SumPow) (values: Dictionary<string, Constant>) (eps: double voption) =
+        let public approximatelyEquals (sp1: SumPow) (sp2: SumPow) (values: IDictionary<string, Constant>) (eps: double voption) =
             Constant.approximatelyEquals (evaluate sp1 values) (evaluate sp2 values) eps
 
         /// Determine whether the given expressions is numerically approximately equal to zero up to the given precision.
         /// If `eps` is `None` then the comparison is made with a fixed femto-precision (`1e-15`).
         let public approximatelyEqualsZero (sp: SumPow) (eps: double voption) =
-            approximatelyEquals sp (Const Zero) (Dictionary []) eps
+            approximatelyEquals sp (Const Zero) (dict []) eps
 
         /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation is
         /// subject to `double` capabilities. This function might throw an exception if some variables are not assigned.
-        let public evaluate (sp: SumPow) (values: Dictionary<string, Constant>) =
+        let public evaluate (sp: SumPow) (values: IDictionary<string, Constant>) =
             let varFreeExpression = Subst.manySubstVarConst values sp
 
             let rec inner =
@@ -2887,12 +2887,12 @@ module rec SumPow =
 
         /// Assuming the expression contains only constants, returns the approximate result of the expression.
         let public evaluate0 (sp: SumPow) =
-            evaluate sp (Dictionary [])
+            evaluate sp (dict [])
 
         /// Assuming that the expression contains only one variable, return the result of the constant expression
         /// approximated, replacing the variable with the given value.
         let inline public evaluate1 (sp: SumPow) (variable: string) (value: Constant) =
-            evaluate sp (Dictionary(dict [ variable, value ]))
+            evaluate sp (dict [ variable, value ])
 
         /// Generates an array of Constant numerical values from `min` to `max` in `step` increments.
         let public generatePoints1D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
@@ -3369,7 +3369,7 @@ module rec SumPow =
 
                     let dc = Array.map (fun a -> a, Constant(rnd.NextDoubleLogarithmic bounds)) variables
 
-                    match NumericEvaluation.evaluate expr (Dictionary (dict dc)) with
+                    match NumericEvaluation.evaluate expr (dict dc) with
                     | Constant n when not (Double.IsFinite n) -> randomEvaluation (count + 1)
                     | Constant n -> n
 

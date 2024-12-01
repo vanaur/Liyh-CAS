@@ -839,7 +839,7 @@ module public rec LinearAlgebra =
         (* NOTE: the process below is extremely slow for some as yet unclear reason... *)
 
         /// Find the numerical eigenvalues and eigenvectors of the given matrix.
-        let public ndiagonalize (matrix: Matrix) (maxIterations: int) (values: Dictionary<string, Constant>) =
+        let public ndiagonalize (matrix: Matrix) (maxIterations: int) (values: IDictionary<string, Constant>) =
             if not (isSquareMatrix matrix) then
                 raise (NotASquareMatrixException matrix)
 
@@ -874,7 +874,7 @@ module public rec LinearAlgebra =
             matrix = hermitianTranspose matrix
 
         /// Evaluates each component of the given matrix in approximate form.
-        let public asNumeric (Matrix cs) (values: Dictionary<string, Constant>): double[,] =
+        let public asNumeric (Matrix cs) (values: IDictionary<string, Constant>): double[,] =
             Array2D.map (flip NumericEvaluation.evaluate values >> toDouble) cs
 
         /// Converts a matrix of numbers into our matrix representation.

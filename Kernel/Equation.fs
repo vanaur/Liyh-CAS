@@ -80,11 +80,11 @@ module public rec Equation =
         | _ -> raise (NotSymbolicEquationException symbolic)
 
     /// Check whether the given point is a solution to the equation (does not apply for inequalities). 
-    let public isSolution (point: Dictionary<string, SumPow>) (Equation (kind, lhs, rhs) as eq) =
+    let public isSolution (point: IDictionary<string, SumPow>) (Equation (kind, lhs, rhs) as eq) =
         if kind <> Equality then
             raise (NotEqualityException eq)
 
-        Subst.manySubstVar point (lhs - rhs) == Const Zero
+        EqualityTest.equalsZero (Subst.manySubstVar point (lhs - rhs))
 
     [<RequireQualifiedAccess>]
     module public BasicOperations =
@@ -244,20 +244,20 @@ module public rec Equation =
 
             Option.map (flip tuple2 variables >> LinEqSystem) (loop (Some List.empty) system)
 
-//        /// Check whether the given linear equation has integer solutions.
-//        let public hasIntegerSolutions (LinEq (kind, (map, constant))) =
-//            if kind <> Equality then false else // don't apply for inequalities
-//
-//            let equation = Map.toList map
-//
-//            if not (Misc.isPureConstInteger constant) &&
-//               not (List.forall (snd >> Misc.isPureConstInteger) equation) then false else
-//
-//            let equation = List.map (function (var, PureConstantExpressionInteger factor) -> var, factor) equation
-//            let (PureConstantExpressionInteger b) = -constant
-//            let d = List.fold (fun acc a -> intGCD acc (snd a)) 0 equation
-//
-//            b % d = 0
+    //        /// Check whether the given linear equation has integer solutions.
+    //        let public hasIntegerSolutions (LinEq (kind, (map, constant))) =
+    //            if kind <> Equality then false else // don't apply for inequalities
+    //
+    //            let equation = Map.toList map
+    //
+    //            if not (Misc.isPureConstInteger constant) &&
+    //               not (List.forall (snd >> Misc.isPureConstInteger) equation) then false else
+    //
+    //            let equation = List.map (function (var, PureConstantExpressionInteger factor) -> var, factor) equation
+    //            let (PureConstantExpressionInteger b) = -constant
+    //            let d = List.fold (fun acc a -> intGCD acc (snd a)) 0 equation
+    //
+    //            b % d = 0
 
     [<RequireQualifiedAccess>]
     module public PolynomialEquation =
