@@ -301,7 +301,10 @@ module rec SumPow =
 
             | Frac(n, d), Frac(n', d') -> (n * d' + n' * d) / (d * d')
 
+            | Sum [ t1 ], Sum ys -> Sum (t1 :: ys)
+            | Sum xs, Sum [ t2 ] -> Sum (t2 :: xs)
             | Sum xs, Sum ys -> Sum(xs @ ys)
+
             | Sum xs, b -> Sum(termId b :: xs)
             | a, Sum ys -> Sum(termId a :: ys)
 
@@ -841,6 +844,11 @@ module rec SumPow =
         open ElementaryOperations
 
         exception public NotASimplifiedSum of SumPow
+
+        /// Converts the given list of SumPow into a sum.
+        let inline public fromList (sl: SumPow list) =
+            // It's quicker than doing `List.reduce ( + ) sl`.
+            Sum (List.map termId sl)
 
         /// In SumPow, a sum is a list of products of powers, represented more elegantly by single constructors `Term` and `Pow`.
         /// These last two types are abstractions which it's sometimes useful to dispense with for simplicity's sake, so a
