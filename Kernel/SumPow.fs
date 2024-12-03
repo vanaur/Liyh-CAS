@@ -848,7 +848,9 @@ module rec SumPow =
         /// Converts the given list of SumPow into a sum.
         let inline public fromList (sl: SumPow list) =
             // It's quicker than doing `List.reduce ( + ) sl`.
-            Sum (List.map termId sl)
+            match sl with
+            | [] -> Const Zero
+            | sl -> Sum (List.map termId sl)
 
         /// In SumPow, a sum is a list of products of powers, represented more elegantly by single constructors `Term` and `Pow`.
         /// These last two types are abstractions which it's sometimes useful to dispense with for simplicity's sake, so a
