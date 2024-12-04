@@ -534,7 +534,7 @@ module rec SumPow =
             | Pattern.Frac(num, den) -> MathRenderHelper.parens (toMRenderFrac num den)
             | Power(b', Const (Constant 1.)) -> toMathRender b'
             | Power (b', p') -> MathRenderHelper.parens (toMRenderPower b' p')
-            | SimplifiedSum.SumList sl when List.length sl > 1 -> MathRenderHelper.parens (toMRenderSum sl)
+            | SimplifiedSum.SumList1 sl -> MathRenderHelper.parens (toMRenderSum sl)
             | other -> toMathRender other
 
         and private toMRenderComplex (re: SumPow) (im: SumPow) =
@@ -923,10 +923,13 @@ module rec SumPow =
             | Sum sum -> List.map (function Term t -> List.map (function Pow(b, p) -> power (b, p)) t) sum
             | other -> [ [ other ] ]
 
-        /// An active pattern that converts the sum into a SumPow list.
+        /// An active pattern that converts the sum into a SumPow list. Requires more than one element in the sum.
+        let public (|SumList1|_|) (sp: SumPow) =
+            Option.ofBool (sumAsSumPowList sp) (fun xs -> List.length xs > 1)
+
+        /// An active pattern that converts the sum into a SumPow list. Requires at least one element in the sum.
         let public (|SumList|_|) (sp: SumPow) =
-            let t = sumAsSumPowList sp
-            if List.length t < 1 then None else Some t
+            Option.ofBool (sumAsSumPowList sp) (fun xs -> List.length xs > 0)
 
     /// A "pure constant expression" is an expression containing no variables or parameters, just numbers. For simplicity,
     /// even constants such as pi and e are not considered (for now). This module provides utilities for simplifying and
@@ -1850,7 +1853,7 @@ module rec SumPow =
                     let result = mayAppendProd prod result
                     List.fold (fun acc (b, p) -> inner (inner acc b) p) result prod
 
-                | SumList sl when List.length sl > 1 ->
+                | SumList1 sl ->
                     let result = mayAppendSum sl result
                     List.fold inner result sl
 
