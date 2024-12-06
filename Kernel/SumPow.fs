@@ -1869,6 +1869,57 @@ module rec SumPow =
             |> Array.sortByDescending snd
             |> Array.map fst
 
+    /// A module for finding elements in SumPow (sub-)expressions.
+    module public Find =
+        open SimplifiedSum
+
+        //
+        // Checking whether a sub-expression is contained in an expression is an undecidable problem (like equality),
+        // but it is still applicable in a wide range of cases. The element determining the success or failure of such 
+        // search is (delegated to) the quality of the given predicate and/or the use of EqualityTest heuristic.
+        //
+
+        /// Given a predicate, returns a list of all sub-expressions of the given expression that satisfy it. If no
+        /// element has satisfied the predicate, then returns `None`. The `tryFind` function is limited by the
+        /// complexity of the predicate, as is the management of the commutativity of the sum and product.
+        let public tryFind (predicate: SumPow -> bool) (source: SumPow) =
+
+            let rec loop (sp: SumPow) =
+                let inline hpow (Pow (b, p)) = loop b @ loop p
+
+                if predicate sp then [ sp ] else []
+                @ match sp with
+                  | Name _ | Const _ -> [] // No sub-expression to be checked.
+                  | Sum [ Term term ] -> List.collect hpow term
+                  | (SumList1 lst | Fun (_, lst)) -> List.collect loop lst
+
+            Option.ofBool (loop source) (not << List.isEmpty)
+
+        /// Given a predicate, returns whether or not the given expression contains at least one sub-expression
+        /// satisfying it. The `containsBy` function is limited by the complexity of the predicate, as is the management
+        /// of the commutativity of the sum and product.
+        let public containsBy (predicate: SumPow -> bool) (source: SumPow) =
+
+            let rec loop =
+                function
+                | sp when predicate sp -> true
+                | Sum sum ->
+                    let inline hpow (Pow (b, p)) = loop b || loop p
+                    let inline hterm (Term term) = List.containsBy hpow term
+                    List.containsBy hterm sum
+                | Fun(_, args) -> List.containsBy loop args
+                | _ -> false
+
+            loop source
+
+        /// Checks with syntax equality whether the given expression contains the specified sub-expression.
+        let inline public contains (value: SumPow) =
+            containsBy (( = ) value)
+
+        /// Uses the EqualityTest heuristic to check whether the given expression contains the specified sub-expression.
+        let inline public containsStronger (value: SumPow) =
+            containsBy (( == ) value)
+
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
         open PureConstantExpression
