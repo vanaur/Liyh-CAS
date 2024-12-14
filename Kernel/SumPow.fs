@@ -3,6 +3,7 @@ namespace Liyh.Kernel
 #nowarn "40"    // This warning is activated for the memoized function `simplify` for the active pattern "One".
 #nowarn "3391"  // The implicit conversion of an integer into a bigint causes a warning.
 #nowarn "25"    // Incomplete pattern-matchings raise warnings (rightly so, but sometimes this is not encountered at runtime).
+#nowarn "57"    // Preview features.
 
 [<AutoOpen>]
 module rec SumPow =
@@ -2903,7 +2904,6 @@ module rec SumPow =
     /// A module for the approximate numerical evaluation of SumPow expressions.
     module public NumericEvaluation =
         open PureConstantExpression
-        open System.Linq
         open System.Collections.Generic
 
         exception public UnboundVariableException of vname: string
@@ -2958,36 +2958,75 @@ module rec SumPow =
         let inline public evaluate1 (sp: SumPow) (variable: string) (value: Constant) =
             evaluate sp (dict [ variable, value ])
 
+        /// Given an expression and a variable, returns a lambda `double -> double`. This makes univariate numerical
+        /// evaluations more convenient to work with since we will no longer be dependent on `evaluate1`.
+        /// Note: throws an exception if there are incompatibilities with the variable involved.
+        let inline public makef1 (expr: SumPow) (variable: string) =
+            let expressionVariables = Misc.listVariables expr
+            if not (List.isEmpty expressionVariables) && expressionVariables <> [ variable ] then
+                raise (ExpressionCannotBeConvertedToLambdaException expr)
+
+            let expr = partialEval expr
+            fun (value: double) ->
+                evaluate1 expr variable (Constant value) |> toDouble
+
         /// Generates an array of Constant numerical values from `min` to `max` in `step` increments.
         let public generatePoints1D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
             let xs = [| Constant min .. Constant step .. Constant max |]
             Array.Parallel.map (evaluate1 sp variable) xs
 
-        /// Generates an array of constant numeric 2D points from `min` to `max` in `step` increments.
+        /// Generates a set of values, from `min` to `max` in `step` increments, to be used in a graph plotting.
         /// Each new array corresponds to a new part of the graph separated by an asymptote.
-        let public generatePoints2D' (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
-            let xs = [| Constant min .. Constant step .. Constant max |]
-            let xs = Array.Parallel.map (function (Constant x) -> if Constant.approximatelyEquals x (Constant 0) ValueNone then Constant 0. else Constant x) xs
-            let ys = Array.Parallel.map (evaluate1 sp variable) xs
-            let points = Array.zip xs ys
+        let public generateGraph (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
+            let fn = makef1 sp variable
 
-            let splitByAsymptots values =
+            let xs = [| min .. step .. max |]
+            let ys = Array.Parallel.map fn xs
+            let points = Array.Parallel.zip xs ys
+
+            // Detect if a point is pathological (e.g., infinity or NaN).
+            let isPathological =
+                snd >> Double.IsFinite >> not
+
+            /// Calculates the standard deviation of the set of given values.
+            let stdDev (values: double array) =
+                let values = Array.filter Double.IsFinite values
+                let mean = Array.average values
+
                 values
-                |> Array.fold
-                    (fun (acc: ResizeArray<ResizeArray<_>>) (Constant x, Constant y) ->
-                        let currentList = acc.[acc.Count - 1]
-                        let (_, lasty) = currentList.LastOrDefault((x, y))
+                |> Array.map (fun v -> pown (v - mean) 2)
+                |> Array.Parallel.average
+                |> sqrt
 
-                        if (abs (y / lasty) > 1. / step)
-                        then acc.Add(new ResizeArray<_>())
-                        else currentList.Add(x, y)
+            // The threshold at which a value is "statistically" considered to be too far from the previous points
+            // for the function to be considered smooth / continuous / behaving well locally at a point in question
+            let threshold = stdDev ys
 
-                        acc)
-                    (ResizeArray<ResizeArray<_>>(seq [ ResizeArray<_>() ]))
-                |> Seq.map (fun sublist -> sublist.ToArray())
-                |> Seq.toArray
+            // Determines whether the two points are too far apart in terms of standard deviation from the overall mean.
+            let inline isJumpTooLarge y1 y2 =
+                abs (y2 - y1) > threshold
 
-            splitByAsymptots points
+            // If the subgraph contains more than one point, it is added to the global graph.
+            let inline mayAppend current acc =
+                if List.length current > 1 then current :: acc else acc
+
+            // Split the list of points into sublists, separated by pathological points or large jumps.
+            let rec splitPoints acc current prevY =
+                function
+                | [] -> mayAppend current acc
+
+                | (x, y) :: rest when (isPathological (x, y) || (Option.exists (isJumpTooLarge y) prevY)) ->
+                    match current with
+                    | [] -> splitPoints acc [] None rest
+                    | _ -> splitPoints (mayAppend current acc) [] None rest
+
+                | (x, y) :: rest ->
+                    splitPoints acc ((x, y) :: current) (Some y) rest
+
+            Array.toList points
+            |> splitPoints [] [] None
+            |> List.map List.toArray
+            |> Array.ofList
 
         /// Generates an array of Constant numerical 2D points from `min` to `max` in `step` increments.
         let public generatePoints2D (min: double) (max: double) (step: double) (sp: SumPow) (variable: string) =
@@ -3026,17 +3065,6 @@ module rec SumPow =
         /// Partially evaluates the given expression, only calculating the constant expressions numerically after expand.
         /// For example, `4x*(Sqrt[2]/5 + x/3)` will give `1.1313x + x²1.3333`.
         let public partialEvalExpand = Expand.fullExpand >> partialEval
-
-        /// Given an expression and a variable, returns a lambda `double -> double`. This makes univariate numerical
-        /// evaluations more convenient to work with since we will no longer be dependent on `evaluate1`.
-        /// Note: throws an exception if there are incompatibilities with the variable involved.
-        let inline public makef1 (expr: SumPow) (variable: string) =
-            if Misc.listVariables expr <> [ variable ] then
-                raise (ExpressionCannotBeConvertedToLambdaException expr)
-
-            fun (value: double) ->
-                evaluate1 expr variable (Constant value) |>
-                    function Constant result -> result
 
     /// Extends the field of reals (modeled by SumPow) to the field of complexes.
     module public Complex =
