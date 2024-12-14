@@ -61,7 +61,6 @@
     <PackageReference Include="Plotly.NET" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="Plotly.NET.ImageExport" Version="11.0.0-dev-1657117337-e6d9a19" />
     <PackageReference Include="PrettyPrompt" Version="4.0.4" />
-    <PackageReference Include="ScottPlot" Version="5.0.39" />
     <PackageReference Include="Spectre.Console" Version="0.44.0" />
   </ItemGroup>
 </Project>
