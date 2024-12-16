@@ -2990,11 +2990,11 @@ module rec SumPow =
 
             /// Calculates the standard deviation of the set of given values.
             let stdDev (values: double array) =
-                let values = Array.filter Double.IsFinite values
-                let mean = Array.average values
+                let values = Array.Parallel.filter Double.IsFinite values
+                let mean = Array.Parallel.average values
 
                 values
-                |> Array.map (fun v -> pown (v - mean) 2)
+                |> Array.Parallel.map (fun v -> pown (v - mean) 2)
                 |> Array.Parallel.average
                 |> sqrt
 
