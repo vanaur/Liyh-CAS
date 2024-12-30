@@ -15,6 +15,7 @@ module public rec Equation =
     [<Struct; NoComparison>]
     type public EquationKind =
         | Equality
+        | NotEquality
         | LesserThan
         | LesserOrEqualThan
         | GreaterThan
@@ -23,6 +24,7 @@ module public rec Equation =
     let private equationKindToMathRender =
         function
         | Equality -> MathRenderHelper.symbol "="
+        | NotEquality -> MathRenderHelper.neq
         | LesserThan -> MathRenderHelper.le
         | LesserOrEqualThan -> MathRenderHelper.leq
         | GreaterThan -> MathRenderHelper.ge
