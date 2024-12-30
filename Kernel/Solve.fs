@@ -152,6 +152,13 @@ module public Solve =
         | Approximate of SumPow             // Liyh not found a root algebraically and returns a numerical root.
         | Unfound of Polynomial.Polynomial  // No roots were found for the polynomial indicated.
 
+    /// For debugging purposes, show the solution kind.
+    let public showSolutionKind =
+        function
+        | SolutionKind.Exact sp -> latexCompile sp
+        | SolutionKind.Approximate approx -> latexCompile approx
+        | SolutionKind.Unfound p -> "unfound"
+
     /// The multiplicity of the solutions are not returned.
     let public trySolvePolynomialEquation (PolynomialEquation.PolyEq (kind, poly)) =
         // Equality
