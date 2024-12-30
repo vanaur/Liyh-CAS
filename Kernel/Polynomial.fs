@@ -253,7 +253,6 @@ module rec Polynomial =
             member this.ToSymbolic() = toSymbolic this
             member this.ToMathRender() = Some(toMathRender this)
             member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
-            member this.Hash = hash this
 
         static member op_Addition(p1: Polynomial, p2: Polynomial) = PolynomialOperations.addition p1 p2
         static member op_Addition(p: Polynomial, sp: SumPow) = PolynomialOperations.additionBySumPow p sp
@@ -1418,7 +1417,6 @@ module rec Polynomial =
                 member this.ToMathRender () = Some (toMathRender this)
                 member this.ToMathRenderOrString () = Choice1Of2 (toMathRender this)
                 member this.ToSymbolic () = toSymbolic this
-                member this.Hash = hash this
 
         let private toMathRender { numerator = num; denominator = den } =
             match num, den with

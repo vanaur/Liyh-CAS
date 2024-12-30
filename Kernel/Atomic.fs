@@ -35,9 +35,6 @@ module rec Atomic =
             | Const cst -> string cst
             | Text text -> sprintf "%A" text
 
-    let inline private hashSymbol { atom = atom; attributes = attributes } =
-        HashCode.Combine(atom, attributes)
-
     /// A symbol essentially consists of an atom to which attributes are assigned. This is what all Liyh symbolic
     /// elements are represented with, although specialised representations are used in practice. A symbol is therefore
     /// the abstract representation used to communicate between the various symbolic representations and with the user.
@@ -52,7 +49,6 @@ module rec Atomic =
             member this.ToSymbolic() = this
             member this.ToMathRender() = None
             member this.ToMathRenderOrString() = Choice2Of2 (string this)
-            member this.Hash = hashSymbol this
 
     /// Retrieves the arguments of the attributes of the given symbol, i.e. without parameter name.
     let inline public getArgsOnly (attributes: (string * Symbol) list) =
@@ -68,7 +64,6 @@ module rec Atomic =
     ///  - `ToSymbolic: unit -> Symbol` which converts the type into a general symbolic representation.
     ///  - `ToMathRender: unit -> string option` which allows latex rendering when available and possible.
     ///  - `ToMathRenderOrString: unit -> string` which renders latex when available and possible, otherwise return a string.
-    ///  - `Hash: int` which yields the hash-code of the symbol.
     /// 
     /// The most important member being the `ToSymbolic` one, the others being of a practical nature..
     [<Serializable>]
@@ -76,7 +71,6 @@ module rec Atomic =
         abstract member ToSymbolic: unit -> Symbol
         abstract member ToMathRender: unit -> MathRender option
         abstract member ToMathRenderOrString: unit -> Choice<MathRender, string>
-        abstract member Hash: int
 
     (* Helpers for ISymbolic interface. *)
 

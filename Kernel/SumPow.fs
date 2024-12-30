@@ -778,7 +778,6 @@ module rec SumPow =
             member this.ToSymbolic() = toSymbolic this
             member this.ToMathRender() = Some(MathRenderSumPow.toMathRender this)
             member this.ToMathRenderOrString() = Choice1Of2 (MathRenderSumPow.toMathRender this)
-            member this.Hash = hash this
 
         // -- Standards -- //
 
@@ -3364,7 +3363,6 @@ module rec SumPow =
                 member this.ToSymbolic() = toSymbolic this
                 member this.ToMathRender() = Some (toMathRender this)
                 member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
-                member this.Hash = hash (toSumPow this)
 
         let private toMathRender { number = number; modulus = modulus } =
             MathRenderHelper.parens (toMathRenderValue number)

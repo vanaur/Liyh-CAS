@@ -38,7 +38,6 @@ module public rec Equation =
             member this.ToSymbolic() = toSymbolic this
             member this.ToMathRender() = Some(toMathRender this)
             member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
-            member this.Hash = hash this
 
     let private toMathRender (Equation(kind, lhs, rhs)) =
         toMathRenderValue lhs ++ (equationKindToMathRender kind) ++ toMathRenderValue rhs
@@ -138,7 +137,6 @@ module public rec Equation =
             member this.ToSymbolic() = toSymbolic' this
             member this.ToMathRender() = Some(toMathRender' this)
             member this.ToMathRenderOrString() = Choice1Of2 (toMathRender' this)
-            member this.Hash = hash this
 
     let private toSymbolic' (EquationSystem sys) =
         { atom = Identifier "EquationSystem"

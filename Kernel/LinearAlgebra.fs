@@ -39,7 +39,6 @@ module public rec LinearAlgebra =
                 member this.ToSymbolic() = toSymbolic this
                 member this.ToMathRender() = Some(ToMathRender this)
                 member this.ToMathRenderOrString() = Choice1Of2 (ToMathRender this)
-                member this.Hash = hash this
 
             override this.GetHashCode() = hashVector this
             override this.Equals arg = equalsVector this arg
@@ -263,7 +262,6 @@ module public rec LinearAlgebra =
                 member this.ToSymbolic() = toSymbolic this
                 member this.ToMathRender() = Some(toMathRender this)
                 member this.ToMathRenderOrString() = Choice1Of2 (toMathRender this)
-                member this.Hash = hash this
 
             static member op_Addition(a: Matrix, b: Matrix) = Operations.addition a b
             static member op_Subtraction(a: Matrix, b: Matrix) = Operations.subtraction a b

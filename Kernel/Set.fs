@@ -11,7 +11,7 @@ module rec SymbolicSet =
     type private ISymbolicConstraint<'T when 'T :> ISymbolic> = 'T
     type public ISymbolicComparaison = ISymbolic -> ISymbolic -> int
 
-    [<Symbolic>]
+    [<Symbolic; NoEquality; NoComparison>]
     type public SymbolicSet<'T when 'T :> ISymbolic> =
         | Empty                     // { }
         | Singleton of 'T           // { s }
@@ -22,7 +22,6 @@ module rec SymbolicSet =
             member this.ToSymbolic() = toSymbolic this
             member this.ToMathRender() = Some (toMathRenderSet this)
             member this.ToMathRenderOrString() = Choice1Of2 (toMathRenderSet this)
-            member this.Hash = 0 // todo!
 
     let rec private toSymbolic =
         function
