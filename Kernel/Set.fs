@@ -46,19 +46,10 @@ module rec SymbolicSet =
         | Enumerated []
         | Empty -> MathRenderHelper.symbol "∅"
         | Singleton x -> MathRenderHelper.braces (MathRenderHelper.braces (forceToMathRender x))
-        | Enumerated xs ->
+        | Enumerated (x :: xs) ->
             let inline folder acc a = acc ++ MathRenderHelper.symbol "," ++ forceToMathRender a
-            let items = List.fold folder MathRenderHelper.nothing xs
+            let items = List.fold folder (forceToMathRender x) xs
             MathRenderHelper.braces items
         | Predicated (f, p) ->
             MathRenderHelper.braces (forceToMathRender f ++ MathRenderHelper.symbol "|" ++ forceToMathRender p)
-
-    let private hashSymbolicSet =
-        function
-        | Enumerated []
-        | Empty -> hash Empty
-        | Enumerated [ x ]
-        | Singleton x -> HashCode.Combine(Singleton, x)
-        | Enumerated xs -> HashCode.Combine(Enumerated, xs)
-        | Predicated (f, p) -> HashCode.Combine(Predicated, f, p)
 
