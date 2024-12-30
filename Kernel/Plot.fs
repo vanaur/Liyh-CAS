@@ -71,3 +71,26 @@ module public Plot =
     open Plotly.NET
     open Plotly.NET.ImageExport
 
+    exception public EmptyGraphException
+
+    let inline private getMinValue p =
+        Array.collect (Array.map p) >> Array.min
+
+    let public plot2D (path: string) (data: (double * double) array array) =
+        if Array.isEmpty data then
+            raise EmptyGraphException
+
+        let minX = (Array.collect (Array.map fst) >> Array.min) data
+        let minY = (Array.collect (Array.map snd) >> Array.min) data
+
+        let maxX = (Array.collect (Array.map fst) >> Array.max) data
+        let maxY = (Array.collect (Array.map snd) >> Array.max) data
+
+        Array.map Chart.Line data
+        |> LiyhPlotStyle.createMinimalChart
+        |> Chart.withLineStyle(Color = Color.fromString "black")
+     // |> Chart.withXAxisStyle(MinMax = (minX, maxX))
+     // |> Chart.withYAxisStyle(MinMax = (minY, maxY))
+        |> Chart.show
+     // |> Chart.saveSVG path
+
