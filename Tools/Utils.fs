@@ -592,6 +592,13 @@ module rec Utils =
         let inline public ofBool (value: 'a) ([<InlineIfLambda>] pred: 'a -> bool) =
             if pred value then Some value else None
 
+        /// Selects the `Some _` elements from the given list and for each element of that list, applies the given function.
+        /// Concatenates all the results and return the combined list or `None` if there is no such element.
+        let inline public collect (mapping: 't -> 'u list) (lst: 't option list) : 'u list option =
+            match List.collect mapping (List.choose id lst) with
+            | [] -> None
+            | xs -> Some xs
+
     module Dictionary =
 
         /// Adds a key/value pair to the Dictionary and, if the key already exists, updates the associated value
