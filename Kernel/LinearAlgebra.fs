@@ -827,17 +827,6 @@ module public rec LinearAlgebra =
             let λI = variable * idMatrix (fst (size matrix))
             VectorSpaceUtility.fastDeterminant (matrix - λI)
 
-        /// Find the numerical eigenvalues of the given matrix.
-        let public nEigenvalues (matrix: Matrix) (eps: double) (maxIterations: int) =
-            let name = Name "_λ"
-            let p = characteristicPolynomial matrix name
-            let p, _ = Polynomial.Pattern.asUnivariatePolynomial name [] p
-
-            let (Some nup) = Polynomial.NumericEvaluation.tryNumericUnivariatePolynomial p
-            Polynomial.NumericEvaluation.findRoots nup eps maxIterations
-
-        (* NOTE: the process below is extremely slow for some as yet unclear reason... *)
-
         /// Find the numerical eigenvalues and eigenvectors of the given matrix.
         let public ndiagonalize (matrix: Matrix) (maxIterations: int) (values: IDictionary<string, Constant>) =
             if not (isSquareMatrix matrix) then
