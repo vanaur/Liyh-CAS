@@ -52,9 +52,8 @@ module UnionFind =
         member public this.AddRange(elements: 't seq) = Seq.iter this.AddElement elements
 
         /// Combines the two equivalence classes to which the two given representatives belong into a single class.
-        member public __.Connect (left: 't) (right: 't) =
-            assert (parents.ContainsKey left)
-            assert (parents.ContainsKey right)
+        member public this.Connect (left: 't) (right: 't) =
+            this.AddRange [ left; right ] // If not already there
 
             let leftTree = find left
             let rightTree = find right
