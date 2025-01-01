@@ -57,7 +57,7 @@ The list below represents the symbolic computing domains in which Liyh can be us
 > Liyh *doesn't solve problems for you*, it assists you in your task. 😉
 
 ## Programming language capabilities
-***TODO***
+The programming language design is intentionally postponed until the CAS core features are mature, as its design will be influenced by and optimized for the underlying symbolic computation capabilities.
 
 ## Current implementation choices
 
