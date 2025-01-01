@@ -1921,7 +1921,7 @@ module rec SumPow =
             containsBy (( == ) value)
 
         /// An active pattern that match a given predicate.
-        let inline public (|When|_|) ([<InlineIfLambda>] predicate: SumPow -> bool) =
+        let public (|When|_|) (predicate: SumPow -> bool) =
             tryFind (memoize predicate)
 
     /// A module that implements the evaluation of elementary functions.
@@ -3344,6 +3344,36 @@ module rec SumPow =
             let (ComplexSumPow.VectorForm(re, im)) = convertToVectorForm z
             Fun ("Complex", [ re; im ])
 
+        module public NumericEvaluation =
+            open System.Collections.Generic
+
+            /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation
+            /// is subject to `double` capabilities. This function might throw an exception if some variables are not assigned.
+            let public evaluate (csp: ComplexSumPow) (values: IDictionary<string, Constant>) =
+                match convertToVectorForm csp with
+                | ComplexSumPow.VectorForm (a, b) ->
+                    SumPow.NumericEvaluation.evaluate a values, SumPow.NumericEvaluation.evaluate b values
+                | _ -> failwith "??" // May not happen
+
+            /// Evaluates the given expression by replacing each variable found with its given value. Note: The calculation is
+            /// subject to `double` capabilities. This function might throw an exception if some variables are not assigned.
+            let public evaluate0 (csp: ComplexSumPow) =
+                evaluate csp (dict [])
+
+            /// Assuming that the expression contains only one variable, return the result of the constant expression
+            /// approximated, replacing the variable with the given value.
+            let inline public evaluate1 (csp: ComplexSumPow) (variable: string) (value: Constant) =
+                evaluate csp (dict [ variable, value ])
+
+            /// Generates an array of Constant numerical 2D points from `min` to `max` in `step` increments.
+            let public generatePoints2D (min: double) (max: double) (step: double) (csp: ComplexSumPow) (variable: string) =
+                let xs = [| Constant min .. Constant step .. Constant max |]
+                let ys = Array.Parallel.map (evaluate1 csp variable) xs
+                
+                Array.zip xs ys
+                |> Array.filter (function (_, (Constant re, Constant im)) -> Double.IsFinite re && Double.IsFinite im)
+                |> Array.map (function (Constant x, (Constant re, Constant im)) -> x, (re, im))
+
     [<RequireQualifiedAccess>]
     module public ModularArithmetic =
         open ElementaryOperations
@@ -3481,6 +3511,375 @@ module rec SumPow =
         let public equalsZero =
             memoize (equalityTest (Const Zero))
 
+    module public Rewrite =
+        open SimplifiedSum
+        open UnionFind
+
+        type public Id = int
+
+        type public ENode =
+            | NameNode of string
+            | ConstNode of Constant
+            | SumNode of (Id * Id) list list
+            | FunNode of string * Id list
+
+        type public EClass =
+            { id: Id
+              nodes: Set<ENode>
+              parents: Set<Id> }
+
+        type public UF = UnionFind<Id> //  /!\ c'est mutable, est-ce que ça pose problème ? Normalement non si bien utilisé
+
+        type public EGraph =
+            { classes: Map<Id, EClass>
+              unionFind: UF
+              nextId: Id }
+
+        let public emptyEGraph =
+            { classes = Map.empty
+              unionFind = UF Seq.empty
+              nextId = 0 }
+
+        let rec public addClass (nodes: ENode list) (egraph: EGraph) =
+            let newClass =
+                { id = egraph.nextId
+                  nodes = Set.ofList nodes
+                  parents = Set.empty }
+
+            { classes = Map.add egraph.nextId newClass egraph.classes
+              unionFind = egraph.unionFind
+              nextId = egraph.nextId + 1 }
+
+        let public findClass (id: Id) (egraph: EGraph) =
+            let rootId = UnionFind.find egraph.unionFind id
+            Map.find rootId egraph.classes
+
+        let rec findEquivalentNode (node: ENode) (egraph: EGraph) =
+            // Parcourt toutes les classes pour trouver un nœud équivalent
+            egraph.classes
+            |> Map.tryPick (fun id eclass ->
+                if Set.exists (structurallyEqual node) eclass.nodes then
+                    Some id
+                else None)
+
+        and structurallyEqual node1 node2 =
+            match node1, node2 with
+            | NameNode n1, NameNode n2 -> n1 = n2
+            | ConstNode c1, ConstNode c2 -> c1 = c2
+            | FunNode(name1, args1), FunNode(name2, args2) -> 
+                name1 = name2 && List.length args1 = List.length args2
+            | SumNode terms1, SumNode terms2 ->
+                // Comparaison des termes (peut être améliorée selon les besoins)
+                terms1 = terms2
+            | _ -> false
+
+        let addClass' (nodes: ENode list) (egraph: EGraph) =
+            match nodes with
+            | [node] ->
+                // Cherche d'abord un nœud équivalent
+                match findEquivalentNode node egraph with
+                | Some existingId -> 
+                    existingId, egraph
+                | None ->
+                    let newGraph = addClass nodes egraph
+                    newGraph.nextId - 1, newGraph
+            | _ -> 
+                let newGraph = addClass nodes egraph
+                newGraph.nextId - 1, newGraph
+
+        let public merge (id1: Id) (id2: Id) (egraph: EGraph) =
+            let root1 = UnionFind.find egraph.unionFind id1
+            let root2 = UnionFind.find egraph.unionFind id2
+
+            if root1 = root2 then egraph else
+
+            let class1 = Map.find root1 egraph.classes
+            let class2 = Map.find root2 egraph.classes
+
+            let mergedNodes = Set.union class1.nodes class2.nodes
+            let mergedParents = Set.union class1.parents class2.parents
+
+            let newClass =
+                { id = root1
+                  nodes = mergedNodes
+                  parents = mergedParents }
+
+            let _ = UnionFind.connect egraph.unionFind root1 root2
+
+            { egraph with
+                classes = Map.add root1 newClass (Map.remove root2 egraph.classes) }
+
+        (*
+
+                let rec public addSumPow (egraph: EGraph) =
+                    function
+                    | Name name ->
+                        let node = NameNode name
+                        let egraph' = addClass [ node ] egraph
+                        (egraph'.nextId - 1, egraph')
+
+                    | Const constant ->
+                        let node = ConstNode constant
+                        let egraph' = addClass [ node ] egraph
+                        (egraph'.nextId - 1, egraph')
+
+                    | SimplifiedSum ssum ->
+                        let inline folderPow (acc, g0) (b, p) =
+                            let id1, g1 = addSumPow g0 b
+                            let id2, g2 = addSumPow g1 p
+                            ((id1, id2) :: acc, g2)
+
+                        let inline folderTerm (acc, g) term =
+                            let termResult, g' = List.fold folderPow ([], g) term
+                            (termResult :: acc, g')
+
+                        let ids, egraph' = List.fold folderTerm ([], egraph) ssum
+                        let node = SumNode ids
+
+                        let egraph' = addClass [ node ] egraph'
+                        (egraph'.nextId - 1, egraph')
+
+                    | Fun (name, args) ->
+                        let folder (ids, g) sp =
+                            let (newId, newG) = addSumPow g sp
+                            (newId :: ids, newG)
+
+                        let (argIds, egraph') = List.fold folder ([], egraph) args
+                        let node = FunNode(name, List.rev argIds)
+                        let egraph' = addClass [ node ] egraph'
+                        (egraph'.nextId - 1, egraph')
+        *)
+
+        let rec public addSumPow (egraph: EGraph) =
+            function
+            | Name name ->
+                let node = NameNode name
+                // Utilise addClass' au lieu de addClass
+                addClass' [node] egraph
+
+            | Const constant ->
+                let node = ConstNode constant
+                addClass' [node] egraph
+
+            | SimplifiedSum ssum ->
+                let inline folderPow (acc, g0) (b, p) =
+                    let id1, g1 = addSumPow g0 b
+                    let id2, g2 = addSumPow g1 p
+                    ((id1, id2) :: acc, g2)
+
+                let inline folderTerm (acc, g) term =
+                    let termResult, g' = List.fold folderPow ([], g) term
+                    (termResult :: acc, g')
+
+                let ids, egraph' = List.fold folderTerm ([], egraph) ssum
+                let node = SumNode ids
+                addClass' [node] egraph'
+
+            | Fun (name, args) ->
+                let folder (ids, g) sp =
+                    let (newId, newG) = addSumPow g sp
+                    (newId :: ids, newG)
+
+                let (argIds, egraph') = List.fold folder ([], egraph) args
+                let node = FunNode(name, List.rev argIds)
+                addClass' [node] egraph'
+
+        let rec public fromId (id: Id) (egraph: EGraph) =
+            let eclass = findClass id egraph
+
+            match Set.minElement eclass.nodes with
+            | NameNode name -> Name name
+            | ConstNode constant -> Const constant
+            | SumNode ssum ->
+                List.map (List.map (fun (id1, id2) -> fromId id1 egraph, fromId id2 egraph)) ssum
+                |> simplifiedSumToSum
+            | FunNode (name, args) -> Fun(name, List.map (flip fromId egraph) args)
+
+        type public Rule = EGraph -> Id -> (Id * EGraph) option
+
+        let public saturate (rules: Rule list) (egraph: EGraph) =
+            let rec apply (egraph: EGraph) =
+                let mutable changed = false
+                let mutable egraph' = egraph
+
+                for classId in Map.keys egraph.classes do
+                    for rule in rules do
+                        Option.iter (fun (newId, g) ->
+                            changed <- true
+                            egraph' <- merge classId newId g) (rule egraph' classId) 
+
+                if changed then apply egraph' else egraph'
+
+            apply egraph
+
+        type public CostFunction = ENode -> int
+
+        let rec public defaultCost =
+            function
+            | ConstNode _ -> 1
+            | NameNode _ -> 1
+            | SumNode ssum -> 1 + List.sumBy List.length ssum
+            | FunNode (_, args) -> 1 + List.length args
+
+        let rec public extractClass (egraph: EGraph) (costFn: CostFunction option) (classId: Id) =
+            let extract = extractClass egraph costFn
+            let costFn = Option.defaultValue defaultCost costFn
+            let eclass = Map.find classId egraph.classes
+
+            eclass.nodes
+            |> Set.toArray
+            |> Array.minBy costFn
+            |> function
+               | NameNode name -> Name name
+               | ConstNode constant -> Const constant
+               | SumNode ssum ->
+                    ssum
+                    |> (List.map (List.map (fun (b, p) -> extract b, extract p)))
+                    |> simplifiedSumToSum
+               | FunNode (name, args) -> Fun(name, List.map extract args)
+
+        let public extract (egraph: EGraph) (rootId: Id) =
+            extractClass egraph None rootId
+
+        //  rule:  "Cos[$1]**2 + Sin[$1]**2 -> 1"
+
+        module public Test =
+
+            let zeroNeutralRule (egraph: EGraph) (classId: Id) =
+                let eclass = findClass classId egraph
+
+                match Set.toList eclass.nodes with
+                | SumNode terms :: _ ->
+                    // Look for terms that contain only a constant 0
+                    let hasZeroTerm = 
+                        terms |> List.exists (fun term ->
+                            match term with
+                            | [(id1, id2)] ->
+                                let class1 = findClass id1 egraph
+                                let class2 = findClass id2 egraph
+                                match (Set.minElement class1.nodes, Set.minElement class2.nodes) with
+                                | ConstNode (Constant 0.), ConstNode (Constant 1.) -> true
+                                | _ -> false
+                            | _ -> false)
+
+                    if hasZeroTerm then
+                        // Remove the zero term and return the simplified sum
+                        let nonZeroTerms = 
+                            terms |> List.filter (fun term ->
+                                match term with
+                                | [(id1, id2)] ->
+                                    let class1 = findClass id1 egraph
+                                    let class2 = findClass id2 egraph
+                                    match (Set.minElement class1.nodes, Set.minElement class2.nodes) with
+                                    | ConstNode (Constant 0.), ConstNode (Constant 1.) -> false
+                                    | _ -> true
+                                | _ -> true)
+
+                        match nonZeroTerms with
+                        | [] -> 
+                            // If all terms were zero, return just 0
+                            let (zeroId, newGraph) = addSumPow egraph (Const (Constant 0.))
+                            Some(zeroId, newGraph)
+                        | terms ->
+                            let node = SumNode terms
+                            let newGraph = addClass [node] egraph
+                            Some(newGraph.nextId - 1, newGraph)
+                    else
+                        None
+                | _ -> None
+
+            // Active patterns pour décomposer les noeuds
+            let (|IsZero|_|) (egraph: EGraph) (id: Id) =
+                let eclass = findClass id egraph
+                match Set.minElement eclass.nodes with
+                | ConstNode (Constant 0.) -> Some()
+                | _ -> None
+
+            let (|IsOne|_|) (egraph: EGraph) (id: Id) =
+                let eclass = findClass id egraph
+                match Set.minElement eclass.nodes with
+                | ConstNode (Constant 1.) -> Some()
+                | _ -> None
+
+            // Active pattern pour les termes zéro
+            let (|IsZeroTerm|_|) (egraph: EGraph) (term: (Id * Id) list) =
+                match term with
+                | [(b, p)] when (match (b, p) with 
+                                | IsZero egraph _, IsOne egraph _ -> true 
+                                | _ -> false) -> Some()
+                | _ -> None
+
+            // Fonctions auxiliaires pour la construction
+            let makeConstant (c: Constant) (egraph: EGraph) =
+                let node = ConstNode c
+                let egraph' = addClass [node] egraph
+                (egraph'.nextId - 1, egraph')
+
+            let makeSum (terms: (Id * Id) list list) (egraph: EGraph) =
+                let node = SumNode terms
+                let egraph' = addClass [node] egraph
+                (egraph'.nextId - 1, egraph')
+
+
+            let (|IsCos|_|) (egraph: EGraph) (id: Id) =
+                let eclass = findClass id egraph
+                match Set.minElement eclass.nodes with
+                | FunNode ("Cos", [x]) -> Some(x)
+                | _ -> None
+
+            let (|IsSin|_|) (egraph: EGraph) (id: Id) =
+                let eclass = findClass id egraph
+                match Set.minElement eclass.nodes with
+                | FunNode ("Sin", [x]) -> Some(x)
+                | _ -> None
+
+            let (|IsTwo|_|) (egraph: EGraph) (id: Id) =
+                let eclass = findClass id egraph
+                match Set.minElement eclass.nodes with
+                | ConstNode (Constant 2.) -> Some()
+                | _ -> None
+
+            let (|IsSquare|_|) (egraph: EGraph) (term: (Id * Id) list) =
+                match term with
+                | [(base_, exp)] ->
+                    match exp with
+                    | IsTwo egraph _ -> Some(base_)
+                    | _ -> None
+                | _ -> None
+
+            let ``Cos²[x] + Sin²[x] = 1`` (egraph: EGraph) (classId: Id) =
+                let eclass = findClass classId egraph
+                
+                match Set.toList eclass.nodes with
+                | SumNode terms :: _ ->
+                    // On cherche les termes sin² et cos² dans toute la liste
+                    let cosSquareAndArg = 
+                        terms |> List.tryPick (function
+                            | IsSquare egraph (IsCos egraph x) -> Some x
+                            | _ -> None)
+                            
+                    let sinSquareAndArg = 
+                        terms |> List.tryPick (function
+                            | IsSquare egraph (IsSin egraph x) -> Some x
+                            | _ -> None)
+                    
+                    match cosSquareAndArg, sinSquareAndArg with
+                    | Some x1, Some x2 when x1 = x2 ->
+                        // On a trouvé sin² x et cos² x
+                        makeConstant (Constant 1) egraph |> Some  // Il faut aussi considérer le reste de la liste.
+                    | _ -> None
+                | _ -> None
+
+
+
+        let public runBasic (sp: SumPow) =
+            let rules: Rule list = [ Test.zeroNeutralRule; Test.``Cos²[x] + Sin²[x] = 1`` ]
+
+            let (rootId, egraph) = addSumPow emptyEGraph sp
+            let saturated = saturate rules egraph
+
+            extract saturated rootId
+
     /// A module containing miscellaneous SumPow functions.
     [<RequireQualifiedAccess>]
     module public Misc =
@@ -3535,7 +3934,6 @@ module rec SumPow =
             | Fun(fname', _) -> fname = fname'
             | _ -> false
 
-        /// Check whether the given expression is a name.
         let public isName (name: string) =
             function
             | Name name' -> name = name'

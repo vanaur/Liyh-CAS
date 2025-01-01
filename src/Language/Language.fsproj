@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Internal/DiagnosticKinds.fs" />
+    <Compile Include="Internal/Diagnostics.fs" />
+
+    <Compile Include="Operator/LiyhUnits.fs" />
+    <Compile Include="Operator/LiyhOperators.fs" />
+    <Compile Include="Syntax/Indentation.fs" />
+    <Compile Include="Syntax/Location.fs" />
+    <Compile Include="Syntax/Cosyn.fs" />
+    <Compile Include="Syntax/Parser.fs" />
+    <Compile Include="Absyn/Absyn.fs" />
+    <Compile Include="Evaluation/LinearScan.fs" />
+    <Compile Include="Evaluation/Foreign.fs" />
+    <Compile Include="Evaluation/IL.fs" />
+    <Compile Include="Evaluation/Hex.fs" />
+    <Compile Include="Evaluation/VM.fs" />
+    <Compile Include="Evaluation/ILParser.fs" />
+    <Compile Include="Language.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PrettyPrompt" Version="4.0.4" />
+    <PackageReference Include="Spectre.Console" Version="0.44.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Utils\Utils.fsproj" />
+    <ProjectReference Include="..\Kernel\Kernel.fsproj" />
+  </ItemGroup>
+
+</Project>

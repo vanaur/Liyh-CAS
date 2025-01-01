@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="MathRender.fs" />
+    <Compile Include="Plot.fs" />
+    <Compile Include="RepeatingDecimalNumber.fs" />
+    <Compile Include="Constant.fs" />
+    <Compile Include="Atomic.fs" />
+    <Compile Include="Index.fs" />
+    <Compile Include="Set.fs" />
+    <Compile Include="Prime.fs" />
+    <Compile Include="SumPow.fs" />
+    <Compile Include="TrueVariable.fs" />
+    <Compile Include="Polynomial.fs" />
+    <Compile Include="Equation.fs" />
+    <Compile Include="Context.fs" />
+    <Compile Include="Factorize.fs" />
+    <Compile Include="LinearAlgebra.fs" />
+    <Compile Include="Tensor.fs" />
+    <Compile Include="Calculus.fs" />
+    <Compile Include="Solve.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ByteDev.Encoding" Version="2.0.0" />
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="Plotly.NET" Version="11.0.0-dev-1657117337-e6d9a19" />
+    <PackageReference Include="Plotly.NET.ImageExport" Version="11.0.0-dev-1657117337-e6d9a19" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Utils\Utils.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -7,4 +7,3 @@
 let main (args: string[]) =
     printfn "Hello, Liyh!"
     0
-

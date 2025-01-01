@@ -228,11 +228,11 @@ module rec Calculus =
                     let points = Array.init n (fun i ->
                         let guess = cos (System.Math.PI * (double (i + 1) - 0.25) / (double n + 0.5))
                         newtonLegendre n guess)
-                    
+
                     let weights = Array.init n (fun i ->
                         let x = points.[i]
                         2.0 / ((1.0 - x * x) * (legendreDeriv n x) ** 2.0))
-                    
+
                     points, weights
 
                 let f = makef1 expr variable
