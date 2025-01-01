@@ -3525,6 +3525,18 @@ module rec SumPow =
             | InternalFunction.Root _ -> true
             | _ -> false
 
+        /// Check whether the given expression is the `fname` function.
+        let public isFun (fname: string) =
+            function
+            | Fun(fname', _) -> fname = fname'
+            | _ -> false
+
+        /// Check whether the given expression is a name.
+        let public isName (name: string) =
+            function
+            | Name name' -> name = name'
+            | _ -> false
+
         /// Convert the product representation into SumPow.
         let public prodToSumPow (prod: (SumPow * SumPow) list) =
             List.map power' prod |> Term |> sumId
