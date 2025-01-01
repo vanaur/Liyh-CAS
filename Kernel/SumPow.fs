@@ -1920,6 +1920,10 @@ module rec SumPow =
         let inline public containsStronger (value: SumPow) =
             containsBy (( == ) value)
 
+        /// An active pattern that match a given predicate.
+        let inline public (|When|_|) ([<InlineIfLambda>] predicate: SumPow -> bool) =
+            tryFind (memoize predicate)
+
     /// A module that implements the evaluation of elementary functions.
     module public InternalFunction =
         open PureConstantExpression
