@@ -548,6 +548,14 @@ module rec Utils =
             loop 0 lst
             result
 
+        /// Performs the set-union of the two given lists.
+        let inline public union xs ys =
+            Set.union (Set.ofList xs) (Set.ofList ys) |> Set.toList
+
+        /// Performs the set-intersection of the two given lists.
+        let inline public intersect xs ys =
+            Set.intersect (Set.ofList xs) (Set.ofList ys) |> Set.toList
+
     // Some extensions to the standard module.
     module public Map =
         exception public UpdatingNonExistentKeyException
